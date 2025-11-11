@@ -118,6 +118,7 @@ export function useLocations(options: UseLocationsOptions = {}) {
   const { latitude, longitude, radius = 5000, enabled = true } = options
 
   const [currentIndex, setCurrentIndex] = useState(0)
+  const [rejectedPlaceIds, setRejectedPlaceIds] = useState<Set<string>>(new Set())
 
   // Buscar locais do cache (banco de dados) primeiro
   const {
@@ -301,14 +302,24 @@ export function useLocations(options: UseLocationsOptions = {}) {
     enabled: !!user && allLocations.length > 0,
   })
 
-  // Filtrar locais baseado no resultado da função RPC
-  const unmatchedLocations = allLocations.filter(loc => {
+  // Filtrar locais baseado no resultado da função RPC e rejeições locais
+  const unmatchedLocations = useMemo(() => {
+    // Primeiro, remover locais rejeitados localmente (feedback imediato)
+    const withoutRejected = allLocations.filter(loc => 
+      !loc.place_id || !rejectedPlaceIds.has(loc.place_id)
+    )
+    
     if (!unmatchedPlaceIds || unmatchedPlaceIds.length === 0) {
-      // Se ainda não carregou ou erro, mostrar todos (será filtrado quando carregar)
-      return true
+      // Se ainda não carregou, mostrar todos (será filtrado quando carregar)
+      // Mas se já carregou e está vazio, não mostrar nada
+      if (isLoadingFilter) {
+        return withoutRejected
+      }
+      // Se não está carregando e não há place_ids, significa que todos foram filtrados
+      return []
     }
-    return loc.place_id && unmatchedPlaceIds.includes(loc.place_id)
-  })
+    return withoutRejected.filter(loc => loc.place_id && unmatchedPlaceIds.includes(loc.place_id))
+  }, [allLocations, unmatchedPlaceIds, isLoadingFilter, rejectedPlaceIds])
 
   // Mutation para criar match com local
   const createMatchMutation = useMutation({
@@ -418,12 +429,24 @@ export function useLocations(options: UseLocationsOptions = {}) {
       
       // Salvar rejeição em background (não bloquear a UI)
       if (user && location.place_id) {
+        // Remover imediatamente da lista local (feedback visual imediato)
+        setRejectedPlaceIds(prev => new Set(prev).add(location.place_id!))
+        
         try {
           // Criar registro de rejeição para cálculo de taxa
           await LocationService.createLocationRejection(user.id, location.place_id)
           
-          // Invalidar query para atualizar a lista imediatamente
-          await queryClient.invalidateQueries({ queryKey: ['filter-unmatched-locations', user.id] })
+          // Invalidar todas as queries relacionadas usando prefixo
+          await queryClient.invalidateQueries({ 
+            queryKey: ['filter-unmatched-locations', user.id],
+            exact: false // Invalidar todas as queries que começam com essa key
+          })
+          
+          // Forçar refetch da query atual
+          await queryClient.refetchQueries({ 
+            queryKey: ['filter-unmatched-locations', user.id],
+            exact: false
+          })
           
           // Se o usuário tinha dado like antes, remover o match
           // Buscar o ID real do local no banco primeiro para evitar erro 406
@@ -444,7 +467,12 @@ export function useLocations(options: UseLocationsOptions = {}) {
             }
           }
         } catch (error) {
-          // Erro já é tratado silenciosamente
+          // Se erro ao salvar, reverter a remoção local
+          setRejectedPlaceIds(prev => {
+            const newSet = new Set(prev)
+            newSet.delete(location.place_id!)
+            return newSet
+          })
         }
       }
     },
