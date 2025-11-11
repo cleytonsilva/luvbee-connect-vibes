@@ -31,6 +31,7 @@ export function VibeLocalPage() {
   const requestedOnceRef = useRef(false)
   const isMountedRef = useRef(true)
   const isRequestingRef = useRef(false) // Prevenir chamadas simultâneas
+  const sheetOpenRef = useRef(false) // Prevenir fechamento imediato do Sheet
 
   // Solicitar localização do usuário
   const requestLocation = useCallback(() => {
@@ -183,8 +184,12 @@ export function VibeLocalPage() {
     isMountedRef.current = true
     
     // Verificar se já foi solicitado ou se já tem localização
-    if (requestedOnceRef.current || latitude || longitude) {
-      console.info('[VibeLocalPage] mount skipped (already requested or has location)')
+    if (requestedOnceRef.current || (latitude && longitude)) {
+      console.info('[VibeLocalPage] mount skipped (already requested or has location)', {
+        requestedOnce: requestedOnceRef.current,
+        hasLatitude: !!latitude,
+        hasLongitude: !!longitude
+      })
       return
     }
     
@@ -201,7 +206,7 @@ export function VibeLocalPage() {
       isMountedRef.current = false
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []) // Remover requestLocation das dependências para evitar re-execuções
+  }, []) // Executar apenas uma vez no mount
 
   // Opções de raio de busca
   const radiusOptions = [
@@ -243,49 +248,82 @@ export function VibeLocalPage() {
 
           {/* Botão discreto para mudar localização - posicionado no canto superior direito */}
           {latitude && longitude && (
-            <>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="absolute top-0 right-0 h-8 w-8 text-muted-foreground hover:text-foreground"
-                title="Mudar localização de busca"
-                onClick={() => setShowChangeLocation(true)}
-              >
-                <MapPinned className="h-4 w-4" />
-              </Button>
-              <Sheet open={showChangeLocation} onOpenChange={setShowChangeLocation}>
-                <SheetContent side="right" className="w-full sm:max-w-md">
-                  <SheetHeader>
-                    <SheetTitle>Mudar Localização de Busca</SheetTitle>
-                    <SheetDescription>
-                      Escolha uma nova localização para buscar locais próximos
-                    </SheetDescription>
-                  </SheetHeader>
-                  <div className="mt-6 space-y-4">
-                    {/* Opção 1: Buscar por lugar */}
-                    <div>
-                      <h3 className="text-sm font-semibold mb-2">Buscar por lugar</h3>
-                      <PlaceSearch
-                        latitude={latitude}
-                        longitude={longitude}
-                        radius={searchRadius}
-                        onPlaceSelect={handlePlaceSelect}
-                      />
-                    </div>
-
-                    {/* Opção 2: Buscar manualmente por cidade/estado */}
-                    <div>
-                      <h3 className="text-sm font-semibold mb-2">Ou informe cidade e estado</h3>
-                      <GeolocationHandler
-                        onSubmitManual={handleManualSearch}
-                        onRetry={requestLocation}
-                      />
-                    </div>
-                  </div>
-                </SheetContent>
-              </Sheet>
-            </>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="absolute top-0 right-0 h-8 w-8 text-muted-foreground hover:text-foreground"
+              title="Mudar localização de busca"
+              onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                sheetOpenRef.current = true
+                setShowChangeLocation(true)
+                // Resetar o ref após um pequeno delay para permitir fechamento normal
+                setTimeout(() => {
+                  sheetOpenRef.current = false
+                }, 300)
+              }}
+            >
+              <MapPinned className="h-4 w-4" />
+            </Button>
           )}
+          
+          {/* Sheet sempre renderizado para evitar problemas de montagem/desmontagem */}
+          <Sheet 
+            open={showChangeLocation} 
+            onOpenChange={(open) => {
+              // Permitir fechamento apenas se não estiver sendo aberto
+              if (open) {
+                sheetOpenRef.current = true
+              }
+              setShowChangeLocation(open)
+            }}
+          >
+            <SheetContent 
+              side="right" 
+              className="w-full sm:max-w-md"
+              onInteractOutside={(e) => {
+                // Prevenir fechamento ao clicar fora se acabou de abrir
+                if (sheetOpenRef.current) {
+                  e.preventDefault()
+                }
+              }}
+            >
+              <SheetHeader>
+                <SheetTitle>Mudar Localização de Busca</SheetTitle>
+                <SheetDescription>
+                  Escolha uma nova localização para buscar locais próximos
+                </SheetDescription>
+              </SheetHeader>
+              {latitude && longitude ? (
+                <div className="mt-6 space-y-4">
+                  {/* Opção 1: Buscar por lugar */}
+                  <div>
+                    <h3 className="text-sm font-semibold mb-2">Buscar por lugar</h3>
+                    <PlaceSearch
+                      latitude={latitude}
+                      longitude={longitude}
+                      radius={searchRadius}
+                      onPlaceSelect={handlePlaceSelect}
+                    />
+                  </div>
+
+                  {/* Opção 2: Buscar manualmente por cidade/estado */}
+                  <div>
+                    <h3 className="text-sm font-semibold mb-2">Ou informe cidade e estado</h3>
+                    <GeolocationHandler
+                      onSubmitManual={handleManualSearch}
+                      onRetry={requestLocation}
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-6 text-center text-muted-foreground">
+                  <p>Carregando localização...</p>
+                </div>
+              )}
+            </SheetContent>
+          </Sheet>
         </div>
 
         {/* Controle de Raio de Busca - Mostrar apenas quando tem localização */}
