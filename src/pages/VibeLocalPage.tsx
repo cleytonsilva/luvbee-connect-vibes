@@ -282,12 +282,6 @@ export function VibeLocalPage() {
             <SheetContent 
               side="right" 
               className="w-full sm:max-w-md"
-              onInteractOutside={(e) => {
-                // Prevenir fechamento ao clicar fora se acabou de abrir
-                if (sheetOpenRef.current) {
-                  e.preventDefault()
-                }
-              }}
             >
               <SheetHeader>
                 <SheetTitle>Mudar Localização de Busca</SheetTitle>
