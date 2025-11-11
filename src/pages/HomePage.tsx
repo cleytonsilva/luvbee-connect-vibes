@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { useState, useEffect, useRef } from "react";
+import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Heart, MapPin, Users } from "lucide-react";
 
@@ -73,10 +74,37 @@ const Welcome = () => {
             >
               luvbee
             </h1>
-            <img 
+            <motion.img 
               src="/abaicon.png" 
               alt="Luvbee Logo" 
               className="w-16 h-16 md:w-24 md:h-24 object-contain"
+              animate={{
+                rotate: [0, 360],
+                scale: [1, 1.1, 1],
+                y: [0, -10, 0],
+              }}
+              transition={{
+                rotate: {
+                  duration: 20,
+                  repeat: Infinity,
+                  ease: "linear",
+                },
+                scale: {
+                  duration: 2,
+                  repeat: Infinity,
+                  ease: "easeInOut",
+                },
+                y: {
+                  duration: 3,
+                  repeat: Infinity,
+                  ease: "easeInOut",
+                },
+              }}
+              whileHover={{
+                scale: 1.2,
+                rotate: [0, 15, -15, 0],
+                transition: { duration: 0.5 },
+              }}
             />
           </div>
           <p className="text-xl md:text-2xl mb-8 max-w-2xl mx-auto text-foreground/90">
