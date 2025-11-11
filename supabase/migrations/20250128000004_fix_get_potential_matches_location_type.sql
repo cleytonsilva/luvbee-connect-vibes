@@ -1,9 +1,12 @@
--- Fix get_potential_matches function - Correct location return type
+-- Fix get_potential_matches function - Final corrections
 -- Date: 2025-01-28
--- Description: Fixes the location return type from VARCHAR(100) to TEXT to handle NULL values correctly
--- Error: "Returned type text does not match expected type character varying in column 2"
+-- Description: Fixes all type mismatches in get_potential_matches function
+-- Changes:
+--   1. location: VARCHAR(100) -> TEXT
+--   2. email, name: VARCHAR -> TEXT (for consistency)
+--   3. common_locations_count: INTEGER -> BIGINT (COUNT returns BIGINT)
 
-DROP FUNCTION IF EXISTS get_potential_matches(UUID, INTEGER);
+DROP FUNCTION IF EXISTS get_potential_matches(UUID, INTEGER) CASCADE;
 
 CREATE OR REPLACE FUNCTION get_potential_matches(
     p_user_id UUID,
@@ -11,12 +14,12 @@ CREATE OR REPLACE FUNCTION get_potential_matches(
 )
 RETURNS TABLE (
     id UUID,
-    email VARCHAR(255),
-    name VARCHAR(100),
+    email TEXT,
+    name TEXT,
     age INTEGER,
     avatar_url TEXT,
     bio TEXT,
-    location TEXT, -- Changed from VARCHAR(100) to TEXT to handle NULL values
+    location TEXT,
     location_latitude DECIMAL(10, 8),
     location_longitude DECIMAL(11, 8),
     onboarding_completed BOOLEAN,
@@ -24,7 +27,7 @@ RETURNS TABLE (
     created_at TIMESTAMPTZ,
     updated_at TIMESTAMPTZ,
     compatibility_score DECIMAL(5, 2),
-    common_locations_count INTEGER,
+    common_locations_count BIGINT,
     drink_preferences TEXT[],
     food_preferences TEXT[],
     music_preferences TEXT[]
@@ -33,8 +36,8 @@ BEGIN
     RETURN QUERY
     SELECT DISTINCT
         u.id,
-        u.email,
-        u.name,
+        u.email::TEXT,
+        u.name::TEXT,
         u.age,
         -- Extract first photo from photos array as avatar_url
         CASE 
@@ -72,7 +75,7 @@ BEGIN
         u.updated_at,
         calculate_compatibility_score(p_user_id, u.id) AS compatibility_score,
         (
-            SELECT COUNT(DISTINCT lm1.location_id)
+            SELECT COUNT(DISTINCT lm1.location_id)::BIGINT
             FROM location_matches lm1
             INNER JOIN location_matches lm2 ON lm1.location_id = lm2.location_id
             WHERE lm1.user_id = p_user_id
@@ -117,11 +120,10 @@ BEGIN
         u.created_at DESC
     LIMIT match_limit;
 END;
-$$ LANGUAGE plpgsql STABLE;
+$$ LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public;
 
 -- Grant permissions
 GRANT EXECUTE ON FUNCTION get_potential_matches(UUID, INTEGER) TO authenticated;
 
 -- Add comment
-COMMENT ON FUNCTION get_potential_matches IS 'Returns potential matches filtered by common locations and ordered by compatibility score (Two-Layer Matching). Fixed location return type to TEXT.';
-
+COMMENT ON FUNCTION get_potential_matches IS 'Returns potential matches filtered by common locations and ordered by compatibility score (Two-Layer Matching). Fixed all type mismatches: location, email, name to TEXT, common_locations_count to BIGINT.';
