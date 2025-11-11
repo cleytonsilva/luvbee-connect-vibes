@@ -422,6 +422,9 @@ export function useLocations(options: UseLocationsOptions = {}) {
           // Criar registro de rejeição para cálculo de taxa
           await LocationService.createLocationRejection(user.id, location.place_id)
           
+          // Invalidar query para atualizar a lista imediatamente
+          await queryClient.invalidateQueries({ queryKey: ['filter-unmatched-locations', user.id] })
+          
           // Se o usuário tinha dado like antes, remover o match
           // Buscar o ID real do local no banco primeiro para evitar erro 406
           const locationResult = await LocationService.getLocationByPlaceId(location.place_id)
@@ -445,7 +448,7 @@ export function useLocations(options: UseLocationsOptions = {}) {
         }
       }
     },
-    [removeMatchMutation, unmatchedLocations, user]
+    [removeMatchMutation, unmatchedLocations, user, queryClient]
   )
 
   // Obter local atual para exibição
