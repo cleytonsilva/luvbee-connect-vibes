@@ -45,12 +45,12 @@ export function Navigation({ className = '' }: NavigationProps) {
           <div className="flex items-center">
             <Link to="/" className="flex items-center gap-2">
               <img 
-                src="/iconblack.png" 
+                src="/iconwhite.png" 
                 alt="Luvbee Logo" 
                 className="w-8 h-8 dark:hidden object-contain"
               />
               <img 
-                src="/iconwhite.png" 
+                src="/iconblack.png" 
                 alt="Luvbee Logo" 
                 className="w-8 h-8 hidden dark:block object-contain"
               />
