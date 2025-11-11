@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Heart, MapPin, Users } from "lucide-react";
+import { Footer } from "@/components/layout/Footer";
 
 const videoSources = [
   "/videos/6010326_Person_Human_3840x2160.mp4",
@@ -182,6 +183,9 @@ const Welcome = () => {
           </Button>
         </div>
       </section>
+
+      {/* Footer */}
+      <Footer />
     </div>
   );
 };

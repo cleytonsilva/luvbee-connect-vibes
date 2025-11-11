@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArrowLeft } from "lucide-react";
@@ -34,9 +35,10 @@ const Auth = () => {
     register: registerSignup,
     handleSubmit: handleSubmitSignup,
     watch,
+    setValue,
     formState: { errors: errorsSignup },
     reset: resetSignup
-  } = useForm<UserRegisterInput & { confirmPassword: string }>({
+  } = useForm<UserRegisterInput & { confirmPassword: string; acceptTerms: boolean }>({
     resolver: zodResolver(userRegisterSchema.extend({
       confirmPassword: userRegisterSchema.shape.password
     }))
@@ -257,6 +259,35 @@ const Auth = () => {
                       <p className="text-sm text-destructive">{errorsSignup.confirmPassword.message}</p>
                     )}
                   </div>
+
+                  <div className="flex items-start space-x-2">
+                    <Checkbox
+                      id="accept-terms"
+                      checked={watch('acceptTerms')}
+                      onCheckedChange={(checked) => setValue('acceptTerms', checked === true)}
+                      disabled={isLoading}
+                    />
+                    <div className="grid gap-1.5 leading-none">
+                      <Label
+                        htmlFor="accept-terms"
+                        className="text-sm font-normal leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                      >
+                        Aceito os{" "}
+                        <Link 
+                          to="/termos-de-uso" 
+                          target="_blank"
+                          className="text-primary underline hover:text-primary/80"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          Termos de Uso
+                        </Link>
+                        {" "}e confirmo que tenho mais de 18 anos
+                      </Label>
+                    </div>
+                  </div>
+                  {errorsSignup.acceptTerms && (
+                    <p className="text-sm text-destructive">{errorsSignup.acceptTerms.message}</p>
+                  )}
 
                   <Button
                     type="submit"
