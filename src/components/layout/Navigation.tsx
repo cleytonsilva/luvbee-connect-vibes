@@ -39,22 +39,22 @@ export function Navigation({ className = '' }: NavigationProps) {
   }
 
   return (
-    <nav className={cn('bg-white shadow-sm border-b', className)}>
+    <nav className={cn('bg-background shadow-sm border-b border-border', className)}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           <div className="flex items-center">
-            <Link to="/" className="flex items-center space-x-2">
+            <Link to="/" className="flex items-center gap-2">
               <img 
-                src="/iconwhite.png" 
+                src="/iconblack.png" 
                 alt="Luvbee Logo" 
                 className="w-8 h-8 dark:hidden object-contain"
               />
               <img 
-                src="/iconblack.png" 
+                src="/iconwhite.png" 
                 alt="Luvbee Logo" 
                 className="w-8 h-8 hidden dark:block object-contain"
               />
-              <h3 className="tracking-tight text-3xl font-bold font-display">
+              <h3 className="tracking-tight text-3xl font-bold font-display text-foreground">
                 luvbee
               </h3>
             </Link>
