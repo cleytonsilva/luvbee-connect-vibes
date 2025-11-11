@@ -15,7 +15,6 @@ import {
   SheetDescription,
   SheetHeader,
   SheetTitle,
-  SheetTrigger,
 } from '@/components/ui/sheet'
 import { MapPin, Loader2, MapPinned } from 'lucide-react'
 import { toast } from 'sonner'
