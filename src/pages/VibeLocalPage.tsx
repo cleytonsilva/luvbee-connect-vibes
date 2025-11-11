@@ -244,47 +244,48 @@ export function VibeLocalPage() {
 
           {/* Botão discreto para mudar localização - posicionado no canto superior direito */}
           {latitude && longitude && (
-            <Sheet open={showChangeLocation} onOpenChange={setShowChangeLocation}>
-              <SheetTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="absolute top-0 right-0 h-8 w-8 text-muted-foreground hover:text-foreground"
-                  title="Mudar localização de busca"
-                >
-                  <MapPinned className="h-4 w-4" />
-                </Button>
-              </SheetTrigger>
-              <SheetContent side="right" className="w-full sm:max-w-md">
-                <SheetHeader>
-                  <SheetTitle>Mudar Localização de Busca</SheetTitle>
-                  <SheetDescription>
-                    Escolha uma nova localização para buscar locais próximos
-                  </SheetDescription>
-                </SheetHeader>
-                <div className="mt-6 space-y-4">
-                  {/* Opção 1: Buscar por lugar */}
-                  <div>
-                    <h3 className="text-sm font-semibold mb-2">Buscar por lugar</h3>
-                    <PlaceSearch
-                      latitude={latitude}
-                      longitude={longitude}
-                      radius={searchRadius}
-                      onPlaceSelect={handlePlaceSelect}
-                    />
-                  </div>
+            <>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute top-0 right-0 h-8 w-8 text-muted-foreground hover:text-foreground"
+                title="Mudar localização de busca"
+                onClick={() => setShowChangeLocation(true)}
+              >
+                <MapPinned className="h-4 w-4" />
+              </Button>
+              <Sheet open={showChangeLocation} onOpenChange={setShowChangeLocation}>
+                <SheetContent side="right" className="w-full sm:max-w-md">
+                  <SheetHeader>
+                    <SheetTitle>Mudar Localização de Busca</SheetTitle>
+                    <SheetDescription>
+                      Escolha uma nova localização para buscar locais próximos
+                    </SheetDescription>
+                  </SheetHeader>
+                  <div className="mt-6 space-y-4">
+                    {/* Opção 1: Buscar por lugar */}
+                    <div>
+                      <h3 className="text-sm font-semibold mb-2">Buscar por lugar</h3>
+                      <PlaceSearch
+                        latitude={latitude}
+                        longitude={longitude}
+                        radius={searchRadius}
+                        onPlaceSelect={handlePlaceSelect}
+                      />
+                    </div>
 
-                  {/* Opção 2: Buscar manualmente por cidade/estado */}
-                  <div>
-                    <h3 className="text-sm font-semibold mb-2">Ou informe cidade e estado</h3>
-                    <GeolocationHandler
-                      onSubmitManual={handleManualSearch}
-                      onRetry={requestLocation}
-                    />
+                    {/* Opção 2: Buscar manualmente por cidade/estado */}
+                    <div>
+                      <h3 className="text-sm font-semibold mb-2">Ou informe cidade e estado</h3>
+                      <GeolocationHandler
+                        onSubmitManual={handleManualSearch}
+                        onRetry={requestLocation}
+                      />
+                    </div>
                   </div>
-                </div>
-              </SheetContent>
-            </Sheet>
+                </SheetContent>
+              </Sheet>
+            </>
           )}
         </div>
 
