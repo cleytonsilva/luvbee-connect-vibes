@@ -59,8 +59,19 @@ const Welcome = () => {
         
         <div className="relative z-10 container mx-auto px-4 text-center">
           <div className="flex items-center justify-center gap-4 mb-6">
-            <h1 className="text-6xl md:text-8xl font-bold text-foreground font-display animate-party-shine">
-              luv<span className="text-primary">bee</span>
+            <h1 
+              className="text-6xl md:text-8xl font-bold font-display"
+              style={{
+                background: "linear-gradient(90deg, #ff00ff 0%, #FFFF00 25%, #ff00ff 50%, #FFFF00 75%, #ff00ff 100%)",
+                backgroundSize: "200% 100%",
+                WebkitBackgroundClip: "text",
+                WebkitTextFillColor: "transparent",
+                backgroundClip: "text",
+                backgroundPosition: "0% 50%",
+                animation: "party-shine 4s ease-in-out infinite, glow-pulse 3s ease-in-out infinite",
+              }}
+            >
+              luvbee
             </h1>
             <img 
               src="/abaicon.png" 

@@ -81,31 +81,35 @@ export default {
         },
         "party-shine": {
           "0%": {
-            "text-shadow": "0 0 10px #ff00ff, 0 0 20px #ff00ff, 0 0 30px #ff00ff",
-            "filter": "brightness(1) saturate(1)",
-          },
-          "25%": {
-            "text-shadow": "0 0 15px #ff00ff, 0 0 25px #ff00ff, 0 0 35px #ff00ff, 0 0 45px #ff00ff",
-            "filter": "brightness(1.2) saturate(1.3)",
+            "background-position": "0% 50%",
           },
           "50%": {
-            "text-shadow": "0 0 10px #FFFF00, 0 0 20px #FFFF00, 0 0 30px #FFFF00",
-            "filter": "brightness(1.1) saturate(1.2)",
-          },
-          "75%": {
-            "text-shadow": "0 0 15px #FFFF00, 0 0 25px #FFFF00, 0 0 35px #FFFF00, 0 0 45px #FFFF00",
-            "filter": "brightness(1.2) saturate(1.3)",
+            "background-position": "100% 50%",
           },
           "100%": {
-            "text-shadow": "0 0 10px #ff00ff, 0 0 20px #ff00ff, 0 0 30px #ff00ff",
-            "filter": "brightness(1) saturate(1)",
+            "background-position": "0% 50%",
+          },
+        },
+        "glow-pulse": {
+          "0%, 100%": {
+            "text-shadow": "0 0 20px rgba(255, 0, 255, 0.5), 0 0 40px rgba(255, 0, 255, 0.3), 0 0 60px rgba(255, 0, 255, 0.2)",
+          },
+          "25%": {
+            "text-shadow": "0 0 25px rgba(255, 0, 255, 0.6), 0 0 45px rgba(255, 255, 0, 0.4), 0 0 65px rgba(255, 255, 0, 0.3)",
+          },
+          "50%": {
+            "text-shadow": "0 0 20px rgba(255, 255, 0, 0.5), 0 0 40px rgba(255, 255, 0, 0.3), 0 0 60px rgba(255, 255, 0, 0.2)",
+          },
+          "75%": {
+            "text-shadow": "0 0 25px rgba(255, 255, 0, 0.6), 0 0 45px rgba(255, 0, 255, 0.4), 0 0 65px rgba(255, 0, 255, 0.3)",
           },
         },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
-        "party-shine": "party-shine 3s ease-in-out infinite",
+        "party-shine": "party-shine 4s ease-in-out infinite",
+        "glow-pulse": "glow-pulse 3s ease-in-out infinite",
       },
     },
   },
