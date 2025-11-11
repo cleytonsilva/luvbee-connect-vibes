@@ -135,16 +135,16 @@ const Auth = () => {
         <Card className="shadow-hard border-2">
           <CardHeader className="text-center">
             <CardTitle className="text-3xl font-bold font-display flex items-center justify-center gap-2">
-              luv<span className="text-primary">bee</span>
+              luvbee
               <img 
                 src="/iconwhite.png" 
                 alt="Luvbee Logo" 
-                className="w-8 h-8 dark:hidden object-contain"
+                className="w-12 h-12 dark:hidden object-contain"
               />
               <img 
                 src="/iconblack.png" 
                 alt="Luvbee Logo" 
-                className="w-8 h-8 hidden dark:block object-contain"
+                className="w-12 h-12 hidden dark:block object-contain"
               />
             </CardTitle>
             <CardDescription>
