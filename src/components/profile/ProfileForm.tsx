@@ -85,14 +85,33 @@ export function ProfileForm() {
         }
       }
 
-      // Carregar fotos do campo photos (array)
-      const profilePhotos = (profile as any).photos || []
-      // Se não tem photos mas tem avatar_url, usar avatar_url como primeira foto
-      if (profilePhotos.length === 0 && profile.avatar_url) {
-        setPhotos([profile.avatar_url])
-      } else {
-        setPhotos(profilePhotos.slice(0, 3)) // Máximo 3 fotos
+      // Carregar fotos do campo photos (array) - buscar diretamente do banco
+      const loadPhotos = async () => {
+        if (!user) return
+        try {
+          const { data: userData } = await supabase
+            .from('users')
+            .select('photos')
+            .eq('id', user.id)
+            .single()
+          
+          const profilePhotos = userData?.photos || []
+          if (profilePhotos.length > 0) {
+            setPhotos(profilePhotos.slice(0, 3)) // Máximo 3 fotos
+          } else if (profile.avatar_url) {
+            // Fallback: usar avatar_url como primeira foto
+            setPhotos([profile.avatar_url])
+          }
+        } catch (error) {
+          console.warn('Erro ao carregar fotos:', error)
+          // Fallback: usar avatar_url se disponível
+          if (profile.avatar_url) {
+            setPhotos([profile.avatar_url])
+          }
+        }
       }
+      
+      loadPhotos()
 
       setFormData({
         name: profile.name || user?.email?.split('@')[0] || '',
