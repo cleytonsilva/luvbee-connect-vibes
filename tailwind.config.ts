@@ -52,6 +52,7 @@ export default {
       fontFamily: {
         sans: ['Space Grotesk', 'ui-sans-serif', 'system-ui'],
         mono: ['Space Mono', 'ui-monospace', 'monospace'],
+        display: ['Momo Trust Display', 'cursive'],
       },
       boxShadow: {
         hard: 'var(--shadow-hard)',
@@ -78,10 +79,33 @@ export default {
             height: "0",
           },
         },
+        "party-shine": {
+          "0%": {
+            "text-shadow": "0 0 10px #ff00ff, 0 0 20px #ff00ff, 0 0 30px #ff00ff",
+            "filter": "brightness(1) saturate(1)",
+          },
+          "25%": {
+            "text-shadow": "0 0 15px #ff00ff, 0 0 25px #ff00ff, 0 0 35px #ff00ff, 0 0 45px #ff00ff",
+            "filter": "brightness(1.2) saturate(1.3)",
+          },
+          "50%": {
+            "text-shadow": "0 0 10px #FFFF00, 0 0 20px #FFFF00, 0 0 30px #FFFF00",
+            "filter": "brightness(1.1) saturate(1.2)",
+          },
+          "75%": {
+            "text-shadow": "0 0 15px #FFFF00, 0 0 25px #FFFF00, 0 0 35px #FFFF00, 0 0 45px #FFFF00",
+            "filter": "brightness(1.2) saturate(1.3)",
+          },
+          "100%": {
+            "text-shadow": "0 0 10px #ff00ff, 0 0 20px #ff00ff, 0 0 30px #ff00ff",
+            "filter": "brightness(1) saturate(1)",
+          },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        "party-shine": "party-shine 3s ease-in-out infinite",
       },
     },
   },
