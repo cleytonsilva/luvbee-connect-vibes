@@ -221,7 +221,7 @@ export function useLocations(options: UseLocationsOptions = {}) {
     staleTime: 5 * 60 * 1000, // 5 minutos
   })
 
-  // Combinar locais do cache e da API, removendo duplicatas
+  // Combinar locais do cache e da API, removendo duplicatas robustamente
   const allGooglePlaces = useMemo(() => {
     const cachedPlaceIds = new Set(cachedLocations?.map(loc => loc.place_id) || [])
     const apiPlaces = googlePlaces || []
@@ -230,13 +230,51 @@ export function useLocations(options: UseLocationsOptions = {}) {
     const newPlaces = apiPlaces.filter(place => !cachedPlaceIds.has(place.place_id))
     
     // Combinar cache + novos locais da API
-    return [...(cachedLocations || []), ...newPlaces]
+    const combined = [...(cachedLocations || []), ...newPlaces]
+    
+    // Remover duplicatas por place_id (caso algum escape do filtro anterior)
+    const seenPlaceIds = new Set<string>()
+    const uniquePlaces: GooglePlace[] = []
+    
+    combined.forEach(place => {
+      const placeId = place.place_id
+      if (placeId && !seenPlaceIds.has(placeId)) {
+        seenPlaceIds.add(placeId)
+        uniquePlaces.push(place)
+      }
+    })
+    
+    return uniquePlaces
   }, [cachedLocations, googlePlaces])
 
   // Converter GooglePlaces para Locations e filtrar categorias inválidas
-  const allLocations: Location[] = (allGooglePlaces || [])
-    .map(place => convertGooglePlaceToLocation(place, latitude, longitude))
-    .filter(loc => loc.category !== 'outro') // Remover locais classificados como "outro"
+  // Remover duplicatas por place_id após conversão também
+  const allLocations: Location[] = useMemo(() => {
+    const locations = (allGooglePlaces || [])
+      .map(place => convertGooglePlaceToLocation(place, latitude, longitude))
+      .filter(loc => loc.category !== 'outro') // Remover locais classificados como "outro"
+    
+    // Remover duplicatas finais por place_id (garantia extra)
+    const seenPlaceIds = new Set<string>()
+    const uniqueLocations: Location[] = []
+    
+    locations.forEach(loc => {
+      const placeId = loc.place_id
+      if (placeId && !seenPlaceIds.has(placeId)) {
+        seenPlaceIds.add(placeId)
+        uniqueLocations.push(loc)
+      } else if (!placeId) {
+        // Se não tem place_id, usar id como fallback
+        const id = loc.id
+        if (id && !seenPlaceIds.has(id)) {
+          seenPlaceIds.add(id)
+          uniqueLocations.push(loc)
+        }
+      }
+    })
+    
+    return uniqueLocations
+  }, [allGooglePlaces, latitude, longitude])
 
   // Filtrar locais já curtidos usando função RPC no backend
   const {
