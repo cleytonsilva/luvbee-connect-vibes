@@ -79,16 +79,10 @@ const Welcome = () => {
               alt="Luvbee Logo" 
               className="w-16 h-16 md:w-24 md:h-24 object-contain"
               animate={{
-                rotate: [0, 360],
                 scale: [1, 1.1, 1],
                 y: [0, -10, 0],
               }}
               transition={{
-                rotate: {
-                  duration: 20,
-                  repeat: Infinity,
-                  ease: "linear",
-                },
                 scale: {
                   duration: 2,
                   repeat: Infinity,
