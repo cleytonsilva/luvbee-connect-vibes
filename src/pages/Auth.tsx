@@ -103,7 +103,7 @@ const Auth = () => {
     }
   };
 
-  const handleSignup = async (data: UserRegisterInput & { confirmPassword: string }) => {
+  const handleSignup = async (data: UserRegisterInput & { confirmPassword: string; acceptTerms: boolean }) => {
     if (data.password !== data.confirmPassword) {
       toast.error("Erro de validação", {
         description: "As senhas não coincidem",
@@ -111,8 +111,17 @@ const Auth = () => {
       return;
     }
 
+    if (!data.acceptTerms) {
+      toast.error("Erro de validação", {
+        description: "Você deve aceitar os Termos de Uso para criar uma conta",
+      });
+      return;
+    }
+
     try {
-      await signUp(data.email, data.password, data.name);
+      // Remover campos que não são enviados ao backend
+      const { confirmPassword, acceptTerms, ...signupData } = data;
+      await signUp(signupData.email, signupData.password, signupData.name);
       // O redirecionamento será feito pelo useEffect quando user for definido
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Erro ao criar conta";
