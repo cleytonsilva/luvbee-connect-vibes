@@ -1,21 +1,61 @@
 import { useNavigate } from "react-router-dom";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Heart, MapPin, Users } from "lucide-react";
-import heroImage from "@/assets/hero-nightlife.jpg";
+
+const videoSources = [
+  "/videos/6010326_Person_Human_3840x2160.mp4",
+  "/videos/6994078_Rave_Club_Culture_3840x2160.mp4",
+  "/videos/4933420_Dj_Deejay_3840x2160.mp4",
+  "/videos/6309021_Women_Woman_3840x2160.mp4",
+  "/videos/4932857_Dj_Deejay_3840x2160.mp4",
+];
 
 const Welcome = () => {
   const navigate = useNavigate();
+  const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    const handleVideoEnd = () => {
+      // Avançar para o próximo vídeo
+      setCurrentVideoIndex((prev) => (prev + 1) % videoSources.length);
+    };
+
+    video.addEventListener('ended', handleVideoEnd);
+    
+    // Carregar e reproduzir o vídeo atual
+    video.load();
+    video.play().catch((error) => {
+      console.warn('Erro ao reproduzir vídeo:', error);
+    });
+
+    return () => {
+      video.removeEventListener('ended', handleVideoEnd);
+    };
+  }, [currentVideoIndex]);
 
   return (
     <div className="min-h-screen flex flex-col">
       {/* Hero Section */}
       <section className="relative h-screen flex items-center justify-center overflow-hidden">
-        <div 
-          className="absolute inset-0 bg-cover bg-center"
-          style={{ backgroundImage: `url(${heroImage})` }}
+        {/* Vídeo de fundo */}
+        <video
+          ref={videoRef}
+          className="absolute inset-0 w-full h-full object-cover"
+          autoPlay
+          muted
+          loop={false}
+          playsInline
         >
-          <div className="absolute inset-0 bg-gradient-to-b from-background/80 via-background/60 to-background" />
-        </div>
+          <source src={videoSources[currentVideoIndex]} type="video/mp4" />
+        </video>
+        
+        {/* Gradiente de transparência mantido */}
+        <div className="absolute inset-0 bg-gradient-to-b from-background/80 via-background/60 to-background" />
         
         <div className="relative z-10 container mx-auto px-4 text-center">
           <div className="flex items-center justify-center gap-4 mb-6">
