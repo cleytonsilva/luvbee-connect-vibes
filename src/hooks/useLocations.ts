@@ -486,7 +486,8 @@ export function useLocations(options: UseLocationsOptions = {}) {
   const hasMoreLocations = unmatchedLocations && currentIndex < unmatchedLocations.length - 1
   
   // Verificar se não há locais encontrados (busca inicial sem resultados)
-  const hasNoLocations = !isLoading && !isLoadingFilter && unmatchedLocations && unmatchedLocations.length === 0 && currentIndex === 0
+  const isLoading = isLoadingPlaces || isLoadingFilter
+  const hasNoLocations = !isLoading && unmatchedLocations && unmatchedLocations.length === 0 && currentIndex === 0
 
   // Resetar índice apenas quando os locais mudarem completamente (nova busca)
   // Não resetar quando apenas o array é atualizado após filtrar matches
@@ -510,7 +511,7 @@ export function useLocations(options: UseLocationsOptions = {}) {
     currentIndex,
     hasMoreLocations,
     hasNoLocations,
-    isLoading: isLoadingPlaces || isLoadingFilter,
+    isLoading,
     error: placesError,
 
     // Ações
