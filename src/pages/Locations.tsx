@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { LocationCard } from "@/components/LocationCard";
+import { LocationCard } from "@/components/location/LocationCard";
 import { X, Heart, Info, SlidersHorizontal, User, MapPin } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { ROUTES } from "@/lib/constants";
 import bar1 from "@/assets/bar-1.jpg";
 import bar2 from "@/assets/bar-2.jpg";
 import bar3 from "@/assets/bar-3.jpg";
@@ -76,7 +77,7 @@ const Locations = () => {
       
       // Simulate match and navigate to detail
       setTimeout(() => {
-        navigate(`/location/${currentLocation.id}`);
+        navigate(`${ROUTES.LOCATIONS}/${currentLocation.id}`);
       }, 1000);
     }
   };
@@ -99,7 +100,7 @@ const Locations = () => {
 
   const handleInfo = () => {
     if (currentLocation) {
-      navigate(`/location/${currentLocation.id}`);
+      navigate(`${ROUTES.LOCATIONS}/${currentLocation.id}`);
     }
   };
 
@@ -171,7 +172,7 @@ const Locations = () => {
               </div>
             </SheetContent>
           </Sheet>
-          <Button variant="ghost" size="icon" onClick={() => navigate("/profile")}>
+          <Button variant="ghost" size="icon" onClick={() => navigate(ROUTES.PROFILE)}>
             <User className="w-5 h-5" />
           </Button>
         </div>
@@ -180,7 +181,19 @@ const Locations = () => {
       {/* Main Content */}
       <main className="flex-1 flex flex-col items-center justify-center p-4">
         <div className="w-full max-w-md">
-          <LocationCard {...currentLocation} />
+          <LocationCard
+            location={{
+              id: currentLocation.id.toString(),
+              name: currentLocation.name,
+              type: currentLocation.type,
+              address: currentLocation.distance,
+              rating: currentLocation.rating,
+              price_level: currentLocation.price === '$$' ? 2 : currentLocation.price === '$$$' ? 3 : 1,
+              photo_url: currentLocation.image,
+              images: [currentLocation.image],
+            }}
+            distance={currentLocation.distance}
+          />
         </div>
 
         {/* Action Buttons */}

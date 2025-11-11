@@ -1,0 +1,16 @@
+{
+  "status": "commited",
+  "type": "frontend",
+  "scope": "codebase",
+  "localEndpoint": "http://localhost:8080",
+  "executionArgs": {
+    "projectName": "luvbee-connect-vibes",
+    "projectPath": "C:\\Users\\LENOVO\\Documents\\Luvbee2\\luvbee-connect-vibes",
+    "testIds": [],
+    "additionalInstruction": "Use the email cleyton7silva@gmail.com with password Debian@@1990 for all authentication tests. The application is running on port 8080. Mock data has been created: locations, matches, and chat messages are now available for testing.",
+    "envs": {
+      "API_KEY": "sk-user-qtl9qMMvpNbqMsErrEYZCYRgVR7bSLm5vNanhBPSLDsv8hQ0BfrOvCWQrZBa_VbWrMcpt5E6kPSMzIv9-EkG15XT3RMQuG0c5b-rEj5gdbw81phs5NnYPrIAFVXZV30PZ0w"
+    }
+  },
+  "proxy": "http://975535c0-e555-4a6b-8303-d5853dc24923:Pz65QtL3oLoD2tzxOUTcVQPu3tGa7ESO@tun.testsprite.com:8080"
+}

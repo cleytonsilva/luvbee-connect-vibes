@@ -1,0 +1,160 @@
+{
+  "meta": {
+    "project": "Luvbee Connect Vibes",
+    "date": "2025-11-04",
+    "prepared_by": "Software Development Manager"
+  },
+  "product_overview": "Luvbee Connect Vibes é uma plataforma social baseada em localização que permite aos usuários descobrir locais próximos, conectar-se com pessoas por meio de matching baseado em interesses e compatibilidade, e participar de chats em tempo real. A aplicação oferece um fluxo completo desde autenticação até onboarding e interação com locais e pessoas, proporcionando uma experiência integrada de descoberta e conexão social.",
+  "core_goals": [
+    "Prover autenticação segura com gerenciamento de sessão.",
+    "Facilitar o onboarding para configuração personalizada de novos usuários.",
+    "Permitir descoberta de locais próximos com interface intuitiva de swipe e filtros detalhados.",
+    "Oferecer sistema de matching entre pessoas baseado em compatibilidade e interesses.",
+    "Implementar chat em tempo real para comunicação entre usuários com matches.",
+    "Permitir gerenciamento e edição de perfil com configurações personalizadas.",
+    "Garantir navegação fluida entre todas as seções da aplicação.",
+    "Aprimorar a performance e segurança do banco de dados com migrações e otimizações específicas."
+  ],
+  "key_features": [
+    "Sistema completo de autenticação com registro, login e gerenciamento de sessão usando Supabase Auth.",
+    "Fluxo de onboarding para novos usuários configurarem preferências iniciais.",
+    "Descoberta de locais próximos via geolocalização com interface de swipe.",
+    "Listagem detalhada de locais com filtros e busca aprimorada.",
+    "Sistema de matching entre pessoas com perfis e compatibilidade.",
+    "Chat em tempo real com atualizações instantâneas de mensagens e contadores de não lidas.",
+    "Gerenciamento de perfil do usuário com edição e estatísticas.",
+    "Navegação principal com abas para acesso rápido às funcionalidades.",
+    "Ferramentas de check-in em locais para engajamento dos usuários.",
+    "Dashboard com resumo das atividades e principais métricas."
+  ],
+  "user_flow_summary": [
+    "Novo usuário acessa a home page, registra-se, completa o onboarding definindo suas preferências e é redirecionado para descoberta de locais (Vibe Local).",
+    "Usuário existente faz login, navega pelas abas do dashboard para explorar locais, pessoas, mensagens e perfil.",
+    "Usuário descobre locais próximos via geolocalização e interage com eles utilizando swipe e filtros.",
+    "Usuário navega entre pessoas disponíveis para matching, envia likes e inicia conversas quando ocorre match mútuo.",
+    "Usuário gerencia seu perfil, atualiza preferências e configurações.",
+    "No chat, usuários enviam mensagens em tempo real, com contadores de mensagens não lidas atualizados automaticamente.",
+    "Sistema verifica as permissões via Row-Level Security garantindo que usuários vejam apenas dados autorizados."
+  ],
+  "validation_criteria": [
+    "Autenticação segura e estável com proteção de rotas.",
+    "Onboarding guiado que coleta e armazena corretamente preferências do usuário.",
+    "Busca e descoberta de locais usando geolocalização com precisão e interface responsiva.",
+    "Sistema de matching precisa calcular compatibilidade corretamente e criar chats automaticamente em matches mútuos.",
+    "Mensagens em tempo real funcionam sem atrasos e contadores de não lidas são precisos.",
+    "Perfis podem ser editados e salvos com validação de dados.",
+    "Navegação pelas seções da aplicação é intuitiva e sem erros.",
+    "Aplicar migrações de banco garantindo criação de índices, funções e triggers conforme os scripts fornecidos.",
+    "Políticas RLS são aplicadas, garantindo acesso restrito conforme regras do negócio.",
+    "Testes unitários e de integração cobrindo validação de dados, funções de busca, triggers e segurança."
+  ],
+  "code_summary": {
+    "tech_stack": [
+      "TypeScript",
+      "React 18.3.1",
+      "Vite 5.4.19",
+      "React Router DOM 6.30.1",
+      "Supabase (PostgreSQL)",
+      "TailwindCSS",
+      "Shadcn UI",
+      "Zustand",
+      "React Hook Form",
+      "Zod"
+    ],
+    "features": [
+      {
+        "name": "Authentication",
+        "description": "Sistema completo de autenticação com login, registro e gerenciamento de sessão usando Supabase Auth",
+        "files": [
+          "src/services/auth.service.ts",
+          "src/components/auth/LoginForm.tsx",
+          "src/components/auth/RegisterForm.tsx",
+          "src/pages/Auth.tsx",
+          "src/hooks/useAuth.ts"
+        ]
+      },
+      {
+        "name": "Onboarding",
+        "description": "Fluxo de onboarding para novos usuários configurar preferências iniciais",
+        "files": [
+          "src/components/auth/OnboardingFlow.tsx",
+          "src/pages/OnboardingPage.tsx",
+          "src/services/user.service.ts"
+        ]
+      },
+      {
+        "name": "Vibe Local",
+        "description": "Descobrir locais próximos usando geolocalização com interface de swipe",
+        "files": [
+          "src/pages/VibeLocalPage.tsx",
+          "src/components/location/LocationSwipe.tsx",
+          "src/components/location/LocationCard.tsx",
+          "src/services/location.service.ts",
+          "src/services/google-places.service.ts",
+          "src/hooks/useLocations.ts"
+        ]
+      },
+      {
+        "name": "Locations",
+        "description": "Lista e filtros de locais disponíveis com detalhes",
+        "files": [
+          "src/pages/LocationsPage.tsx",
+          "src/pages/LocationDetailPage.tsx",
+          "src/components/location/LocationList.tsx",
+          "src/components/location/LocationFilter.tsx",
+          "src/components/location/LocationCard.tsx"
+        ]
+      },
+      {
+        "name": "People Matching",
+        "description": "Sistema de matching e descoberta de pessoas com base em compatibilidade",
+        "files": [
+          "src/pages/PeoplePage.tsx",
+          "src/components/matching/PersonCard.tsx",
+          "src/services/match.service.ts"
+        ]
+      },
+      {
+        "name": "Messages",
+        "description": "Sistema de mensagens e chat em tempo real com matches",
+        "files": [
+          "src/pages/MessagesPage.tsx",
+          "src/components/chat/ChatWindow.tsx",
+          "src/services/message.service.ts"
+        ]
+      },
+      {
+        "name": "Profile",
+        "description": "Gerenciamento de perfil do usuário e configurações",
+        "files": [
+          "src/pages/ProfilePage.tsx",
+          "src/components/profile/ProfileForm.tsx",
+          "src/services/user.service.ts"
+        ]
+      },
+      {
+        "name": "Navigation",
+        "description": "Navegação principal com abas para todas as seções da aplicação",
+        "files": [
+          "src/components/layout/Navigation.tsx",
+          "src/layouts/MainLayout.tsx",
+          "src/layouts/AuthLayout.tsx"
+        ]
+      },
+      {
+        "name": "Check-in",
+        "description": "Sistema de check-in em locais",
+        "files": [
+          "src/components/checkin/CheckInComponents.tsx"
+        ]
+      },
+      {
+        "name": "Dashboard",
+        "description": "Dashboard principal com resumo de atividades",
+        "files": [
+          "src/components/dashboard/Dashboard.tsx"
+        ]
+      }
+    ]
+  }
+}

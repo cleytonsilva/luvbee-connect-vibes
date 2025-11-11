@@ -1,0 +1,114 @@
+{
+  "tech_stack": [
+    "TypeScript",
+    "React 18.3.1",
+    "Vite 5.4.19",
+    "React Router DOM 6.30.1",
+    "Supabase (PostgreSQL)",
+    "TailwindCSS",
+    "Shadcn UI",
+    "Zustand",
+    "React Hook Form",
+    "Zod",
+    "Playwright"
+  ],
+  "features": [
+    {
+      "name": "Authentication",
+      "description": "Sistema completo de autenticação com login, registro e gerenciamento de sessão usando Supabase Auth",
+      "files": [
+        "src/services/auth.service.ts",
+        "src/components/auth/LoginForm.tsx",
+        "src/components/auth/RegisterForm.tsx",
+        "src/pages/Auth.tsx",
+        "src/hooks/useAuth.ts",
+        "src/integrations/supabase.ts"
+      ]
+    },
+    {
+      "name": "Onboarding",
+      "description": "Fluxo de onboarding para novos usuários configurar preferências iniciais",
+      "files": [
+        "src/components/auth/OnboardingFlow.tsx",
+        "src/pages/OnboardingPage.tsx",
+        "src/services/user.service.ts"
+      ]
+    },
+    {
+      "name": "Vibe Local",
+      "description": "Descobrir locais próximos usando geolocalização com interface de swipe",
+      "files": [
+        "src/pages/VibeLocalPage.tsx",
+        "src/components/location/LocationSwipe.tsx",
+        "src/components/location/LocationCard.tsx",
+        "src/services/location.service.ts",
+        "src/services/google-places.service.ts",
+        "src/hooks/useLocations.ts"
+      ]
+    },
+    {
+      "name": "Locations",
+      "description": "Lista e filtros de locais disponíveis com detalhes",
+      "files": [
+        "src/pages/LocationsPage.tsx",
+        "src/pages/LocationDetailPage.tsx",
+        "src/components/location/LocationList.tsx",
+        "src/components/location/LocationFilter.tsx",
+        "src/components/location/LocationCard.tsx"
+      ]
+    },
+    {
+      "name": "People Matching",
+      "description": "Sistema de matching entre pessoas com perfis e cálculo de compatibilidade",
+      "files": [
+        "src/pages/PeoplePage.tsx",
+        "src/components/matching/PersonCard.tsx",
+        "src/services/match.service.ts",
+        "src/services/user.service.ts"
+      ]
+    },
+    {
+      "name": "Messages",
+      "description": "Chat em tempo real com atualizações instantâneas de mensagens e contadores de não lidas",
+      "files": [
+        "src/pages/MessagesPage.tsx",
+        "src/components/chat/ChatWindow.tsx",
+        "src/services/message.service.ts"
+      ]
+    },
+    {
+      "name": "Profile",
+      "description": "Gerenciamento de perfil do usuário com edição e estatísticas",
+      "files": [
+        "src/pages/ProfilePage.tsx",
+        "src/components/profile/ProfileForm.tsx",
+        "src/services/user.service.ts"
+      ]
+    },
+    {
+      "name": "Navigation",
+      "description": "Navegação principal com abas para acesso rápido às funcionalidades",
+      "files": [
+        "src/components/layout/Navigation.tsx",
+        "src/layouts/MainLayout.tsx",
+        "src/App.tsx"
+      ]
+    },
+    {
+      "name": "Check-in",
+      "description": "Ferramentas de check-in em locais para engajamento dos usuários",
+      "files": [
+        "src/components/checkin/CheckInComponents.tsx",
+        "src/services/location.service.ts"
+      ]
+    },
+    {
+      "name": "Dashboard",
+      "description": "Dashboard com resumo das atividades e principais métricas",
+      "files": [
+        "src/components/dashboard/Dashboard.tsx",
+        "src/pages/HomePage.tsx"
+      ]
+    }
+  ]
+}

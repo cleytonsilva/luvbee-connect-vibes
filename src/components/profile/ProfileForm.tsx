@@ -10,6 +10,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { UserProfile } from '@/types/app.types'
 import { UserService } from '@/services/user.service'
 import { DRINK_OPTIONS, FOOD_OPTIONS, MUSIC_OPTIONS } from '@/lib/validations'
+import { sanitizeText } from '@/lib/sanitize'
 import { toast } from 'sonner'
 import { usePlacesAutocomplete } from '@/hooks/usePlacesAutocomplete'
 import { supabase } from '@/integrations/supabase'
@@ -367,13 +368,20 @@ export function ProfileForm() {
 
     setIsLoading(true)
     try {
+      // ✅ Sanitizar dados antes de enviar
+      const sanitizedFormData = {
+        ...formData,
+        name: formData.name ? sanitizeText(formData.name) : formData.name,
+        bio: formData.bio ? sanitizeText(formData.bio) : formData.bio,
+      }
+      
       // Preparar dados para atualização
       const updateData: Partial<UserProfile> = {
-        ...formData,
-        location: formData.location 
-          ? (typeof formData.location === 'string' 
-              ? { address: formData.location } 
-              : formData.location)
+        ...sanitizedFormData,
+        location: sanitizedFormData.location 
+          ? (typeof sanitizedFormData.location === 'string' 
+              ? { address: sanitizedFormData.location } 
+              : sanitizedFormData.location)
           : null,
       }
 

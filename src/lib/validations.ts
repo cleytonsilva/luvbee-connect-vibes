@@ -7,6 +7,7 @@
  */
 
 import { z } from 'zod'
+import { sanitizeText } from './sanitize'
 
 // ============================================
 // User Schemas
@@ -27,8 +28,8 @@ export const userLoginSchema = z.object({
 })
 
 export const userUpdateSchema = z.object({
-  name: z.string().min(2).max(100).optional(),
-  bio: z.string().max(500, 'Bio muito longa').optional(),
+  name: z.string().min(2).max(100).transform(sanitizeText).optional(),
+  bio: z.string().max(500, 'Bio muito longa').transform(sanitizeText).optional(),
   age: z.number().int().min(18, 'Idade mínima é 18 anos').max(120, 'Idade inválida').optional(),
   location_latitude: z.number().min(-90).max(90).optional(),
   location_longitude: z.number().min(-180).max(180).optional(),
@@ -203,7 +204,11 @@ export const messageCreateSchema = z.object({
   content: z
     .string()
     .min(1, 'Mensagem não pode estar vazia')
-    .max(2000, 'Mensagem muito longa (máximo 2000 caracteres)'),
+    .max(2000, 'Mensagem muito longa (máximo 2000 caracteres)')
+    .transform((val) => {
+      // Sanitização será feita no MessageService.sendMessage
+      return val
+    }),
 })
 
 export const messageUpdateSchema = z.object({

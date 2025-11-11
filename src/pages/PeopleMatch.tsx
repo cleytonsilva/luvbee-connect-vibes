@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { PersonCard } from "@/components/PersonCard";
+import { PersonCard } from "@/components/matching/PersonCard";
 import { X, Heart, ArrowLeft, MessageCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { ROUTES } from "@/lib/constants";
 import person1 from "@/assets/person-1.jpg";
 import person2 from "@/assets/person-2.jpg";
 import person3 from "@/assets/person-3.jpg";
@@ -71,7 +72,7 @@ const PeopleMatch = () => {
         description: "Não há mais pessoas interessadas neste local no momento.",
       });
       setTimeout(() => {
-        navigate("/locations");
+        navigate(ROUTES.LOCATIONS);
       }, 2000);
     }
   };
@@ -85,7 +86,7 @@ const PeopleMatch = () => {
           <p className="text-muted-foreground mb-6">
             Não há mais pessoas interessadas neste local no momento.
           </p>
-          <Button onClick={() => navigate("/locations")}>
+          <Button onClick={() => navigate(ROUTES.LOCATIONS)}>
             Voltar para locais
           </Button>
         </div>
@@ -107,7 +108,18 @@ const PeopleMatch = () => {
       {/* Main Content */}
       <main className="flex-1 flex flex-col items-center justify-center p-4">
         <div className="w-full max-w-md">
-          <PersonCard {...currentPerson} />
+          <PersonCard
+            user={{
+              id: currentPerson.id.toString(),
+              name: currentPerson.name,
+              age: currentPerson.age,
+              bio: currentPerson.bio,
+              interests: currentPerson.interests,
+              compatibility_score: currentPerson.compatibility,
+              avatar_url: currentPerson.image,
+              distance: parseFloat(currentPerson.distance.replace('km', '').replace('m', '').replace(',', '.')) || 0,
+            }}
+          />
         </div>
 
         {/* Action Buttons */}

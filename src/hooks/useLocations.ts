@@ -89,12 +89,18 @@ function convertGooglePlaceToLocation(place: GooglePlace, userLat?: number, user
     description: undefined,
     images: place.photos?.map(p => {
       // Se photo_reference é uma URL completa, usar diretamente
-      // Se for uma referência, construir a URL
+      // Se for uma referência, construir a URL usando serviço protegido
       if (p.photo_reference && p.photo_reference.startsWith('http')) {
         return p.photo_reference
       }
-      // Usar photoreference (sem underscore) na URL da API
-      return `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference=${p.photo_reference}&key=${import.meta.env.VITE_GOOGLE_MAPS_API_KEY}`
+      // ⚠️ TEMPORÁRIO: Usar chave diretamente (será migrado para Edge Function)
+      // TODO: Migrar para GooglePlacesPhotoService.getPlacePhotoUrl() antes de produção
+      const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY
+      if (!apiKey) {
+        console.warn('Google Maps API key não configurada')
+        return ''
+      }
+      return `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference=${p.photo_reference}&key=${apiKey}`
     }).filter(url => url) || [],
     rating: place.rating || 0,
     phone: place.phone_number,
