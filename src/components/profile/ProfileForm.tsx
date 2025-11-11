@@ -178,36 +178,105 @@ export function ProfileForm() {
       return
     }
 
+    // Validar tamanho do arquivo (máximo 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Arquivo muito grande. Máximo de 5MB permitido.')
+      return
+    }
+
+    // Validar tipo de arquivo
+    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp']
+    if (!validTypes.includes(file.type)) {
+      toast.error('Tipo de arquivo inválido. Use JPEG, PNG ou WebP.')
+      return
+    }
+
     try {
-      const reader = new FileReader()
-      reader.onloadend = async () => {
-        const base64 = reader.result as string
-        const newPhotos = [...photos]
-        
-        if (index < newPhotos.length) {
-          // Substituir foto existente
-          newPhotos[index] = base64
-        } else {
-          // Adicionar nova foto
-          newPhotos.push(base64)
+      setIsLoading(true)
+      
+      // Se está substituindo uma foto existente, deletar a antiga do storage
+      if (index < photos.length && photos[index]) {
+        const oldPhotoUrl = photos[index]
+        // Extrair o caminho do arquivo da URL
+        if (oldPhotoUrl.includes('supabase.co/storage')) {
+          try {
+            const urlParts = oldPhotoUrl.split('/storage/v1/object/public/profile-photos/')
+            if (urlParts.length > 1) {
+              const filePath = urlParts[1]
+              await supabase.storage
+                .from('profile-photos')
+                .remove([filePath])
+            }
+          } catch (deleteError) {
+            console.warn('Erro ao deletar foto antiga:', deleteError)
+            // Continuar mesmo se não conseguir deletar
+          }
         }
-        
-        // Garantir máximo de 3 fotos
-        const updatedPhotos = newPhotos.slice(0, 3)
-        setPhotos(updatedPhotos)
-        
-        // Atualizar no banco
-        await supabase
-          .from('users')
-          .update({ photos: updatedPhotos })
-          .eq('id', user.id)
-        
-        toast.success('Foto atualizada com sucesso!')
       }
-      reader.readAsDataURL(file)
+
+      // Gerar nome único para o arquivo
+      const fileExt = file.name.split('.').pop() || 'jpg'
+      const fileName = `${user.id}-${index}-${Date.now()}.${fileExt}`
+      const filePath = `${user.id}/${fileName}`
+
+      // Upload para Supabase Storage
+      const { error: uploadError } = await supabase.storage
+        .from('profile-photos')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: true, // Substituir se já existir
+          contentType: file.type
+        })
+
+      if (uploadError) {
+        console.error('Erro no upload:', uploadError)
+        throw uploadError
+      }
+
+      // Obter URL pública da foto
+      const { data: { publicUrl } } = supabase.storage
+        .from('profile-photos')
+        .getPublicUrl(filePath)
+
+      // Atualizar array de fotos
+      const newPhotos = [...photos]
+      if (index < newPhotos.length) {
+        // Substituir foto existente
+        newPhotos[index] = publicUrl
+      } else {
+        // Adicionar nova foto
+        newPhotos.push(publicUrl)
+      }
+      
+      // Garantir máximo de 3 fotos
+      const updatedPhotos = newPhotos.slice(0, 3)
+      
+      // Atualizar no banco
+      const { error: updateError } = await supabase
+        .from('users')
+        .update({ photos: updatedPhotos })
+        .eq('id', user.id)
+
+      if (updateError) {
+        console.error('Erro ao atualizar fotos no banco:', updateError)
+        throw updateError
+      }
+
+      // Atualizar estado local
+      setPhotos(updatedPhotos)
+      
+      // Recarregar perfil para garantir sincronização
+      await loadUserProfile()
+      
+      toast.success('Foto atualizada com sucesso!')
     } catch (error) {
       console.error('Error uploading photo:', error)
-      toast.error('Erro ao fazer upload da foto')
+      const errorMessage = error instanceof Error ? error.message : 'Erro ao fazer upload da foto'
+      toast.error(errorMessage)
+    } finally {
+      setIsLoading(false)
+      // Limpar input para permitir selecionar o mesmo arquivo novamente
+      event.target.value = ''
     }
   }
 
@@ -215,14 +284,51 @@ export function ProfileForm() {
   const handleRemovePhoto = async (index: number) => {
     if (!user) return
     
-    const newPhotos = photos.filter((_, i) => i !== index)
-    setPhotos(newPhotos)
+    const photoToRemove = photos[index]
+    if (!photoToRemove) return
     
     try {
-      await supabase
+      setIsLoading(true)
+      
+      // Deletar foto do storage se for uma URL do Supabase
+      if (photoToRemove.includes('supabase.co/storage')) {
+        try {
+          const urlParts = photoToRemove.split('/storage/v1/object/public/profile-photos/')
+          if (urlParts.length > 1) {
+            const filePath = urlParts[1]
+            const { error: deleteError } = await supabase.storage
+              .from('profile-photos')
+              .remove([filePath])
+            
+            if (deleteError) {
+              console.warn('Erro ao deletar foto do storage:', deleteError)
+              // Continuar mesmo se não conseguir deletar do storage
+            }
+          }
+        } catch (deleteError) {
+          console.warn('Erro ao processar URL da foto:', deleteError)
+        }
+      }
+      
+      // Remover do array
+      const newPhotos = photos.filter((_, i) => i !== index)
+      
+      // Atualizar no banco
+      const { error: updateError } = await supabase
         .from('users')
         .update({ photos: newPhotos })
         .eq('id', user.id)
+      
+      if (updateError) {
+        console.error('Erro ao atualizar fotos no banco:', updateError)
+        throw updateError
+      }
+      
+      // Atualizar estado local
+      setPhotos(newPhotos)
+      
+      // Recarregar perfil para garantir sincronização
+      await loadUserProfile()
       
       toast.success('Foto removida com sucesso!')
     } catch (error) {
@@ -230,6 +336,8 @@ export function ProfileForm() {
       toast.error('Erro ao remover foto')
       // Reverter em caso de erro
       setPhotos(photos)
+    } finally {
+      setIsLoading(false)
     }
   }
 
