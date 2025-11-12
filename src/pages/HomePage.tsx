@@ -10,27 +10,66 @@ const Welcome = () => {
   const navigate = useNavigate();
   const { videoUrls, isLoading } = useHeroVideos();
   const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
-  const videoRef = useRef<HTMLVideoElement>(null);
+  const [nextVideoIndex, setNextVideoIndex] = useState(1);
+  const [isTransitioning, setIsTransitioning] = useState(false);
+  const currentVideoRef = useRef<HTMLVideoElement>(null);
+  const nextVideoRef = useRef<HTMLVideoElement>(null);
 
+  // Pré-carregar próximo vídeo
   useEffect(() => {
-    const video = videoRef.current;
-    if (!video || isLoading || videoUrls.length === 0) return;
+    if (isLoading || videoUrls.length === 0) return;
+    
+    const nextIndex = (currentVideoIndex + 1) % videoUrls.length;
+    setNextVideoIndex(nextIndex);
+    
+    // Pré-carregar próximo vídeo
+    const nextVideo = nextVideoRef.current;
+    if (nextVideo && videoUrls[nextIndex]) {
+      nextVideo.load();
+    }
+  }, [currentVideoIndex, isLoading, videoUrls]);
+
+  // Gerenciar reprodução do vídeo atual
+  useEffect(() => {
+    const currentVideo = currentVideoRef.current;
+    if (!currentVideo || isLoading || videoUrls.length === 0) return;
 
     const handleVideoEnd = () => {
-      // Avançar para o próximo vídeo
-      setCurrentVideoIndex((prev) => (prev + 1) % videoUrls.length);
+      // Iniciar transição suave
+      setIsTransitioning(true);
+      
+      // Fazer fade out do vídeo atual e fade in do próximo
+      const nextVideo = nextVideoRef.current;
+      if (nextVideo) {
+        // Reproduzir próximo vídeo
+        nextVideo.play().catch((error) => {
+          console.warn('Erro ao reproduzir próximo vídeo:', error);
+        });
+        
+        // Após transição, trocar referências
+        setTimeout(() => {
+          setCurrentVideoIndex((prev) => (prev + 1) % videoUrls.length);
+          setIsTransitioning(false);
+        }, 500); // Duração do fade (500ms)
+      }
     };
 
-    video.addEventListener('ended', handleVideoEnd);
+    const handleCanPlay = () => {
+      // Quando o vídeo está pronto, reproduzir
+      currentVideo.play().catch((error) => {
+        console.warn('Erro ao reproduzir vídeo:', error);
+      });
+    };
+
+    currentVideo.addEventListener('ended', handleVideoEnd);
+    currentVideo.addEventListener('canplay', handleCanPlay);
     
-    // Carregar e reproduzir o vídeo atual
-    video.load();
-    video.play().catch((error) => {
-      console.warn('Erro ao reproduzir vídeo:', error);
-    });
+    // Carregar vídeo atual
+    currentVideo.load();
 
     return () => {
-      video.removeEventListener('ended', handleVideoEnd);
+      currentVideo.removeEventListener('ended', handleVideoEnd);
+      currentVideo.removeEventListener('canplay', handleCanPlay);
     };
   }, [currentVideoIndex, isLoading, videoUrls]);
 
@@ -38,18 +77,36 @@ const Welcome = () => {
     <div className="min-h-screen flex flex-col">
       {/* Hero Section */}
       <section className="relative h-screen flex items-center justify-center overflow-hidden">
-        {/* Vídeo de fundo */}
+        {/* Vídeo atual de fundo */}
         {!isLoading && videoUrls.length > 0 && (
-          <video
-            ref={videoRef}
-            className="absolute inset-0 w-full h-full object-cover"
-            autoPlay
-            muted
-            loop={false}
-            playsInline
-          >
-            <source src={videoUrls[currentVideoIndex]} type="video/mp4" />
-          </video>
+          <>
+            <video
+              ref={currentVideoRef}
+              className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-500 ${
+                isTransitioning ? 'opacity-0' : 'opacity-100'
+              }`}
+              muted
+              loop={false}
+              playsInline
+            >
+              <source src={videoUrls[currentVideoIndex]} type="video/mp4" />
+            </video>
+            
+            {/* Próximo vídeo (pré-carregado para transição suave) */}
+            {videoUrls[nextVideoIndex] && (
+              <video
+                ref={nextVideoRef}
+                className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-500 ${
+                  isTransitioning ? 'opacity-100' : 'opacity-0'
+                }`}
+                muted
+                loop={false}
+                playsInline
+              >
+                <source src={videoUrls[nextVideoIndex]} type="video/mp4" />
+              </video>
+            )}
+          </>
         )}
         
         {/* Gradiente de transparência mantido */}
