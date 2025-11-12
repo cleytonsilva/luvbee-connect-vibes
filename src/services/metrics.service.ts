@@ -84,7 +84,7 @@ export class MetricsService {
       // Verificar alertas
       await this.checkAlerts(data)
 
-      safeLog('debug', `Métrica registrada: ${data.name} = ${data.value}`)
+      safeLog('info', `Métrica registrada: ${data.name} = ${data.value}`)
     } catch (error) {
       safeLog('error', 'Erro crítico no serviço de métricas:', error)
       // Não propagar erro para não quebrar a operação principal
@@ -150,7 +150,7 @@ export class MetricsService {
     try {
       let query = supabase
         .from('metrics')
-        .select('*')
+        .select('name,value,tags,created_at')
 
       // Aplicar filtros
       if (filters.name) {

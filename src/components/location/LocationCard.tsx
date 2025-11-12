@@ -40,7 +40,8 @@ export const LocationCard = ({
   const price = priceSymbols[priceLevel - 1] || 'N/A';
   
   // Suportar tanto Location (type) quanto LocationData (category)
-  const locationType = (location as any).type || (location as any).category || '';
+  const rawType = (location as any).type ?? (location as any).category ?? ''
+  const locationType = typeof rawType === 'object' && rawType !== null ? (rawType as any).name ?? '' : rawType
 
   // Handler para erro de carregamento de imagem
   const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
