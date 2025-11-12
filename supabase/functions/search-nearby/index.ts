@@ -1,3 +1,4 @@
+// @ts-ignore - Deno runtime types
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 
 const GOOGLE_PLACES_API_BASE = 'https://maps.googleapis.com/maps/api/place'
@@ -8,6 +9,7 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
 }
 
+// @ts-ignore - serve is available in Deno runtime
 serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
@@ -62,6 +64,7 @@ serve(async (req) => {
       )
     }
 
+    // @ts-ignore - Deno.env is available in Deno runtime
     const apiKey = Deno.env.get('GOOGLE_MAPS_API_KEY')
     if (!apiKey) {
       return new Response(

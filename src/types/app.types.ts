@@ -21,18 +21,27 @@ export interface LocationData {
   name: string
   address: string
   category: string
+  type?: string
   description?: string
   images?: string[]
+  image_url?: string
   rating: number
   phone?: string
   website?: string
   opening_hours?: Record<string, any>
   location?: { lat: number; lng: number }
+  lat?: number
+  lng?: number
+  latitude?: number
+  longitude?: number
+  place_id?: string
+  price_level?: number
   owner_id?: string
   is_verified: boolean
   is_active: boolean
   created_at: string
   updated_at: string
+  distance_meters?: number
 }
 
 export interface MatchData {

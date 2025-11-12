@@ -1,3 +1,4 @@
+// @ts-ignore - Deno runtime types
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 
 /**
@@ -11,6 +12,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
  * POST: { photoreference: '...', maxwidth: 400 }
  */
 
+// @ts-ignore - Deno.serve is available in Deno runtime
 Deno.serve(async (req: Request) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
@@ -65,6 +67,7 @@ Deno.serve(async (req: Request) => {
     }
 
     // Obter chave da API do ambiente (configurada como secret no Supabase)
+    // @ts-ignore - Deno.env is available in Deno runtime
     const apiKey = Deno.env.get('GOOGLE_MAPS_API_KEY')
     
     if (!apiKey) {

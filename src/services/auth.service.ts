@@ -383,7 +383,7 @@ export class AuthService {
       // Buscar dados do usuário primeiro
       const { data: userData, error: userError } = await supabase
         .from('users')
-        .select('id,email,name,age,location,photos,preferences,avatar_url')
+        .select('id,email,name,age,location,photos,preferences')
         .eq('id', userId)
         .single()
 
@@ -540,9 +540,20 @@ export class AuthService {
         .from('avatars')
         .getPublicUrl(fileName)
 
+      const { data: currentUser } = await supabase
+        .from('users')
+        .select('photos')
+        .eq('id', userId)
+        .single()
+
+      const existingPhotos = currentUser?.photos || []
+      const newPhotos = existingPhotos.length > 0 
+        ? [publicUrl, ...existingPhotos.slice(1)] 
+        : [publicUrl]
+
       const { error: updateError } = await supabase
         .from('users')
-        .update({ avatar_url: publicUrl })
+        .update({ photos: newPhotos })
         .eq('id', userId)
 
       if (updateError) throw updateError

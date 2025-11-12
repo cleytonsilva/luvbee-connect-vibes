@@ -86,7 +86,8 @@ function convertGooglePlaceToLocation(place: GooglePlace, userLat?: number, user
     name: place.name,
     address: place.formatted_address,
     category,
-    description: undefined,
+    type: category, // Mapear category para type também
+    description: null,
     images: place.photos?.map(p => {
       // Se photo_reference é uma URL completa, usar diretamente
       if (p.photo_reference && p.photo_reference.startsWith('http')) {
@@ -100,19 +101,28 @@ function convertGooglePlaceToLocation(place: GooglePlace, userLat?: number, user
         }
       }
       return ''
-    }).filter(url => url) || [],
+    }).filter(url => url) || null,
+    image_url: place.photos?.[0]?.photo_reference 
+      ? (place.photos[0].photo_reference.startsWith('http') 
+          ? place.photos[0].photo_reference 
+          : `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/get-place-photo?photoreference=${encodeURIComponent(place.photos[0].photo_reference)}&maxwidth=400`)
+      : '',
     rating: place.rating || 0,
-    phone: place.phone_number,
-    website: place.website,
-    opening_hours: place.opening_hours,
-    location: {
-      lat,
-      lng,
-    },
-    distance_meters: distance,
+    price_level: place.price_level || null,
+    phone: place.phone_number || null,
+    website: place.website || null,
+    opening_hours: place.opening_hours || null,
+    location: null,
+    lat,
+    lng,
+    owner_id: null,
+    is_verified: false,
+    is_active: true,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
     // Campos adicionais do Google Places
     place_id: place.place_id,
-    price_level: place.price_level,
+    distance_meters: distance,
     types: place.types,
   } as Location
 }
@@ -149,16 +159,16 @@ export function useLocations(options: UseLocationsOptions = {}) {
         formatted_address: loc.address,
         geometry: {
           location: {
-            lat: loc.location?.lat || loc.latitude || 0,
-            lng: loc.location?.lng || loc.longitude || 0,
+            lat: loc.location?.lat || loc.lat || loc.latitude || 0,
+            lng: loc.location?.lng || loc.lng || loc.longitude || 0,
           },
         },
         rating: loc.rating || 0,
-        price_level: loc.price_level,
+        price_level: loc.price_level || undefined,
         photos: loc.images?.map(img => ({
           photo_reference: img,
         })) || [],
-        types: loc.type ? [loc.type] : [],
+        types: loc.type ? [loc.type] : (loc.category ? [loc.category] : []),
         phone_number: loc.phone,
         website: loc.website,
         opening_hours: loc.opening_hours,
