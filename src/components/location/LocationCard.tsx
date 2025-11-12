@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import type { Location } from "@/types/location.types";
 import type { LocationData } from "@/types/app.types";
 import { normalizeImageUrl } from "@/lib/image-url-utils";
+import { usePlacePhoto } from "@/hooks/usePlacePhoto";
 
 interface LocationCardProps {
   location: Location | LocationData;
@@ -33,7 +34,11 @@ export const LocationCard = ({
     null;
   
   // Normalizar URL para converter URLs antigas do Google Maps para Edge Function
-  const imageUrl = normalizeImageUrl(rawImageUrl);
+  const normalizedUrl = normalizeImageUrl(rawImageUrl, location.place_id);
+  
+  // Se não tem URL mas tem place_id, buscar foto do Google Places
+  const placeId = location.place_id || (location as any).place_id
+  const imageUrl = usePlacePhoto(placeId, normalizedUrl);
   
   const rating = Number(location.rating) || Number((location as any).google_rating) || 0;
   const priceLevel = (location as any).price_level || 0;
