@@ -43,17 +43,21 @@ Deno.serve(async (req: Request) => {
     try {
       body = await req.json()
     } catch (error) {
+      console.error('[get-place-details] Erro ao parsear body:', error)
       return new Response(
         JSON.stringify({ error: 'Body inválido ou ausente', details: error instanceof Error ? error.message : 'Unknown error' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
+    console.log('[get-place-details] Body recebido:', JSON.stringify(body))
+
     const { place_id, fields = ['photos'] } = body
 
     if (!place_id) {
+      console.error('[get-place-details] place_id ausente no body')
       return new Response(
-        JSON.stringify({ error: 'place_id é obrigatório' }),
+        JSON.stringify({ error: 'place_id é obrigatório', received: body }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
@@ -79,10 +83,14 @@ Deno.serve(async (req: Request) => {
     url.searchParams.set('key', apiKey)
 
     // Fazer requisição para Google Places API
+    console.log('[get-place-details] Buscando detalhes do Google Places para place_id:', place_id)
     const response = await fetch(url.toString())
     const data = await response.json()
 
+    console.log('[get-place-details] Resposta do Google Places:', { status: data.status, hasResult: !!data.result })
+
     if (data.status !== 'OK') {
+      console.error('[get-place-details] Erro do Google Places:', data.status, data.error_message)
       return new Response(
         JSON.stringify({ 
           error: `Google Places API error: ${data.status}`,
