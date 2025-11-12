@@ -5,7 +5,7 @@ const GOOGLE_PLACES_API_BASE = 'https://maps.googleapis.com/maps/api/place'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-application-name',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
 }
 
@@ -22,20 +22,37 @@ serve(async (req) => {
   try {
     let body: any
     try {
-      body = await req.json()
+      const bodyText = await req.text()
+      if (!bodyText || bodyText.trim() === '') {
+        return new Response(
+          JSON.stringify({ error: 'Body vazio' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+      body = JSON.parse(bodyText)
     } catch (error) {
+      console.error('[search-nearby] Erro ao parsear body:', error)
       return new Response(
-        JSON.stringify({ error: 'Body inválido ou ausente' }),
+        JSON.stringify({ error: 'Body inválido ou ausente', details: error instanceof Error ? error.message : 'Unknown error' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
     const { latitude, longitude, radius = 5000, type, keyword } = body
 
+    // Log para debug (sem dados sensíveis)
+    console.log('[search-nearby] Request recebido:', {
+      hasLatitude: latitude !== undefined,
+      hasLongitude: longitude !== undefined,
+      radius,
+      type,
+      hasKeyword: keyword !== undefined
+    })
+
     // Validar tipos e valores
     if (latitude === undefined || longitude === undefined || latitude === null || longitude === null) {
       return new Response(
-        JSON.stringify({ error: 'Latitude e longitude são obrigatórios' }),
+        JSON.stringify({ error: 'Latitude e longitude são obrigatórios', received: { latitude, longitude } }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
@@ -45,30 +62,30 @@ serve(async (req) => {
 
     if (isNaN(latNum) || isNaN(lngNum)) {
       return new Response(
-        JSON.stringify({ error: 'Latitude e longitude devem ser números válidos' }),
+        JSON.stringify({ error: 'Latitude e longitude devem ser números válidos', received: { latitude, longitude, latNum, lngNum } }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
     if (latNum < -90 || latNum > 90) {
       return new Response(
-        JSON.stringify({ error: 'Latitude deve estar entre -90 e 90' }),
+        JSON.stringify({ error: 'Latitude deve estar entre -90 e 90', received: latNum }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
     if (lngNum < -180 || lngNum > 180) {
       return new Response(
-        JSON.stringify({ error: 'Longitude deve estar entre -180 e 180' }),
+        JSON.stringify({ error: 'Longitude deve estar entre -180 e 180', received: lngNum }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
     // @ts-ignore - Deno.env is available in Deno runtime
-    const apiKey = Deno.env.get('GOOGLE_MAPS_API_KEY')
+    const apiKey = Deno.env.get('GOOGLE_MAPS_BACKEND_KEY') || Deno.env.get('GOOGLE_MAPS_API_KEY')
     if (!apiKey) {
       return new Response(
-        JSON.stringify({ error: 'Google Maps API key não configurada' }),
+        JSON.stringify({ error: 'Google Maps API key não configurada', details: 'Configure GOOGLE_MAPS_BACKEND_KEY nas variáveis de ambiente do Supabase' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }

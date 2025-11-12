@@ -69,13 +69,23 @@ export class LocationImageScraper {
       }
 
       const photos = result.data.photos || []
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+      
       return photos.map(photo => {
         // photo pode ter photo_reference (string) ou url (string completa)
         const photoRef = typeof photo.photo_reference === 'string' && !photo.photo_reference.startsWith('http')
           ? photo.photo_reference
           : null
         
-        const photoUrl = photo.url || (photoRef ? GooglePlacesService.getPhotoUrl(photoRef, 800) : null)
+        // Se já tem URL completa e não é do Google Maps (pode ser de outro serviço), usar diretamente
+        // Caso contrário, usar Edge Function para proteger a API key
+        let photoUrl: string | null = null
+        if (photo.url && !photo.url.includes('maps.googleapis.com')) {
+          photoUrl = photo.url
+        } else if (photoRef && supabaseUrl) {
+          // Usar Edge Function para proteger a chave da API
+          photoUrl = `${supabaseUrl}/functions/v1/get-place-photo?photoreference=${encodeURIComponent(photoRef)}&maxwidth=800`
+        }
         
         return {
           url: photoUrl || '',

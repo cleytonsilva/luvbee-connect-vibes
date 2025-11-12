@@ -79,8 +79,6 @@ export class GooglePlacesService {
    */
   static async searchNearby(params: NearbySearchParams): Promise<ApiResponse<GooglePlace[]>> {
     try {
-      this.checkApiKey()
-
       const { latitude, longitude, radius = GOOGLE_PLACES_CONFIG.radius, type, keyword } = params
 
       // Usar Edge Function para evitar CORS e usar REST API diretamente
@@ -92,6 +90,7 @@ export class GooglePlacesService {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
+            ...(import.meta.env.VITE_SUPABASE_ANON_KEY && { 'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY }),
             ...(session?.access_token && { 'Authorization': `Bearer ${session.access_token}` }),
           },
           body: JSON.stringify({ latitude, longitude, radius, type, keyword }),
@@ -105,7 +104,6 @@ export class GooglePlacesService {
         const result = await response.json()
         return { data: result.data || [] }
       } catch (error) {
-        // Se Edge Function falhar, retornar erro ao invés de tentar REST API (que causa CORS)
         return {
           error: error instanceof Error ? error.message : 'Failed to search nearby places - Edge Function não disponível'
         }

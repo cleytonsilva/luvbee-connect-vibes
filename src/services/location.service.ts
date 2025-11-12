@@ -7,7 +7,7 @@ export class LocationService {
     try {
       let query = supabase
         .from('locations')
-        .select('id,name,address,type,place_id,lat,lng,rating,price_level,image_url,peak_hours,google_rating,google_place_data,created_at,updated_at,is_active,is_verified,owner_id')
+        .select('id,name,address,type,lat,lng,rating,price_level,image_url,description,place_id,google_rating,google_place_data,created_at,updated_at')
 
       if (filter) {
         if (filter.category) {
@@ -35,9 +35,37 @@ export class LocationService {
 
       const { data, error } = await query
 
-      if (error) throw error
+      if (error) {
+        console.error('[LocationService] getLocations error:', error)
+        throw error
+      }
 
-      return { data: data as LocationData[] }
+      // Mapear dados do banco para LocationData
+      const mappedData: LocationData[] = (data || []).map((loc: any) => ({
+        id: loc.id,
+        name: loc.name,
+        address: loc.address,
+        category: loc.type || 'outro',
+        type: loc.type,
+        description: loc.description || undefined,
+        images: loc.image_url ? [loc.image_url] : undefined,
+        image_url: loc.image_url,
+        rating: Number(loc.rating) || Number(loc.google_rating) || 0,
+        price_level: loc.price_level || undefined,
+        place_id: loc.place_id || undefined,
+        lat: Number(loc.lat),
+        lng: Number(loc.lng),
+        location: {
+          lat: Number(loc.lat),
+          lng: Number(loc.lng),
+        },
+        is_verified: false, // Não existe no banco
+        is_active: true, // Assumir ativo se retornou
+        created_at: loc.created_at,
+        updated_at: loc.updated_at,
+      }))
+
+      return { data: mappedData }
     } catch (error) {
       return { error: error instanceof Error ? error.message : 'Failed to get locations' }
     }
@@ -353,17 +381,18 @@ export class LocationService {
 
   static async getCategories(): Promise<ApiResponse<any[]>> {
     try {
+      // Tentar buscar da tabela, mas se não existir ou tiver erro, usar categorias padrão
       const { data, error } = await supabase
         .from('location_categories')
-        .select('id,name,icon,color,is_active')
+        .select('id,name,icon_url,is_active,display_order')
         .eq('is_active', true)
-        .order('name')
+        .order('display_order')
 
       if (error) {
         console.warn('[LocationService] getCategories error:', error)
-        // Se a tabela não existe ou erro 404, retornar categorias padrão
-        if (error.code === 'PGRST116' || error.code === '42P01' || error.message?.includes('does not exist') || error.message?.includes('relation') || error.message?.includes('404')) {
-          console.warn('[LocationService] location_categories table not found, using default categories')
+        // Se a tabela não existe ou erro, retornar categorias padrão
+        if (error.code === 'PGRST116' || error.code === '42P01' || error.code === '42703' || error.message?.includes('does not exist') || error.message?.includes('relation') || error.message?.includes('404') || error.message?.includes('column')) {
+          console.warn('[LocationService] location_categories table not found or missing columns, using default categories')
           return { 
             data: [
               { id: 'bar', name: 'Bar', icon: '🍺', color: '#FF6B6B' },
@@ -377,7 +406,16 @@ export class LocationService {
         throw error
       }
 
-      return { data: data || [] }
+      // Adicionar ícones padrão se não vierem do banco e mapear icon_url para icon
+      const categories = (data || []).map(cat => ({
+        id: cat.id,
+        name: cat.name,
+        icon: cat.icon_url || '📍',
+        color: '#FF6B6B', // Cor padrão já que não existe no banco
+        is_active: cat.is_active
+      }))
+
+      return { data: categories }
     } catch (error) {
       console.error('[LocationService] getCategories error:', error)
       // Retornar categorias padrão em caso de erro

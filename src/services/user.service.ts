@@ -94,8 +94,31 @@ export class UserService {
   ): Promise<ApiResponse<UserPreferences>> {
     try {
       // ✅ VALIDAÇÃO CRÍTICA: Garantir que userId === auth.uid()
-      const { data: { user }, error: authError } = await supabase.auth.getUser()
-      if (authError || !user || user.id !== userId) {
+      // Usar getSession() primeiro (mais rápido e confiável após signup)
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+      
+      // Se não houver sessão, tentar getUser() como fallback
+      let authenticatedUserId: string | null = null
+      if (session?.user) {
+        authenticatedUserId = session.user.id
+      } else {
+        // Fallback: tentar getUser() se getSession() não retornou usuário
+        const { data: { user }, error: authError } = await supabase.auth.getUser()
+        if (authError) {
+          console.error('[UserService] Erro ao obter usuário autenticado:', authError)
+          return { error: 'Não autorizado: usuário não autenticado' }
+        }
+        authenticatedUserId = user?.id || null
+      }
+      
+      // Validar que o userId fornecido corresponde ao usuário autenticado
+      if (!authenticatedUserId || authenticatedUserId !== userId) {
+        console.error('[UserService] Validação de autorização falhou:', {
+          providedUserId: userId,
+          authenticatedUserId,
+          hasSession: !!session,
+          sessionError
+        })
         return { error: 'Não autorizado: userId não corresponde ao usuário autenticado' }
       }
       

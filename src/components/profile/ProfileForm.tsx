@@ -186,7 +186,7 @@ export function ProfileForm() {
     }
 
     // Validar tipo de arquivo
-    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp']
+    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif']
     if (!validTypes.includes(file.type)) {
       toast.error('Tipo de arquivo inválido. Use JPEG, PNG ou WebP.')
       return
@@ -239,14 +239,35 @@ export function ProfileForm() {
         .from('profile-photos')
         .getPublicUrl(filePath)
 
+      // Validar acessibilidade da URL e tentar assinar se necessário
+      let finalUrl = publicUrl
+      try {
+        const headResp = await fetch(publicUrl, { method: 'HEAD' })
+        if (!headResp.ok) {
+          const { data: signed } = await supabase.storage
+            .from('profile-photos')
+            .createSignedUrl(filePath, 60 * 60)
+          if (signed?.signedUrl) {
+            finalUrl = signed.signedUrl
+          }
+        }
+      } catch {
+        const { data: signed } = await supabase.storage
+          .from('profile-photos')
+          .createSignedUrl(filePath, 60 * 60)
+        if (signed?.signedUrl) {
+          finalUrl = signed.signedUrl
+        }
+      }
+
       // Atualizar array de fotos
       const newPhotos = [...photos]
       if (index < newPhotos.length) {
         // Substituir foto existente
-        newPhotos[index] = publicUrl
+        newPhotos[index] = finalUrl
       } else {
         // Adicionar nova foto
-        newPhotos.push(publicUrl)
+        newPhotos.push(finalUrl)
       }
       
       // Garantir máximo de 3 fotos
@@ -416,6 +437,7 @@ export function ProfileForm() {
                       src={photos[index]} 
                       alt={`Foto ${index + 1}`}
                       className="w-full h-full object-cover"
+                      onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/placeholder.svg' }}
                     />
                     <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                       <Label htmlFor={`photo-upload-${index}`} className="cursor-pointer">
