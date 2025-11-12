@@ -31,7 +31,6 @@ export function VibeLocalPage() {
   const requestedOnceRef = useRef(false)
   const isMountedRef = useRef(true)
   const isRequestingRef = useRef(false) // Prevenir chamadas simultâneas
-  const sheetOpenRef = useRef(false) // Prevenir fechamento imediato do Sheet
 
   // Solicitar localização do usuário
   const requestLocation = useCallback(() => {
@@ -249,6 +248,7 @@ export function VibeLocalPage() {
           {/* Botão discreto para mudar localização - posicionado no canto superior direito */}
           {latitude && longitude && (
             <Button
+              type="button"
               variant="ghost"
               size="icon"
               className="absolute top-0 right-0 h-8 w-8 text-muted-foreground hover:text-foreground"
@@ -256,12 +256,10 @@ export function VibeLocalPage() {
               onClick={(e) => {
                 e.preventDefault()
                 e.stopPropagation()
-                sheetOpenRef.current = true
-                setShowChangeLocation(true)
-                // Resetar o ref após um pequeno delay para permitir fechamento normal
-                setTimeout(() => {
-                  sheetOpenRef.current = false
-                }, 300)
+                // Usar requestAnimationFrame para garantir que o estado seja atualizado após o evento
+                requestAnimationFrame(() => {
+                  setShowChangeLocation(true)
+                })
               }}
             >
               <MapPinned className="h-4 w-4" />
@@ -271,13 +269,7 @@ export function VibeLocalPage() {
           {/* Sheet sempre renderizado para evitar problemas de montagem/desmontagem */}
           <Sheet 
             open={showChangeLocation} 
-            onOpenChange={(open) => {
-              // Permitir fechamento apenas se não estiver sendo aberto
-              if (open) {
-                sheetOpenRef.current = true
-              }
-              setShowChangeLocation(open)
-            }}
+            onOpenChange={setShowChangeLocation}
           >
             <SheetContent 
               side="right" 
@@ -346,15 +338,15 @@ export function VibeLocalPage() {
           <div className="max-w-2xl mx-auto">
             {/* Conteúdo de solicitação de localização */}
             <div className="space-y-4">
-              {/* Mostrar GeolocationHandler quando erro é PERMISSION_DENIED (código 1) */}
-              {errorCode === 1 ? (
+              {/* Mostrar GeolocationHandler quando erro é PERMISSION_DENIED (código 1) e não há localização */}
+              {errorCode === 1 && !latitude && !longitude ? (
                 <GeolocationHandler
                   onSubmitManual={handleManualSearch}
                   onRetry={requestLocation}
                 />
               ) : (
                 <>
-                  {locationError && errorCode !== 1 && (
+                  {locationError && errorCode !== 1 && !latitude && !longitude && (
                     <Alert variant="destructive">
                       <AlertDescription className="space-y-2">
                         <p>{locationError}</p>
@@ -372,29 +364,31 @@ export function VibeLocalPage() {
                     </Alert>
                   )}
 
-                  <div className="flex flex-col items-center justify-center p-12 border-2 border-dashed rounded-xl">
-                    <MapPin className="w-16 h-16 text-muted-foreground mb-4" />
-                    <h3 className="text-xl font-semibold mb-2">
-                      {isRequestingLocation ? 'Obtendo localização...' : 'Localização necessária'}
-                    </h3>
-                    <p className="text-muted-foreground mb-6 text-center max-w-md">
-                      {isRequestingLocation
-                        ? 'Por favor, permita o acesso à sua localização para encontrar locais próximos.'
-                        : 'Precisamos da sua localização para mostrar os melhores locais perto de você.'}
-                    </p>
-                    {!isRequestingLocation && (
-                      <Button onClick={requestLocation} size="lg" className="shadow-hard">
-                        <MapPin className="w-4 h-4 mr-2" />
-                        {locationError ? 'Tentar Novamente' : 'Permitir Localização'}
-                      </Button>
-                    )}
-                    {isRequestingLocation && (
-                      <div className="flex flex-col items-center gap-2">
-                        <Loader2 className="w-8 h-8 animate-spin text-primary" />
-                        <p className="text-sm text-muted-foreground">Aguardando permissão...</p>
-                      </div>
-                    )}
-                  </div>
+                  {!latitude && !longitude && (
+                    <div className="flex flex-col items-center justify-center p-12 border-2 border-dashed rounded-xl">
+                      <MapPin className="w-16 h-16 text-muted-foreground mb-4" />
+                      <h3 className="text-xl font-semibold mb-2">
+                        {isRequestingLocation ? 'Obtendo localização...' : 'Localização necessária'}
+                      </h3>
+                      <p className="text-muted-foreground mb-6 text-center max-w-md">
+                        {isRequestingLocation
+                          ? 'Por favor, permita o acesso à sua localização para encontrar locais próximos.'
+                          : 'Precisamos da sua localização para mostrar os melhores locais perto de você.'}
+                      </p>
+                      {!isRequestingLocation && (
+                        <Button onClick={requestLocation} size="lg" className="shadow-hard">
+                          <MapPin className="w-4 h-4 mr-2" />
+                          {locationError ? 'Tentar Novamente' : 'Permitir Localização'}
+                        </Button>
+                      )}
+                      {isRequestingLocation && (
+                        <div className="flex flex-col items-center gap-2">
+                          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                          <p className="text-sm text-muted-foreground">Aguardando permissão...</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </>
               )}
             </div>

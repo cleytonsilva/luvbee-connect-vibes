@@ -66,3 +66,9 @@ tmp/
 temp/
 *.tmp
 *.temp
+
+# Large media files (hosted externally)
+public/videos/
+public/videos2/
+*.mp4
+*.webm
