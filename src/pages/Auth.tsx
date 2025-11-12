@@ -1,69 +1,134 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { UserService } from "@/services/user.service";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { userLoginSchema, userRegisterSchema, type UserLoginInput, type UserRegisterInput } from "@/lib/validations";
+import { toast } from "sonner";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const Auth = () => {
   const navigate = useNavigate();
-  const { toast } = useToast();
-  const [isLoading, setIsLoading] = useState(false);
+  const { signIn, signUp, isLoading, error, user, clearError } = useAuth();
+  const [activeTab, setActiveTab] = useState<"login" | "signup">("login");
+  
+  // Login form
+  const {
+    register: registerLogin,
+    handleSubmit: handleSubmitLogin,
+    formState: { errors: errorsLogin },
+    reset: resetLogin
+  } = useForm<UserLoginInput>({
+    resolver: zodResolver(userLoginSchema)
+  });
 
-  // Login state
-  const [loginEmail, setLoginEmail] = useState("");
-  const [loginPassword, setLoginPassword] = useState("");
+  // Register form
+  const {
+    register: registerSignup,
+    handleSubmit: handleSubmitSignup,
+    watch,
+    setValue,
+    formState: { errors: errorsSignup },
+    reset: resetSignup
+  } = useForm<UserRegisterInput & { confirmPassword: string; acceptTerms: boolean }>({
+    resolver: zodResolver(userRegisterSchema.extend({
+      confirmPassword: userRegisterSchema.shape.password
+    }))
+  });
 
-  // Signup state
-  const [signupName, setSignupName] = useState("");
-  const [signupEmail, setSignupEmail] = useState("");
-  const [signupPassword, setSignupPassword] = useState("");
-  const [drinkPreference, setDrinkPreference] = useState("");
-  const [foodPreference, setFoodPreference] = useState("");
-  const [venueType, setVenueType] = useState("");
+  const password = watch('password');
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-
-    // Simulated login - replace with actual authentication
-    setTimeout(() => {
-      setIsLoading(false);
-      toast({
-        title: "Login realizado!",
-        description: "Bem-vindo de volta ao luvbee",
-      });
-      navigate("/locations");
-    }, 1000);
+  // Limpar erros ao trocar de aba
+  const handleTabChange = (value: string) => {
+    clearError();
+    setActiveTab(value as "login" | "signup");
+    resetLogin();
+    resetSignup();
   };
 
-  const handleSignup = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!drinkPreference || !foodPreference || !venueType) {
-      toast({
-        variant: "destructive",
-        title: "Ops!",
-        description: "Preencha todas as suas preferências",
+  // Redirecionar quando autenticação for bem-sucedida
+  useEffect(() => {
+    if (user && !isLoading && !error) {
+      const redirectUser = async () => {
+        try {
+          const hasCompleted = await UserService.hasCompletedOnboarding(user.id);
+          
+          if (hasCompleted) {
+            toast.success("Login realizado!", {
+              description: "Bem-vindo de volta ao luvbee",
+            });
+            navigate("/dashboard/vibe-local", { replace: true });
+          } else {
+            toast.success("Conta criada!", {
+              description: "Complete seu perfil para começar",
+            });
+            navigate("/onboarding", { replace: true });
+          }
+        } catch (err) {
+          console.warn("Erro ao verificar onboarding:", err);
+          navigate("/onboarding", { replace: true });
+        }
+      };
+
+      redirectUser();
+    }
+  }, [user, isLoading, error, navigate]);
+
+  // Mostrar erros via toast
+  useEffect(() => {
+    if (error) {
+      toast.error(activeTab === "login" ? "Erro ao fazer login" : "Erro ao criar conta", {
+        description: error,
+      });
+    }
+  }, [error, activeTab]);
+
+  const handleLogin = async (data: UserLoginInput) => {
+    try {
+      await signIn(data.email, data.password);
+      // O redirecionamento será feito pelo useEffect quando user for definido
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "Erro ao fazer login";
+      toast.error("Erro ao fazer login", {
+        description: errorMessage,
+      });
+    }
+  };
+
+  const handleSignup = async (data: UserRegisterInput & { confirmPassword: string; acceptTerms: boolean }) => {
+    if (data.password !== data.confirmPassword) {
+      toast.error("Erro de validação", {
+        description: "As senhas não coincidem",
       });
       return;
     }
 
-    setIsLoading(true);
-
-    // Simulated signup - replace with actual authentication
-    setTimeout(() => {
-      setIsLoading(false);
-      toast({
-        title: "Conta criada!",
-        description: "Bem-vindo ao luvbee",
+    if (!data.acceptTerms) {
+      toast.error("Erro de validação", {
+        description: "Você deve aceitar os Termos de Uso para criar uma conta",
       });
-      navigate("/locations");
-    }, 1000);
+      return;
+    }
+
+    try {
+      // Remover campos que não são enviados ao backend
+      const { confirmPassword, acceptTerms, ...signupData } = data;
+      await signUp(signupData.email, signupData.password, signupData.name);
+      // O redirecionamento será feito pelo useEffect quando user for definido
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "Erro ao criar conta";
+      toast.error("Erro ao criar conta", {
+        description: errorMessage,
+      });
+    }
   };
 
   return (
@@ -80,32 +145,49 @@ const Auth = () => {
 
         <Card className="shadow-hard border-2">
           <CardHeader className="text-center">
-            <CardTitle className="text-3xl font-bold">
-              luv<span className="text-primary">bee</span>
+            <CardTitle className="text-3xl font-bold font-display flex items-center justify-center gap-2">
+              luvbee
+              <img 
+                src="/iconwhite.png" 
+                alt="Luvbee Logo" 
+                className="w-12 h-12 dark:hidden object-contain"
+              />
+              <img 
+                src="/iconblack.png" 
+                alt="Luvbee Logo" 
+                className="w-12 h-12 hidden dark:block object-contain"
+              />
             </CardTitle>
             <CardDescription>
               Sua noite perfeita começa aqui
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Tabs defaultValue="login" className="w-full">
+            {error && (
+              <Alert variant="destructive" className="mb-4">
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+            <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
               <TabsList className="grid w-full grid-cols-2 mb-6">
                 <TabsTrigger value="login">Entrar</TabsTrigger>
                 <TabsTrigger value="signup">Criar Conta</TabsTrigger>
               </TabsList>
 
               <TabsContent value="login">
-                <form onSubmit={handleLogin} className="space-y-4">
+                <form onSubmit={handleSubmitLogin(handleLogin)} className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="login-email">E-mail</Label>
                     <Input
                       id="login-email"
                       type="email"
                       placeholder="seu@email.com"
-                      value={loginEmail}
-                      onChange={(e) => setLoginEmail(e.target.value)}
-                      required
+                      {...registerLogin('email')}
+                      disabled={isLoading}
                     />
+                    {errorsLogin.email && (
+                      <p className="text-sm text-destructive">{errorsLogin.email.message}</p>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="login-password">Senha</Label>
@@ -113,10 +195,12 @@ const Auth = () => {
                       id="login-password"
                       type="password"
                       placeholder="••••••••"
-                      value={loginPassword}
-                      onChange={(e) => setLoginPassword(e.target.value)}
-                      required
+                      {...registerLogin('password')}
+                      disabled={isLoading}
                     />
+                    {errorsLogin.password && (
+                      <p className="text-sm text-destructive">{errorsLogin.password.message}</p>
+                    )}
                   </div>
                   <Button
                     type="submit"
@@ -129,17 +213,19 @@ const Auth = () => {
               </TabsContent>
 
               <TabsContent value="signup">
-                <form onSubmit={handleSignup} className="space-y-4">
+                <form onSubmit={handleSubmitSignup(handleSignup)} className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="signup-name">Nome</Label>
                     <Input
                       id="signup-name"
                       type="text"
                       placeholder="Seu nome"
-                      value={signupName}
-                      onChange={(e) => setSignupName(e.target.value)}
-                      required
+                      {...registerSignup('name')}
+                      disabled={isLoading}
                     />
+                    {errorsSignup.name && (
+                      <p className="text-sm text-destructive">{errorsSignup.name.message}</p>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="signup-email">E-mail</Label>
@@ -147,10 +233,12 @@ const Auth = () => {
                       id="signup-email"
                       type="email"
                       placeholder="seu@email.com"
-                      value={signupEmail}
-                      onChange={(e) => setSignupEmail(e.target.value)}
-                      required
+                      {...registerSignup('email')}
+                      disabled={isLoading}
                     />
+                    {errorsSignup.email && (
+                      <p className="text-sm text-destructive">{errorsSignup.email.message}</p>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="signup-password">Senha</Label>
@@ -158,67 +246,57 @@ const Auth = () => {
                       id="signup-password"
                       type="password"
                       placeholder="••••••••"
-                      value={signupPassword}
-                      onChange={(e) => setSignupPassword(e.target.value)}
-                      required
+                      {...registerSignup('password')}
+                      disabled={isLoading}
                     />
+                    {errorsSignup.password && (
+                      <p className="text-sm text-destructive">{errorsSignup.password.message}</p>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="signup-confirm-password">Confirmar Senha</Label>
+                    <Input
+                      id="signup-confirm-password"
+                      type="password"
+                      placeholder="••••••••"
+                      {...registerSignup('confirmPassword', {
+                        validate: (value) => value === password || 'As senhas não coincidem'
+                      })}
+                      disabled={isLoading}
+                    />
+                    {errorsSignup.confirmPassword && (
+                      <p className="text-sm text-destructive">{errorsSignup.confirmPassword.message}</p>
+                    )}
                   </div>
 
-                  <div className="pt-4 border-t">
-                    <h3 className="font-semibold mb-4 text-sm text-muted-foreground">
-                      Suas Preferências
-                    </h3>
-                    
-                    <div className="space-y-3">
-                      <div className="space-y-2">
-                        <Label htmlFor="drink">Bebida Favorita</Label>
-                        <Select value={drinkPreference} onValueChange={setDrinkPreference}>
-                          <SelectTrigger id="drink">
-                            <SelectValue placeholder="Escolha..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="cerveja">Cerveja</SelectItem>
-                            <SelectItem value="vinho">Vinho</SelectItem>
-                            <SelectItem value="drinks">Drinks</SelectItem>
-                            <SelectItem value="destilados">Destilados</SelectItem>
-                            <SelectItem value="nao-alcoolico">Não alcoólico</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label htmlFor="food">Tipo de Comida</Label>
-                        <Select value={foodPreference} onValueChange={setFoodPreference}>
-                          <SelectTrigger id="food">
-                            <SelectValue placeholder="Escolha..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="petiscos">Petiscos</SelectItem>
-                            <SelectItem value="japonesa">Japonesa</SelectItem>
-                            <SelectItem value="italiana">Italiana</SelectItem>
-                            <SelectItem value="hamburger">Hambúrguer</SelectItem>
-                            <SelectItem value="vegetariana">Vegetariana</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label htmlFor="venue">Tipo de Local</Label>
-                        <Select value={venueType} onValueChange={setVenueType}>
-                          <SelectTrigger id="venue">
-                            <SelectValue placeholder="Escolha..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="bar">Bar</SelectItem>
-                            <SelectItem value="balada">Balada</SelectItem>
-                            <SelectItem value="pub">Pub</SelectItem>
-                            <SelectItem value="lounge">Lounge</SelectItem>
-                            <SelectItem value="rooftop">Rooftop</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
+                  <div className="flex items-start space-x-2">
+                    <Checkbox
+                      id="accept-terms"
+                      checked={watch('acceptTerms')}
+                      onCheckedChange={(checked) => setValue('acceptTerms', checked === true)}
+                      disabled={isLoading}
+                    />
+                    <div className="grid gap-1.5 leading-none">
+                      <Label
+                        htmlFor="accept-terms"
+                        className="text-sm font-normal leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                      >
+                        Aceito os{" "}
+                        <Link 
+                          to="/termos-de-uso" 
+                          target="_blank"
+                          className="text-primary underline hover:text-primary/80"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          Termos de Uso
+                        </Link>
+                        {" "}e confirmo que tenho mais de 18 anos
+                      </Label>
                     </div>
                   </div>
+                  {errorsSignup.acceptTerms && (
+                    <p className="text-sm text-destructive">{errorsSignup.acceptTerms.message}</p>
+                  )}
 
                   <Button
                     type="submit"

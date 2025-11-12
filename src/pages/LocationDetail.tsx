@@ -2,6 +2,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, MapPin, Star, Clock, Users, Phone, Globe } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { ROUTES } from "@/lib/constants";
 import bar1 from "@/assets/bar-1.jpg";
 
 const LocationDetail = () => {
@@ -121,7 +122,7 @@ const LocationDetail = () => {
           <div className="flex gap-3">
             <Button 
               className="flex-1"
-              onClick={() => navigate(`/people-match/${id}`)}
+              onClick={() => navigate(`${ROUTES.PEOPLE}?locationId=${id}`)}
             >
               Ver Pessoas Interessadas
             </Button>

@@ -2,7 +2,18 @@
 <html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
+    <link rel="icon" type="image/png" href="/abaicon.png" />
+    <link rel="apple-touch-icon" href="/abaicon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    
+    <!-- Content Security Policy -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://maps.googleapis.com https://maps.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: blob:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://maps.googleapis.com; frame-src 'self' https://maps.googleapis.com;">
+    
+    <!-- Google Fonts - Momo Trust Display -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Momo+Trust+Display&display=swap" rel="stylesheet">
+    
     <title>luvbee - Encontre locais e pessoas incríveis</title>
     <meta name="description" content="Descubra os melhores bares e baladas e conecte-se com pessoas que compartilham seus gostos. Swipe, match e aproveite a noite!" />
     <meta name="author" content="luvbee" />
@@ -10,11 +21,13 @@
     <meta property="og:title" content="luvbee - Sua noite perfeita começa aqui" />
     <meta property="og:description" content="Encontre os melhores locais da noite e conecte-se com pessoas que curtem o mesmo que você" />
     <meta property="og:type" content="website" />
-    <meta property="og:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
+    <meta property="og:image" content="/abaicon.png" />
 
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:site" content="@luvbee" />
-    <meta name="twitter:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
+    <meta name="twitter:image" content="/abaicon.png" />
+
+    <!-- Google Maps será carregado dinamicamente via GoogleMapsLoader -->
   </head>
 
   <body>

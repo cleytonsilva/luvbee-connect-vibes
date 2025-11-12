@@ -110,3 +110,81 @@
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }
 }
+
+/* Estilização do Google Places Autocomplete para seguir o design system */
+.pac-container {
+  background-color: hsl(var(--card)) !important;
+  border: 2px solid hsl(var(--border)) !important;
+  border-radius: var(--radius) !important;
+  box-shadow: var(--shadow-hard) !important;
+  font-family: 'Space Grotesk', sans-serif !important;
+  margin-top: 4px !important;
+}
+
+.pac-item {
+  padding: 12px 16px !important;
+  border-top: 1px solid hsl(var(--border)) !important;
+  cursor: pointer !important;
+  color: hsl(var(--foreground)) !important;
+  font-size: 14px !important;
+}
+
+.pac-item:first-child {
+  border-top: none !important;
+}
+
+.pac-item:hover,
+.pac-item-selected {
+  background-color: hsl(var(--primary) / 0.1) !important;
+  color: hsl(var(--primary)) !important;
+}
+
+.pac-icon {
+  display: none !important;
+}
+
+.pac-item-query {
+  color: hsl(var(--foreground)) !important;
+  font-weight: 500 !important;
+}
+
+.pac-matched {
+  color: hsl(var(--primary)) !important;
+  font-weight: 600 !important;
+}
+
+/* Estilização do Places UI Kit para seguir o design system */
+gmp-place-search,
+gmp-place-details,
+gmp-place-details-compact {
+  /* Cores do design system */
+  --gmp-mat-color-on-surface: hsl(var(--foreground)) !important;
+  --gmp-mat-color-surface: hsl(var(--card)) !important;
+  --gmp-mat-color-primary: hsl(var(--primary)) !important;
+  
+  /* Fonte do design system */
+  --gmp-mat-font-family: 'Space Grotesk', sans-serif !important;
+  
+  /* Bordas e sombras neo-brutalistas */
+  border: 2px solid hsl(var(--border)) !important;
+  border-radius: var(--radius) !important;
+  box-shadow: var(--shadow-hard) !important;
+}
+
+/* Estilizar elementos internos do Places UI Kit */
+gmp-place-search *,
+gmp-place-details *,
+gmp-place-details-compact * {
+  font-family: 'Space Grotesk', sans-serif !important;
+}
+
+/* Estilizar lista de resultados do Place Search */
+gmp-place-search gmp-place-list-item {
+  border-top: 1px solid hsl(var(--border)) !important;
+  padding: 12px 16px !important;
+  cursor: pointer !important;
+}
+
+gmp-place-search gmp-place-list-item:hover {
+  background-color: hsl(var(--primary) / 0.1) !important;
+}

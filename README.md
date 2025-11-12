@@ -1,73 +1,91 @@
-# Welcome to your Lovable project
+# LuvBee Connect Vibes
 
-## Project info
+Plataforma de conexão social baseada em locais e interesses comuns.
 
-**URL**: https://lovable.dev/projects/570e9be3-af43-409a-a5a8-ddeb07751dff
+## 🎯 Status do Projeto
 
-## How can I edit this code?
+- ✅ **Projeto Funcional** - Código completo e testado
+- ✅ **Supabase Integrado** - Backend completo configurado
+- ✅ **Rotas Protegidas** - Autenticação e autorização funcionando
+- ✅ **Componentes Padronizados** - UI consistente com Shadcn
+- ✅ **Pronto para Deploy** - Configurado para Vercel
 
-There are several ways of editing your application.
+## 🚀 Quick Start
 
-**Use Lovable**
+### Desenvolvimento Local
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/570e9be3-af43-409a-a5a8-ddeb07751dff) and start prompting.
+```bash
+# 1. Instalar dependências
+npm install
 
-Changes made via Lovable will be committed automatically to this repo.
+# 2. Configurar variáveis de ambiente
+cp .env.example .env.local
+# Edite .env.local com suas credenciais Supabase
 
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+# 3. Iniciar desenvolvimento
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+### Deploy na Vercel
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+Consulte o guia completo em **[DEPLOY.md](./DEPLOY.md)**
 
-**Use GitHub Codespaces**
+```bash
+# Build de produção
+npm run build
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+# Preview local do build
+npm run preview
+```
 
-## What technologies are used for this project?
+## 🛠️ Tecnologias
 
-This project is built with:
+- **Frontend**: React 18 + TypeScript + Vite
+- **UI**: TailwindCSS + Shadcn UI
+- **Backend**: Supabase (PostgreSQL + Auth + Storage + Realtime)
+- **Validação**: Zod
+- **Roteamento**: React Router v6
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+## 📚 Documentação
 
-## How can I deploy this project?
+- **[DEPLOY.md](./DEPLOY.md)** - Guia de deploy na Vercel
+- **[CONFIGURACAO-SEGURANCA.md](./CONFIGURACAO-SEGURANCA.md)** - Configurações de segurança
 
-Simply open [Lovable](https://lovable.dev/projects/570e9be3-af43-409a-a5a8-ddeb07751dff) and click on Share -> Publish.
+## 🔧 Scripts Principais
 
-## Can I connect a custom domain to my Lovable project?
+```bash
+npm run dev              # Servidor de desenvolvimento
+npm run build            # Build de produção
+npm run preview          # Preview do build de produção
+npm run lint             # Verificar código
+npm run test             # Executar testes
+```
 
-Yes, you can!
+## 🔒 Segurança
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+O projeto inclui:
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+- ✅ Sanitização XSS com DOMPurify
+- ✅ Validação backend com CHECK constraints
+- ✅ Políticas RLS no Supabase
+- ✅ Headers de segurança configurados
+- ✅ Content Security Policy (CSP)
+
+## 📝 Variáveis de Ambiente
+
+Crie um arquivo `.env.local` baseado em `.env.example`:
+
+```env
+VITE_SUPABASE_URL=your-supabase-url
+VITE_SUPABASE_ANON_KEY=your-anon-key
+VITE_GOOGLE_MAPS_API_KEY=your-google-maps-key (opcional)
+```
+
+**⚠️ IMPORTANTE**: Nunca commite arquivos `.env` ou `.env.local`!
+
+## 🔗 Links Úteis
+
+- [Dashboard Supabase](https://app.supabase.com)
+- [Documentação Supabase](https://supabase.com/docs)
+- [Shadcn UI](https://ui.shadcn.com)
+- [Vercel](https://vercel.com)

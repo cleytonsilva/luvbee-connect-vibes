@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ArrowLeft, Camera, Settings } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { ROUTES } from "@/lib/constants";
 import avatarPlaceholder from "@/assets/avatar-placeholder.jpg";
 
 const Profile = () => {
@@ -32,11 +33,11 @@ const Profile = () => {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="flex items-center justify-between p-4 border-b bg-card">
-        <Button variant="ghost" size="icon" onClick={() => navigate("/locations")}>
+        <Button variant="ghost" size="icon" onClick={() => navigate(ROUTES.LOCATIONS)}>
           <ArrowLeft />
         </Button>
         <h1 className="text-xl font-bold">Perfil</h1>
-        <Button variant="ghost" size="icon" onClick={() => navigate("/settings")}>
+        <Button variant="ghost" size="icon" onClick={() => navigate(ROUTES.SETTINGS)}>
           <Settings />
         </Button>
       </header>
