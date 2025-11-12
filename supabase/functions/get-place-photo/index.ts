@@ -6,15 +6,26 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
  * Esta função proxy protege a chave da API Google Maps,
  * evitando exposição no bundle JavaScript do frontend.
  * 
- * Uso:
- * const { data } = await supabase.functions.invoke('get-place-photo', {
- *   body: { photoreference: '...', maxwidth: 400 }
- * })
+ * Suporta GET (query params) e POST (body):
+ * GET: /functions/v1/get-place-photo?photoreference=...&maxwidth=400
+ * POST: { photoreference: '...', maxwidth: 400 }
  */
 
 Deno.serve(async (req: Request) => {
-  // Permitir apenas POST
-  if (req.method !== 'POST') {
+  // Handle CORS preflight
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', {
+      status: 200,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+      }
+    })
+  }
+
+  // Permitir GET e POST
+  if (req.method !== 'GET' && req.method !== 'POST') {
     return new Response(
       JSON.stringify({ error: 'Method not allowed' }),
       { 
@@ -25,7 +36,23 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const { photoreference, maxwidth = 400 } = await req.json()
+    let photoreference: string
+    let maxwidth: number = 400
+
+    if (req.method === 'GET') {
+      // Obter parâmetros da query string
+      const url = new URL(req.url)
+      photoreference = url.searchParams.get('photoreference') || ''
+      const maxwidthParam = url.searchParams.get('maxwidth')
+      if (maxwidthParam) {
+        maxwidth = parseInt(maxwidthParam, 10) || 400
+      }
+    } else {
+      // Obter parâmetros do body (POST)
+      const body = await req.json()
+      photoreference = body.photoreference || ''
+      maxwidth = body.maxwidth || 400
+    }
 
     if (!photoreference) {
       return new Response(
@@ -72,6 +99,9 @@ Deno.serve(async (req: Request) => {
       headers: {
         'Content-Type': response.headers.get('Content-Type') || 'image/jpeg',
         'Cache-Control': 'public, max-age=3600',
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
       }
     })
   } catch (error) {

@@ -18,11 +18,46 @@ serve(async (req) => {
   }
 
   try {
-    const { latitude, longitude, radius = 5000, type, keyword } = await req.json()
+    let body: any
+    try {
+      body = await req.json()
+    } catch (error) {
+      return new Response(
+        JSON.stringify({ error: 'Body inválido ou ausente' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
 
-    if (!latitude || !longitude) {
+    const { latitude, longitude, radius = 5000, type, keyword } = body
+
+    // Validar tipos e valores
+    if (latitude === undefined || longitude === undefined || latitude === null || longitude === null) {
       return new Response(
         JSON.stringify({ error: 'Latitude e longitude são obrigatórios' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    const latNum = Number(latitude)
+    const lngNum = Number(longitude)
+
+    if (isNaN(latNum) || isNaN(lngNum)) {
+      return new Response(
+        JSON.stringify({ error: 'Latitude e longitude devem ser números válidos' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    if (latNum < -90 || latNum > 90) {
+      return new Response(
+        JSON.stringify({ error: 'Latitude deve estar entre -90 e 90' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    if (lngNum < -180 || lngNum > 180) {
+      return new Response(
+        JSON.stringify({ error: 'Longitude deve estar entre -180 e 180' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
@@ -37,8 +72,8 @@ serve(async (req) => {
 
     // Construir URL da API
     const url = new URL(`${GOOGLE_PLACES_API_BASE}/nearbysearch/json`)
-    url.searchParams.set('location', `${latitude},${longitude}`)
-    url.searchParams.set('radius', radius.toString())
+    url.searchParams.set('location', `${latNum},${lngNum}`)
+    url.searchParams.set('radius', Math.max(1, Math.min(50000, Number(radius) || 5000)).toString())
     url.searchParams.set('key', apiKey)
 
     if (type) {

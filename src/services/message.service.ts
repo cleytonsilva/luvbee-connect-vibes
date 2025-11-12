@@ -19,8 +19,8 @@ export class MessageService {
       const { data, error } = await supabase
         .from('messages')
         .select(`
-          *,
-          sender:users!messages_sender_id_fkey(*)
+          id, chat_id, sender_id, content, read_at, created_at,
+          sender:users!messages_sender_id_fkey(id,name,email,avatar_url)
         `)
         .eq('chat_id', chatId)
         .order('created_at', { ascending: true })
@@ -57,8 +57,8 @@ export class MessageService {
           read_at: null
         })
         .select(`
-          *,
-          sender:users!messages_sender_id_fkey(*)
+          id, chat_id, sender_id, content, read_at, created_at,
+          sender:users!messages_sender_id_fkey(id,name,email,avatar_url)
         `)
         .single()
 
@@ -138,7 +138,7 @@ export class MessageService {
     try {
       const { count, error } = await supabase
         .from('messages')
-        .select('*', { count: 'exact', head: true })
+        .select('id', { count: 'exact', head: true })
         .eq('chat_id', chatId)
         .neq('sender_id', userId)
         .is('read_at', null)
@@ -225,7 +225,7 @@ export class MessageService {
           // Buscar última mensagem
           const { data: lastMessage } = await supabase
             .from('messages')
-            .select('*')
+            .select('id, content, created_at, match_id, sender_id')
             .eq('match_id', match.id)
             .order('created_at', { ascending: false })
             .limit(1)
@@ -234,7 +234,7 @@ export class MessageService {
           // Contar mensagens não lidas
           const { count: unreadCount } = await supabase
             .from('messages')
-            .select('*', { count: 'exact', head: true })
+            .select('id', { count: 'exact', head: true })
             .eq('match_id', match.id)
             .eq('receiver_id', userId)
             .eq('is_read', false)
@@ -303,8 +303,8 @@ export class MessageService {
           const { data } = await supabase
             .from('messages')
             .select(`
-              *,
-              sender:users!messages_sender_id_fkey(*)
+              id, chat_id, sender_id, content, read_at, created_at,
+              sender:users!messages_sender_id_fkey(id,name,email,avatar_url)
             `)
             .eq('id', payload.new.id)
             .single()

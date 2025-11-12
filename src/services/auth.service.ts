@@ -383,7 +383,7 @@ export class AuthService {
       // Buscar dados do usuário primeiro
       const { data: userData, error: userError } = await supabase
         .from('users')
-        .select('*')
+        .select('id,email,name,age,location,photos,preferences,avatar_url')
         .eq('id', userId)
         .single()
 
@@ -452,7 +452,7 @@ export class AuthService {
       try {
         const { data: prefsData, error: prefsError } = await supabase
           .from('user_preferences')
-          .select('*')
+          .select('user_id,drink_preferences,food_preferences,music_preferences,vibe_preferences,interests')
           .eq('user_id', userId)
           .maybeSingle()
 

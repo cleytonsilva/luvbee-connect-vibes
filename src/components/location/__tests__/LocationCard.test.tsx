@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 import { LocationCard } from '../LocationCard'
 
 // Mock the useAuth hook
@@ -40,7 +41,11 @@ const mockLocation = {
 
 describe('LocationCard', () => {
   it('should render location information correctly', () => {
-    render(<LocationCard location={mockLocation} />)
+    render(
+      <MemoryRouter>
+        <LocationCard location={mockLocation} />
+      </MemoryRouter>
+    )
 
     expect(screen.getByText('Test Location')).toBeInTheDocument()
     expect(screen.getByText('Test description')).toBeInTheDocument()
@@ -49,14 +54,22 @@ describe('LocationCard', () => {
   })
 
   it('should display "Open Now" badge when location is open', () => {
-    render(<LocationCard location={mockLocation} />)
+    render(
+      <MemoryRouter>
+        <LocationCard location={mockLocation} />
+      </MemoryRouter>
+    )
 
     expect(screen.getByText('Open Now')).toBeInTheDocument()
   })
 
   it('should call onLocationClick when card is clicked', () => {
     const onLocationClick = vi.fn()
-    render(<LocationCard location={mockLocation} onLocationClick={onLocationClick} />)
+    render(
+      <MemoryRouter>
+        <LocationCard location={mockLocation} onLocationClick={onLocationClick} />
+      </MemoryRouter>
+    )
 
     fireEvent.click(screen.getByText('Test Location'))
 
@@ -64,7 +77,11 @@ describe('LocationCard', () => {
   })
 
   it('should show favorite button when user is logged in', () => {
-    render(<LocationCard location={mockLocation} />)
+    render(
+      <MemoryRouter>
+        <LocationCard location={mockLocation} />
+      </MemoryRouter>
+    )
 
     // Find the favorite button by looking for the Heart icon button
     const buttons = screen.getAllByRole('button')
@@ -72,7 +89,11 @@ describe('LocationCard', () => {
   })
 
   it('should show check-in button when user is logged in', () => {
-    render(<LocationCard location={mockLocation} />)
+    render(
+      <MemoryRouter>
+        <LocationCard location={mockLocation} />
+      </MemoryRouter>
+    )
 
     expect(screen.getByText('Check In')).toBeInTheDocument()
     expect(screen.getByText('View Details')).toBeInTheDocument()
@@ -88,7 +109,11 @@ describe('LocationCard', () => {
       ],
     }
 
-    render(<LocationCard location={locationWithReviews} />)
+    render(
+      <MemoryRouter>
+        <LocationCard location={locationWithReviews} />
+      </MemoryRouter>
+    )
 
     expect(screen.getByText('4.0 (3)')).toBeInTheDocument()
   })
