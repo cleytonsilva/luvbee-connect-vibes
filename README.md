@@ -5,27 +5,14 @@ Plataforma de conexão social baseada em locais e interesses comuns.
 ## 🎯 Status do Projeto
 
 - ✅ **Projeto Funcional** - Código completo e testado
-- ✅ **Spec-Kit Ativo** - Desenvolvimento orientado por especificações
 - ✅ **Supabase Integrado** - Backend completo configurado
 - ✅ **Rotas Protegidas** - Autenticação e autorização funcionando
 - ✅ **Componentes Padronizados** - UI consistente com Shadcn
-
-## 📁 Estrutura do Projeto
-
-```
-luvbee-connect-vibes/          ← PROJETO PRINCIPAL (Use esta pasta!)
-├── specs/                     ← Spec-Kit trabalhando aqui
-├── supabase/                  ← Migrações e scripts SQL
-├── src/                       ← Código fonte completo
-└── ...
-
-luvbee-connect-vibes-original/ ← VERSÃO ANTIGA (Não usar!)
-└── README-OLD-VERSION.md      ← Explicação da versão antiga
-```
-
-**⚠️ IMPORTANTE**: Use sempre `luvbee-connect-vibes/` para desenvolvimento!
+- ✅ **Pronto para Deploy** - Configurado para Vercel
 
 ## 🚀 Quick Start
+
+### Desenvolvimento Local
 
 ```bash
 # 1. Instalar dependências
@@ -35,30 +22,20 @@ npm install
 cp .env.example .env.local
 # Edite .env.local com suas credenciais Supabase
 
-# 3. Verificar banco de dados
-npm run db:check
-
-# 4. Iniciar desenvolvimento
+# 3. Iniciar desenvolvimento
 npm run dev
 ```
 
-## 📚 Documentação
+### Deploy na Vercel
 
-- **[PROJECT-STRUCTURE.md](./PROJECT-STRUCTURE.md)** - Estrutura detalhada do projeto
-- **[COMO-RODAR.md](./COMO-RODAR.md)** - Guia completo de execução
-- **[SPEC-KIT.md](./SPEC-KIT.md)** - Guia do Spec-Kit
-- **[MIGRATION_GUIDE.md](./MIGRATION_GUIDE.md)** - Guia de migração Supabase
-
-## 🔧 Scripts Disponíveis
+Consulte o guia completo em **[DEPLOY.md](./DEPLOY.md)**
 
 ```bash
-npm run dev              # Servidor de desenvolvimento
-npm run build            # Build de produção
-npm run test             # Executar testes
-npm run db:check         # Verificar banco de dados
-npm run db:migrate       # Aplicar migrações
-npm run setup:storage    # Configurar storage Supabase
-npm run setup:realtime   # Configurar realtime Supabase
+# Build de produção
+npm run build
+
+# Preview local do build
+npm run preview
 ```
 
 ## 🛠️ Tecnologias
@@ -66,25 +43,49 @@ npm run setup:realtime   # Configurar realtime Supabase
 - **Frontend**: React 18 + TypeScript + Vite
 - **UI**: TailwindCSS + Shadcn UI
 - **Backend**: Supabase (PostgreSQL + Auth + Storage + Realtime)
-- **Testes**: Vitest + React Testing Library
 - **Validação**: Zod
 - **Roteamento**: React Router v6
 
-## 📋 Spec-Kit
+## 📚 Documentação
 
-O projeto segue **Spec-Driven Development**:
+- **[DEPLOY.md](./DEPLOY.md)** - Guia de deploy na Vercel
+- **[CONFIGURACAO-SEGURANCA.md](./CONFIGURACAO-SEGURANCA.md)** - Configurações de segurança
 
-- Especificações: `specs/001-luvbee-core-platform/spec.md`
-- Plano: `specs/001-luvbee-core-platform/plan.md`
-- Tarefas: `specs/001-luvbee-core-platform/tasks.md`
-- Constituição: `memory/constitution.md`
+## 🔧 Scripts Principais
+
+```bash
+npm run dev              # Servidor de desenvolvimento
+npm run build            # Build de produção
+npm run preview          # Preview do build de produção
+npm run lint             # Verificar código
+npm run test             # Executar testes
+```
+
+## 🔒 Segurança
+
+O projeto inclui:
+
+- ✅ Sanitização XSS com DOMPurify
+- ✅ Validação backend com CHECK constraints
+- ✅ Políticas RLS no Supabase
+- ✅ Headers de segurança configurados
+- ✅ Content Security Policy (CSP)
+
+## 📝 Variáveis de Ambiente
+
+Crie um arquivo `.env.local` baseado em `.env.example`:
+
+```env
+VITE_SUPABASE_URL=your-supabase-url
+VITE_SUPABASE_ANON_KEY=your-anon-key
+VITE_GOOGLE_MAPS_API_KEY=your-google-maps-key (opcional)
+```
+
+**⚠️ IMPORTANTE**: Nunca commite arquivos `.env` ou `.env.local`!
 
 ## 🔗 Links Úteis
 
-- [Dashboard Supabase](https://app.supabase.com/project/zgxtcawgllsnnernlgim)
+- [Dashboard Supabase](https://app.supabase.com)
 - [Documentação Supabase](https://supabase.com/docs)
 - [Shadcn UI](https://ui.shadcn.com)
-
-## ⚠️ Versão Antiga
-
-A pasta `luvbee-connect-vibes-original/` contém uma versão antiga/protótipo e **NÃO deve ser usada** para desenvolvimento. Veja `luvbee-connect-vibes-original/README-OLD-VERSION.md` para mais detalhes.
+- [Vercel](https://vercel.com)
