@@ -31,7 +31,6 @@ export function VibeLocalPage() {
   const requestedOnceRef = useRef(false)
   const isMountedRef = useRef(true)
   const isRequestingRef = useRef(false) // Prevenir chamadas simultâneas
-  const sheetOpenRef = useRef(false) // Prevenir fechamento imediato do Sheet
 
   // Solicitar localização do usuário
   const requestLocation = useCallback(() => {
@@ -249,6 +248,7 @@ export function VibeLocalPage() {
           {/* Botão discreto para mudar localização - posicionado no canto superior direito */}
           {latitude && longitude && (
             <Button
+              type="button"
               variant="ghost"
               size="icon"
               className="absolute top-0 right-0 h-8 w-8 text-muted-foreground hover:text-foreground"
@@ -256,12 +256,10 @@ export function VibeLocalPage() {
               onClick={(e) => {
                 e.preventDefault()
                 e.stopPropagation()
-                sheetOpenRef.current = true
-                setShowChangeLocation(true)
-                // Resetar o ref após um pequeno delay para permitir fechamento normal
-                setTimeout(() => {
-                  sheetOpenRef.current = false
-                }, 300)
+                // Usar requestAnimationFrame para garantir que o estado seja atualizado após o evento
+                requestAnimationFrame(() => {
+                  setShowChangeLocation(true)
+                })
               }}
             >
               <MapPinned className="h-4 w-4" />
@@ -271,13 +269,7 @@ export function VibeLocalPage() {
           {/* Sheet sempre renderizado para evitar problemas de montagem/desmontagem */}
           <Sheet 
             open={showChangeLocation} 
-            onOpenChange={(open) => {
-              // Permitir fechamento apenas se não estiver sendo aberto
-              if (open) {
-                sheetOpenRef.current = true
-              }
-              setShowChangeLocation(open)
-            }}
+            onOpenChange={setShowChangeLocation}
           >
             <SheetContent 
               side="right" 
