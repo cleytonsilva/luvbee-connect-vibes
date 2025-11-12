@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { useNavigate } from "react-router-dom";
 import type { Location } from "@/types/location.types";
 import type { LocationData } from "@/types/app.types";
+import { normalizeImageUrl } from "@/lib/image-url-utils";
 
 interface LocationCardProps {
   location: Location | LocationData;
