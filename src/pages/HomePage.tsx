@@ -4,27 +4,21 @@ import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Heart, MapPin, Users } from "lucide-react";
 import { Footer } from "@/components/layout/Footer";
-
-const videoSources = [
-  "/videos/6010326_Person_Human_3840x2160.mp4",
-  "/videos/6994078_Rave_Club_Culture_3840x2160.mp4",
-  "/videos/4933420_Dj_Deejay_3840x2160.mp4",
-  "/videos/6309021_Women_Woman_3840x2160.mp4",
-  "/videos/4932857_Dj_Deejay_3840x2160.mp4",
-];
+import { useHeroVideos } from "@/services/video.service";
 
 const Welcome = () => {
   const navigate = useNavigate();
+  const { videoUrls, isLoading } = useHeroVideos();
   const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
     const video = videoRef.current;
-    if (!video) return;
+    if (!video || isLoading || videoUrls.length === 0) return;
 
     const handleVideoEnd = () => {
       // Avançar para o próximo vídeo
-      setCurrentVideoIndex((prev) => (prev + 1) % videoSources.length);
+      setCurrentVideoIndex((prev) => (prev + 1) % videoUrls.length);
     };
 
     video.addEventListener('ended', handleVideoEnd);
@@ -38,23 +32,25 @@ const Welcome = () => {
     return () => {
       video.removeEventListener('ended', handleVideoEnd);
     };
-  }, [currentVideoIndex]);
+  }, [currentVideoIndex, isLoading, videoUrls]);
 
   return (
     <div className="min-h-screen flex flex-col">
       {/* Hero Section */}
       <section className="relative h-screen flex items-center justify-center overflow-hidden">
         {/* Vídeo de fundo */}
-        <video
-          ref={videoRef}
-          className="absolute inset-0 w-full h-full object-cover"
-          autoPlay
-          muted
-          loop={false}
-          playsInline
-        >
-          <source src={videoSources[currentVideoIndex]} type="video/mp4" />
-        </video>
+        {!isLoading && videoUrls.length > 0 && (
+          <video
+            ref={videoRef}
+            className="absolute inset-0 w-full h-full object-cover"
+            autoPlay
+            muted
+            loop={false}
+            playsInline
+          >
+            <source src={videoUrls[currentVideoIndex]} type="video/mp4" />
+          </video>
+        )}
         
         {/* Gradiente de transparência mantido */}
         <div className="absolute inset-0 bg-gradient-to-b from-background/80 via-background/60 to-background" />
