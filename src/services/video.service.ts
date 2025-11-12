@@ -4,14 +4,13 @@ import { supabase } from '@/integrations/supabase'
 /**
  * Nomes dos vídeos no bucket do Supabase Storage
  * Ordem de reprodução na hero section
- * Ajuste os nomes conforme os arquivos no seu bucket
+ * Vídeos confirmados no bucket hero-videos
  */
 const VIDEO_FILENAMES = [
-  '6010326_Person_Human_3840x2160.mp4',
   '6994078_Rave_Club_Culture_3840x2160.mp4',
   '4933420_Dj_Deejay_3840x2160.mp4',
   '6309021_Women_Woman_3840x2160.mp4',
-  // Adicione ou remova vídeos conforme necessário
+  '4932857_Dj_Deejay_3840x2160.mp4',
 ]
 
 const BUCKET_NAME = 'hero-videos'
