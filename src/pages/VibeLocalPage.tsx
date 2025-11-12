@@ -346,15 +346,15 @@ export function VibeLocalPage() {
           <div className="max-w-2xl mx-auto">
             {/* Conteúdo de solicitação de localização */}
             <div className="space-y-4">
-              {/* Mostrar GeolocationHandler quando erro é PERMISSION_DENIED (código 1) */}
-              {errorCode === 1 ? (
+              {/* Mostrar GeolocationHandler quando erro é PERMISSION_DENIED (código 1) e não há localização */}
+              {errorCode === 1 && !latitude && !longitude ? (
                 <GeolocationHandler
                   onSubmitManual={handleManualSearch}
                   onRetry={requestLocation}
                 />
               ) : (
                 <>
-                  {locationError && errorCode !== 1 && (
+                  {locationError && errorCode !== 1 && !latitude && !longitude && (
                     <Alert variant="destructive">
                       <AlertDescription className="space-y-2">
                         <p>{locationError}</p>
@@ -372,29 +372,31 @@ export function VibeLocalPage() {
                     </Alert>
                   )}
 
-                  <div className="flex flex-col items-center justify-center p-12 border-2 border-dashed rounded-xl">
-                    <MapPin className="w-16 h-16 text-muted-foreground mb-4" />
-                    <h3 className="text-xl font-semibold mb-2">
-                      {isRequestingLocation ? 'Obtendo localização...' : 'Localização necessária'}
-                    </h3>
-                    <p className="text-muted-foreground mb-6 text-center max-w-md">
-                      {isRequestingLocation
-                        ? 'Por favor, permita o acesso à sua localização para encontrar locais próximos.'
-                        : 'Precisamos da sua localização para mostrar os melhores locais perto de você.'}
-                    </p>
-                    {!isRequestingLocation && (
-                      <Button onClick={requestLocation} size="lg" className="shadow-hard">
-                        <MapPin className="w-4 h-4 mr-2" />
-                        {locationError ? 'Tentar Novamente' : 'Permitir Localização'}
-                      </Button>
-                    )}
-                    {isRequestingLocation && (
-                      <div className="flex flex-col items-center gap-2">
-                        <Loader2 className="w-8 h-8 animate-spin text-primary" />
-                        <p className="text-sm text-muted-foreground">Aguardando permissão...</p>
-                      </div>
-                    )}
-                  </div>
+                  {!latitude && !longitude && (
+                    <div className="flex flex-col items-center justify-center p-12 border-2 border-dashed rounded-xl">
+                      <MapPin className="w-16 h-16 text-muted-foreground mb-4" />
+                      <h3 className="text-xl font-semibold mb-2">
+                        {isRequestingLocation ? 'Obtendo localização...' : 'Localização necessária'}
+                      </h3>
+                      <p className="text-muted-foreground mb-6 text-center max-w-md">
+                        {isRequestingLocation
+                          ? 'Por favor, permita o acesso à sua localização para encontrar locais próximos.'
+                          : 'Precisamos da sua localização para mostrar os melhores locais perto de você.'}
+                      </p>
+                      {!isRequestingLocation && (
+                        <Button onClick={requestLocation} size="lg" className="shadow-hard">
+                          <MapPin className="w-4 h-4 mr-2" />
+                          {locationError ? 'Tentar Novamente' : 'Permitir Localização'}
+                        </Button>
+                      )}
+                      {isRequestingLocation && (
+                        <div className="flex flex-col items-center gap-2">
+                          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                          <p className="text-sm text-muted-foreground">Aguardando permissão...</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </>
               )}
             </div>

@@ -39,7 +39,7 @@ export function Navigation({ className = '' }: NavigationProps) {
   }
 
   return (
-    <nav className={cn('bg-background shadow-sm border-b border-border', className)}>
+    <nav className={cn('bg-background dark:bg-black shadow-sm border-b border-border', className)}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           <div className="flex items-center">
@@ -70,8 +70,8 @@ export function Navigation({ className = '' }: NavigationProps) {
                   className={cn(
                     'flex items-center space-x-1 px-3 py-2 rounded-md text-sm font-medium transition-colors',
                     isActive(item.href)
-                      ? 'text-purple-600 bg-purple-50'
-                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                      ? 'text-primary bg-primary/10 dark:bg-primary/20'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-accent/10 dark:hover:bg-accent/20'
                   )}
                 >
                   <Icon className="h-4 w-4" />
@@ -87,11 +87,11 @@ export function Navigation({ className = '' }: NavigationProps) {
                 <div className="hidden md:flex items-center space-x-2">
                   <Avatar className="h-8 w-8">
                     <AvatarImage src={profile?.avatar_url} />
-                    <AvatarFallback className="bg-purple-100 text-purple-600">
+                    <AvatarFallback className="bg-primary/20 text-primary dark:bg-primary/30">
                       {profile?.name?.charAt(0).toUpperCase() || user.email?.charAt(0).toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
-                  <span className="text-sm font-medium text-gray-700">
+                  <span className="text-sm font-medium text-foreground">
                     {profile?.name || user.email}
                   </span>
                 </div>
@@ -128,7 +128,7 @@ export function Navigation({ className = '' }: NavigationProps) {
         </div>
 
         {isMobileMenuOpen && user && (
-          <div className="md:hidden border-t border-gray-200">
+          <div className="md:hidden border-t border-border">
             <div className="px-2 pt-2 pb-3 space-y-1">
               {navigationItems.map((item) => {
                 const Icon = item.icon
@@ -139,8 +139,8 @@ export function Navigation({ className = '' }: NavigationProps) {
                     className={cn(
                       'flex items-center space-x-2 px-3 py-2 rounded-md text-base font-medium',
                       isActive(item.href)
-                        ? 'text-purple-600 bg-purple-50'
-                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                        ? 'text-primary bg-primary/10 dark:bg-primary/20'
+                        : 'text-muted-foreground hover:text-foreground hover:bg-accent/10 dark:hover:bg-accent/20'
                     )}
                     onClick={() => setIsMobileMenuOpen(false)}
                   >
@@ -150,10 +150,10 @@ export function Navigation({ className = '' }: NavigationProps) {
                 )
               })}
               
-              <div className="border-t border-gray-200 pt-2">
+              <div className="border-t border-border pt-2">
                 <button
                   onClick={signOut}
-                  className="flex items-center space-x-2 w-full px-3 py-2 rounded-md text-base font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+                  className="flex items-center space-x-2 w-full px-3 py-2 rounded-md text-base font-medium text-muted-foreground hover:text-foreground hover:bg-accent/10 dark:hover:bg-accent/20"
                 >
                   <LogOut className="h-5 w-5" />
                   <span>Sign Out</span>

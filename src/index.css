@@ -49,13 +49,13 @@
   }
 
   .dark {
-    --background: 320 40% 5%; /* #1a101a */
+    --background: 0 0% 0%; /* Preto total */
     --foreground: 0 0% 100%;
 
-    --card: 320 35% 10%;
+    --card: 0 0% 0%; /* Preto total */
     --card-foreground: 0 0% 100%;
 
-    --popover: 320 35% 10%;
+    --popover: 0 0% 0%; /* Preto total */
     --popover-foreground: 0 0% 100%;
 
     --primary: 300 100% 50%;
@@ -64,7 +64,7 @@
     --secondary: 280 40% 30%;
     --secondary-foreground: 0 0% 100%;
 
-    --muted: 320 30% 15%;
+    --muted: 0 0% 10%; /* Quase preto */
     --muted-foreground: 0 0% 70%;
 
     --accent: 330 100% 60%;
