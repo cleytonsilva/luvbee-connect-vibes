@@ -61,21 +61,36 @@ Deno.serve(async (req: Request) => {
         JSON.stringify({ error: 'photoreference é obrigatório' }),
         { 
           status: 400,
-          headers: { 'Content-Type': 'application/json' }
+          headers: { 
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+            'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-application-name',
+          }
         }
       )
     }
 
     // Obter chave da API do ambiente (configurada como secret no Supabase)
+    // Suporta tanto GOOGLE_MAPS_BACKEND_KEY quanto GOOGLE_MAPS_API_KEY
     // @ts-ignore - Deno.env is available in Deno runtime
-    const apiKey = Deno.env.get('GOOGLE_MAPS_API_KEY')
+    const apiKey = Deno.env.get('GOOGLE_MAPS_BACKEND_KEY') || Deno.env.get('GOOGLE_MAPS_API_KEY')
     
     if (!apiKey) {
+      console.error('[get-place-photo] Google Maps API key não configurada. Verifique as variáveis GOOGLE_MAPS_BACKEND_KEY ou GOOGLE_MAPS_API_KEY')
       return new Response(
-        JSON.stringify({ error: 'Google Maps API key não configurada' }),
+        JSON.stringify({ 
+          error: 'Google Maps API key não configurada',
+          details: 'Configure GOOGLE_MAPS_BACKEND_KEY ou GOOGLE_MAPS_API_KEY nas variáveis de ambiente do Supabase'
+        }),
         { 
           status: 500,
-          headers: { 'Content-Type': 'application/json' }
+          headers: { 
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+            'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-application-name',
+          }
         }
       )
     }
@@ -83,14 +98,35 @@ Deno.serve(async (req: Request) => {
     // Fazer requisição para Google Places Photo API
     const photoUrl = `https://maps.googleapis.com/maps/api/place/photo?maxwidth=${maxwidth}&photoreference=${photoreference}&key=${apiKey}`
     
+    console.log('[get-place-photo] Buscando foto do Google Places:', {
+      photoreference: photoreference.substring(0, 20) + '...',
+      maxwidth,
+      apiKeyPrefix: apiKey.substring(0, 10) + '...'
+    })
+    
     const response = await fetch(photoUrl)
 
     if (!response.ok) {
+      const errorText = await response.text().catch(() => 'Erro desconhecido')
+      console.error('[get-place-photo] Erro ao buscar foto:', {
+        status: response.status,
+        statusText: response.statusText,
+        errorText
+      })
+      
       return new Response(
-        JSON.stringify({ error: 'Erro ao buscar foto do Google Places' }),
+        JSON.stringify({ 
+          error: 'Erro ao buscar foto do Google Places',
+          details: `HTTP ${response.status}: ${response.statusText}`
+        }),
         { 
           status: response.status,
-          headers: { 'Content-Type': 'application/json' }
+          headers: { 
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+            'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-application-name',
+          }
         }
       )
     }
@@ -108,6 +144,12 @@ Deno.serve(async (req: Request) => {
       }
     })
   } catch (error) {
+    console.error('[get-place-photo] Erro não tratado:', {
+      error,
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined
+    })
+    
     return new Response(
       JSON.stringify({ 
         error: 'Erro interno do servidor',
@@ -115,7 +157,12 @@ Deno.serve(async (req: Request) => {
       }),
       { 
         status: 500,
-        headers: { 'Content-Type': 'application/json' }
+        headers: { 
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+          'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-application-name',
+        }
       }
     )
   }

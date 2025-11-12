@@ -82,10 +82,10 @@ serve(async (req) => {
     }
 
     // @ts-ignore - Deno.env is available in Deno runtime
-    const apiKey = Deno.env.get('GOOGLE_MAPS_API_KEY')
+    const apiKey = Deno.env.get('GOOGLE_MAPS_BACKEND_KEY') || Deno.env.get('GOOGLE_MAPS_API_KEY')
     if (!apiKey) {
       return new Response(
-        JSON.stringify({ error: 'Google Maps API key não configurada' }),
+        JSON.stringify({ error: 'Google Maps API key não configurada', details: 'Configure GOOGLE_MAPS_BACKEND_KEY nas variáveis de ambiente do Supabase' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
