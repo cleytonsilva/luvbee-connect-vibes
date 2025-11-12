@@ -7,7 +7,7 @@ export class LocationService {
     try {
       let query = supabase
         .from('locations')
-        .select('id,name,address,type,place_id,lat,lng,rating,price_level,image_url,peak_hours,google_rating,google_place_data,created_at,updated_at,is_active,is_verified,owner_id')
+        .select('id,name,address,type,category,lat,lng,rating,price_level,image_url,photo_url,description,images,phone,website,opening_hours,created_at,updated_at,is_active,is_verified,owner_id')
 
       if (filter) {
         if (filter.category) {
@@ -353,17 +353,18 @@ export class LocationService {
 
   static async getCategories(): Promise<ApiResponse<any[]>> {
     try {
+      // Tentar buscar da tabela, mas se não existir ou tiver erro, usar categorias padrão
       const { data, error } = await supabase
         .from('location_categories')
-        .select('id,name,icon,color,is_active')
+        .select('id,name,color,is_active')
         .eq('is_active', true)
         .order('name')
 
       if (error) {
         console.warn('[LocationService] getCategories error:', error)
-        // Se a tabela não existe ou erro 404, retornar categorias padrão
-        if (error.code === 'PGRST116' || error.code === '42P01' || error.message?.includes('does not exist') || error.message?.includes('relation') || error.message?.includes('404')) {
-          console.warn('[LocationService] location_categories table not found, using default categories')
+        // Se a tabela não existe ou erro, retornar categorias padrão
+        if (error.code === 'PGRST116' || error.code === '42P01' || error.code === '42703' || error.message?.includes('does not exist') || error.message?.includes('relation') || error.message?.includes('404') || error.message?.includes('column')) {
+          console.warn('[LocationService] location_categories table not found or missing columns, using default categories')
           return { 
             data: [
               { id: 'bar', name: 'Bar', icon: '🍺', color: '#FF6B6B' },
@@ -377,7 +378,13 @@ export class LocationService {
         throw error
       }
 
-      return { data: data || [] }
+      // Adicionar ícones padrão se não vierem do banco
+      const categories = (data || []).map(cat => ({
+        ...cat,
+        icon: cat.icon || '📍'
+      }))
+
+      return { data: categories }
     } catch (error) {
       console.error('[LocationService] getCategories error:', error)
       // Retornar categorias padrão em caso de erro
