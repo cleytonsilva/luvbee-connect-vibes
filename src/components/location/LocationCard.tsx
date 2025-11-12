@@ -24,15 +24,15 @@ export const LocationCard = ({
   // Priorizar imagem salva no Supabase Storage
   // Se image_url é do Supabase Storage, usar ela
   // Caso contrário, tentar outros campos ou placeholder
-  const hasSupabaseImage = location.image_url && location.image_url.includes('supabase.co/storage')
-  
-  const imageUrl = 
-    (hasSupabaseImage ? location.image_url : null) ||
+  const rawImageUrl = 
+    location.image_url ||
     (location as any).photo_url || 
     (Array.isArray(location.images) && location.images.length > 0 ? location.images[0] : null) ||
     (Array.isArray((location as any).images) && (location as any).images.length > 0 ? (location as any).images[0] : null) ||
-    location.image_url || // Fallback para image_url mesmo que não seja do Supabase
-    '/placeholder-location.jpg';
+    null;
+  
+  // Normalizar URL para converter URLs antigas do Google Maps para Edge Function
+  const imageUrl = normalizeImageUrl(rawImageUrl);
   
   const rating = Number(location.rating) || Number((location as any).google_rating) || 0;
   const priceLevel = (location as any).price_level || 0;
