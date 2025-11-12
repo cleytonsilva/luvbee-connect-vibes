@@ -1,10 +1,11 @@
 /**
  * Hook para buscar foto do Google Places quando necessário
  * Usa cache para evitar múltiplas requisições
+ * Usa Edge Function para evitar problemas de CORS
  */
 
 import { useState, useEffect } from 'react'
-import { GooglePlacesService } from '@/services/google-places.service'
+import { supabase } from '@/integrations/supabase'
 
 const photoCache = new Map<string, string>()
 
@@ -30,52 +31,70 @@ export function usePlacePhoto(placeId: string | null | undefined, fallbackUrl?: 
       return
     }
 
-    // Buscar foto do Google Places
+    // Buscar foto do Google Places usando Edge Function
     let cancelled = false
     
-    GooglePlacesService.getPlaceDetails({
-      placeId,
-      fields: ['photos']
-    }).then(result => {
-      if (cancelled) return
+    const fetchPhoto = async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke('get-place-details', {
+          body: {
+            place_id: placeId,
+            fields: ['photos']
+          }
+        })
 
-      if (result.error || !result.data) {
-        setPhotoUrl('/placeholder-location.jpg')
-        return
-      }
+        if (cancelled) return
 
-      const photos = result.data.photos || []
-      if (photos.length === 0) {
-        setPhotoUrl('/placeholder-location.jpg')
-        return
-      }
+        if (error) {
+          console.warn('[usePlacePhoto] Erro ao buscar detalhes:', error)
+          setPhotoUrl('/placeholder-location.jpg')
+          return
+        }
 
-      // Pegar primeira foto e gerar URL da Edge Function
-      const firstPhoto = photos[0]
-      const photoRef = firstPhoto.photo_reference
-      
-      if (!photoRef || photoRef.startsWith('http')) {
+        if (!data || !data.data) {
+          setPhotoUrl('/placeholder-location.jpg')
+          return
+        }
+
+        const photos = data.data.photos || []
+        if (photos.length === 0) {
+          setPhotoUrl('/placeholder-location.jpg')
+          return
+        }
+
+        // Pegar primeira foto e gerar URL da Edge Function
+        const firstPhoto = photos[0]
+        const photoRef = firstPhoto.photo_reference
+        
+        if (!photoRef) {
+          setPhotoUrl('/placeholder-location.jpg')
+          return
+        }
+
         // Se já é URL completa, usar diretamente
-        const url = photoRef || '/placeholder-location.jpg'
-        photoCache.set(placeId, url)
-        setPhotoUrl(url)
-        return
-      }
+        if (photoRef.startsWith('http')) {
+          photoCache.set(placeId, photoRef)
+          setPhotoUrl(photoRef)
+          return
+        }
 
-      // Gerar URL da Edge Function
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-      if (supabaseUrl) {
-        const edgeFunctionUrl = `${supabaseUrl}/functions/v1/get-place-photo?photoreference=${encodeURIComponent(photoRef)}&maxwidth=400`
-        photoCache.set(placeId, edgeFunctionUrl)
-        setPhotoUrl(edgeFunctionUrl)
-      } else {
+        // Gerar URL da Edge Function para buscar a foto
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+        if (supabaseUrl) {
+          const edgeFunctionUrl = `${supabaseUrl}/functions/v1/get-place-photo?photoreference=${encodeURIComponent(photoRef)}&maxwidth=400`
+          photoCache.set(placeId, edgeFunctionUrl)
+          setPhotoUrl(edgeFunctionUrl)
+        } else {
+          setPhotoUrl('/placeholder-location.jpg')
+        }
+      } catch (error) {
+        if (cancelled) return
+        console.warn('[usePlacePhoto] Erro ao buscar foto:', error)
         setPhotoUrl('/placeholder-location.jpg')
       }
-    }).catch(error => {
-      if (cancelled) return
-      console.warn('[usePlacePhoto] Erro ao buscar foto:', error)
-      setPhotoUrl('/placeholder-location.jpg')
-    })
+    }
+
+    fetchPhoto()
 
     return () => {
       cancelled = true
