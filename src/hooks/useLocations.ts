@@ -96,8 +96,15 @@ function convertGooglePlaceToLocation(place: GooglePlace, userLat?: number, user
       // Usar Edge Function para proteger a chave da API
       if (p.photo_reference) {
         const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+        const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
         if (supabaseUrl) {
-          return `${supabaseUrl}/functions/v1/get-place-photo?photoreference=${encodeURIComponent(p.photo_reference)}&maxwidth=400`
+          const url = new URL(`${supabaseUrl}/functions/v1/get-place-photo`)
+          url.searchParams.set('photoreference', p.photo_reference)
+          url.searchParams.set('maxwidth', '400')
+          if (supabaseAnonKey) {
+            url.searchParams.set('apikey', supabaseAnonKey)
+          }
+          return url.toString()
         }
       }
       return ''
@@ -105,7 +112,18 @@ function convertGooglePlaceToLocation(place: GooglePlace, userLat?: number, user
     image_url: place.photos?.[0]?.photo_reference 
       ? (place.photos[0].photo_reference.startsWith('http') 
           ? place.photos[0].photo_reference 
-          : `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/get-place-photo?photoreference=${encodeURIComponent(place.photos[0].photo_reference)}&maxwidth=400`)
+          : (() => {
+              const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+              const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+              if (!supabaseUrl) return ''
+              const url = new URL(`${supabaseUrl}/functions/v1/get-place-photo`)
+              url.searchParams.set('photoreference', place.photos[0].photo_reference)
+              url.searchParams.set('maxwidth', '400')
+              if (supabaseAnonKey) {
+                url.searchParams.set('apikey', supabaseAnonKey)
+              }
+              return url.toString()
+            })())
       : '',
     rating: place.rating || 0,
     price_level: place.price_level || null,

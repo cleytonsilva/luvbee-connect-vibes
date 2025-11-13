@@ -32,7 +32,50 @@ Deno.serve(async (req: Request) => {
       JSON.stringify({ error: 'Method not allowed' }),
       { 
         status: 405,
-        headers: { 'Content-Type': 'application/json' }
+        headers: { 
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+          'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-application-name',
+        }
+      }
+    )
+  }
+
+  // Verificar autenticação básica (apikey no header ou query param)
+  // Para GET requests via <img> tags, aceitar apikey como query parameter
+  const url = new URL(req.url)
+  const apikeyFromQuery = url.searchParams.get('apikey')
+  const apikeyFromHeader = req.headers.get('apikey') || req.headers.get('x-apikey')
+  const authHeader = req.headers.get('authorization')
+  
+  // Verificar se há alguma forma de autenticação
+  // Para imagens públicas, podemos aceitar apenas apikey (chave anon é pública)
+  const hasAuth = !!(apikeyFromQuery || apikeyFromHeader || authHeader)
+  
+  // Se não há autenticação, retornar erro 401
+  if (!hasAuth) {
+    console.warn('[get-place-photo] Requisição sem autenticação:', {
+      method: req.method,
+      url: req.url,
+      hasApikeyQuery: !!apikeyFromQuery,
+      hasApikeyHeader: !!apikeyFromHeader,
+      hasAuthHeader: !!authHeader
+    })
+    return new Response(
+      JSON.stringify({ 
+        error: 'Missing authorization header',
+        code: 401,
+        message: 'Esta função requer autenticação. Adicione o header "apikey" ou "Authorization", ou passe "apikey" como query parameter.'
+      }),
+      { 
+        status: 401,
+        headers: { 
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+          'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-application-name',
+        }
       }
     )
   }
@@ -43,7 +86,6 @@ Deno.serve(async (req: Request) => {
 
     if (req.method === 'GET') {
       // Obter parâmetros da query string
-      const url = new URL(req.url)
       photoreference = url.searchParams.get('photoreference') || ''
       const maxwidthParam = url.searchParams.get('maxwidth')
       if (maxwidthParam) {

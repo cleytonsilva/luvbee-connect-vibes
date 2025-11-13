@@ -31,8 +31,16 @@ export class GooglePlacesPhotoService {
         return ''
       }
 
-      // Retornar URL da Edge Function que servirá a imagem
-      return `${supabaseUrl}/functions/v1/get-place-photo?photoreference=${encodeURIComponent(photoreference)}&maxwidth=${maxwidth}`
+      // Retornar URL da Edge Function que servirá a imagem com autenticação
+      const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+      const url = new URL(`${supabaseUrl}/functions/v1/get-place-photo`)
+      url.searchParams.set('photoreference', photoreference)
+      url.searchParams.set('maxwidth', String(maxwidth))
+      // Adicionar apikey como query parameter para autenticação
+      if (supabaseAnonKey) {
+        url.searchParams.set('apikey', supabaseAnonKey)
+      }
+      return url.toString()
     } catch (error) {
       console.warn('Erro ao obter URL da foto:', error)
       return ''

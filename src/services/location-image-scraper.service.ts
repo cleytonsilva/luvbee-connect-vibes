@@ -10,6 +10,7 @@ import { GooglePlacesService } from './google-places.service'
 import { ImageStorageService } from './image-storage.service'
 import type { ApiResponse } from '@/types/app.types'
 import type { Location } from '@/types/location.types'
+import type { NearbySearchParams } from './google-places.service'
 
 export interface ScrapedImage {
   url: string
@@ -84,7 +85,14 @@ export class LocationImageScraper {
           photoUrl = photo.url
         } else if (photoRef && supabaseUrl) {
           // Usar Edge Function para proteger a chave da API
-          photoUrl = `${supabaseUrl}/functions/v1/get-place-photo?photoreference=${encodeURIComponent(photoRef)}&maxwidth=800`
+          const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+          const url = new URL(`${supabaseUrl}/functions/v1/get-place-photo`)
+          url.searchParams.set('photoreference', photoRef)
+          url.searchParams.set('maxwidth', '800')
+          if (supabaseAnonKey) {
+            url.searchParams.set('apikey', supabaseAnonKey)
+          }
+          photoUrl = url.toString()
         }
         
         return {
@@ -307,6 +315,29 @@ export class LocationImageScraper {
       return {
         error: error instanceof Error ? error.message : 'Failed to process all locations'
       }
+    }
+  }
+
+  static async scrapeAndCacheNearby(params: NearbySearchParams): Promise<ApiResponse<{ processed: number; errors: number }>> {
+    try {
+      const places = await GooglePlacesService.searchNearby(params)
+      if (places.error || !places.data) return { error: places.error || 'Failed to search nearby places' }
+      let processed = 0
+      let errors = 0
+      const batch = places.data.slice(0, Math.min(places.data.length, 100))
+      for (const p of batch) {
+        try {
+          const { data, error } = await supabase.functions.invoke('cache-place-photo', { body: { place_id: p.place_id, maxWidth: 800 } })
+          if (error) { errors++; continue }
+          if (data?.imageUrl) processed++
+        } catch {
+          errors++
+        }
+        await new Promise(res => setTimeout(res, 100))
+      }
+      return { data: { processed, errors } }
+    } catch (e) {
+      return { error: e instanceof Error ? e.message : 'Failed to scrape and cache nearby places' }
     }
   }
 }
