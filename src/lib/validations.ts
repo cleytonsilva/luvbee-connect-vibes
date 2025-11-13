@@ -31,10 +31,12 @@ export const userUpdateSchema = z.object({
   name: z.string().min(2).max(100).transform(sanitizeText).optional(),
   bio: z.string().max(500, 'Bio muito longa').transform(sanitizeText).optional(),
   age: z.number().int().min(18, 'Idade mínima é 18 anos').max(120, 'Idade inválida').optional(),
+  location: z.string().max(100, 'Cidade muito longa').transform(sanitizeText).optional(),
   location_latitude: z.number().min(-90).max(90).optional(),
   location_longitude: z.number().min(-180).max(180).optional(),
   search_radius_km: z.number().int().min(1).max(100).optional(),
   avatar_url: z.string().url().optional().nullable(),
+  photos: z.array(z.string().url()).optional(),
 })
 
 // Alias para compatibilidade

@@ -93,39 +93,83 @@ export class UserService {
     preferences: Partial<UserPreferences>
   ): Promise<ApiResponse<UserPreferences>> {
     try {
-      // ✅ VALIDAÇÃO CRÍTICA: Garantir que userId === auth.uid()
-      // Usar getSession() primeiro (mais rápido e confiável após signup)
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+      // ✅ VALIDAÇÃO: Tentar obter usuário autenticado, mas ser flexível após signup
+      // Após signup, a sessão pode não estar disponível imediatamente (especialmente se email precisa ser confirmado)
+      // Confiamos no userId fornecido e deixamos o RLS proteger contra acesso não autorizado
       
-      // Se não houver sessão, tentar getUser() como fallback
       let authenticatedUserId: string | null = null
-      if (session?.user) {
-        authenticatedUserId = session.user.id
-      } else {
-        // Fallback: tentar getUser() se getSession() não retornou usuário
-        const { data: { user }, error: authError } = await supabase.auth.getUser()
-        if (authError) {
-          console.error('[UserService] Erro ao obter usuário autenticado:', authError)
-          return { error: 'Não autorizado: usuário não autenticado' }
+      let hasValidSession = false
+      
+      try {
+        // Tentar obter sessão atual (mais rápido)
+        const { data: { session } } = await supabase.auth.getSession()
+        if (session?.user) {
+          authenticatedUserId = session.user.id
+          hasValidSession = true
         }
-        authenticatedUserId = user?.id || null
+      } catch (sessionError) {
+        // Se getSession() falhar, tentar getUser() como fallback
+        try {
+          const { data: { user } } = await supabase.auth.getUser()
+          if (user) {
+            authenticatedUserId = user.id
+            hasValidSession = true
+          }
+        } catch (getUserError) {
+          // Se ambos falharem, logar mas não bloquear (pode ser após signup)
+          console.warn('[UserService] Não foi possível obter sessão do usuário:', {
+            sessionError: sessionError instanceof Error ? sessionError.message : sessionError,
+            getUserError: getUserError instanceof Error ? getUserError.message : getUserError,
+            userId,
+            note: 'Isso pode ser normal após signup se o email precisa ser confirmado'
+          })
+        }
       }
       
-      // Validar que o userId fornecido corresponde ao usuário autenticado
-      if (!authenticatedUserId || authenticatedUserId !== userId) {
+      // Validar userId apenas se tivermos uma sessão válida
+      // Se não houver sessão, confiar no userId fornecido (vem do contexto do frontend)
+      // O RLS do Supabase vai proteger contra acesso não autorizado
+      if (hasValidSession && authenticatedUserId && authenticatedUserId !== userId) {
         console.error('[UserService] Validação de autorização falhou:', {
           providedUserId: userId,
           authenticatedUserId,
-          hasSession: !!session,
-          sessionError
+          hasValidSession
         })
         return { error: 'Não autorizado: userId não corresponde ao usuário autenticado' }
+      }
+      
+      // Se não há sessão válida, tentar aguardar um pouco e tentar novamente
+      // Isso pode acontecer após signup quando a sessão ainda não está disponível
+      if (!hasValidSession) {
+        console.warn('[UserService] Sessão não disponível, aguardando e tentando novamente...', {
+          userId,
+          attempt: 1
+        })
+        
+        // Aguardar um pouco e tentar obter sessão novamente
+        await new Promise(resolve => setTimeout(resolve, 1000))
+        
+        try {
+          const { data: { session: retrySession } } = await supabase.auth.getSession()
+          if (retrySession?.user) {
+            authenticatedUserId = retrySession.user.id
+            hasValidSession = true
+            console.info('[UserService] Sessão obtida após retry:', { userId: authenticatedUserId })
+          }
+        } catch (retryError) {
+          console.warn('[UserService] Retry também falhou, continuando sem validação de sessão:', {
+            error: retryError instanceof Error ? retryError.message : retryError,
+            note: 'RLS vai proteger contra acesso não autorizado se não houver sessão válida'
+          })
+        }
       }
       
       // Validar dados com Zod
       const validatedData = updatePreferencesSchema.parse(preferences)
       
       // Upsert para evitar select prévio e reduzir fricção com RLS
+      // NOTA: Se não houver sessão válida, o RLS pode bloquear esta operação
+      // Nesse caso, o erro será retornado e o usuário precisará confirmar o email primeiro
       const { data: upserted, error: upsertError } = await supabase
         .from('user_preferences')
         .upsert({
@@ -135,7 +179,21 @@ export class UserService {
         .select()
         .single()
 
-      if (upsertError) throw upsertError
+      if (upsertError) {
+        // Se o erro for de RLS (permissão negada), pode ser porque não há sessão válida
+        if (upsertError.code === '42501' || upsertError.message?.includes('permission denied') || upsertError.message?.includes('row-level security')) {
+          console.error('[UserService] Erro de RLS ao salvar preferências:', {
+            error: upsertError,
+            userId,
+            hasValidSession,
+            note: 'Isso pode acontecer se o email precisa ser confirmado antes de completar o onboarding'
+          })
+          return { 
+            error: 'Não foi possível salvar preferências. Por favor, confirme seu email e tente novamente.' 
+          }
+        }
+        throw upsertError
+      }
       const result = upserted
 
       // Atualizar flag de onboarding completo

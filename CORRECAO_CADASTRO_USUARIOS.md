@@ -22,44 +22,59 @@ O problema estava na validação de autorização em `UserService.saveUserPrefer
 
 ### Mudança na Validação
 
-**Antes:**
-```typescript
-const { data: { user }, error: authError } = await supabase.auth.getUser()
-if (authError || !user || user.id !== userId) {
-  return { error: 'Não autorizado: userId não corresponde ao usuário autenticado' }
-}
-```
+**Problema:** Após o signup, especialmente se o email precisa ser confirmado, a sessão pode não estar disponível imediatamente. O erro "Auth session missing!" ocorre quando `getUser()` é chamado sem sessão válida.
 
-**Depois:**
-```typescript
-// Usar getSession() primeiro (mais rápido e confiável após signup)
-const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+**Solução:** Validação flexível que:
+1. Tenta obter sessão com `getSession()` primeiro
+2. Se falhar, tenta `getUser()` como fallback
+3. Se ambos falharem, aguarda 1 segundo e tenta novamente
+4. Se ainda não houver sessão, continua mas deixa o RLS proteger
+5. Trata erros de RLS com mensagem clara sobre confirmação de email
 
-// Se não houver sessão, tentar getUser() como fallback
-let authenticatedUserId: string | null = null
+**Código implementado:**
+```typescript
+// Tentar obter sessão atual (mais rápido)
+const { data: { session } } = await supabase.auth.getSession()
 if (session?.user) {
   authenticatedUserId = session.user.id
+  hasValidSession = true
 } else {
-  // Fallback: tentar getUser() se getSession() não retornou usuário
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  if (authError) {
-    return { error: 'Não autorizado: usuário não autenticado' }
+  // Fallback: tentar getUser()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (user) {
+    authenticatedUserId = user.id
+    hasValidSession = true
   }
-  authenticatedUserId = user?.id || null
 }
 
-// Validar que o userId fornecido corresponde ao usuário autenticado
-if (!authenticatedUserId || authenticatedUserId !== userId) {
-  return { error: 'Não autorizado: userId não corresponde ao usuário autenticado' }
+// Se não há sessão válida, aguardar e tentar novamente
+if (!hasValidSession) {
+  await new Promise(resolve => setTimeout(resolve, 1000))
+  const { data: { session: retrySession } } = await supabase.auth.getSession()
+  if (retrySession?.user) {
+    authenticatedUserId = retrySession.user.id
+    hasValidSession = true
+  }
+}
+
+// Validar apenas se tivermos sessão válida
+if (hasValidSession && authenticatedUserId !== userId) {
+  return { error: 'Não autorizado' }
+}
+
+// Se erro de RLS, informar sobre confirmação de email
+if (upsertError.code === '42501') {
+  return { error: 'Confirme seu email e tente novamente' }
 }
 ```
 
 ### Por que isso funciona melhor?
 
-1. **`getSession()` é mais rápido:** Retorna a sessão atual do localStorage sem fazer requisição ao servidor
-2. **Mais confiável após signup:** A sessão já está disponível localmente após o cadastro
-3. **Fallback robusto:** Se `getSession()` não retornar usuário, tenta `getUser()` como fallback
-4. **Logs melhorados:** Adiciona logs detalhados para facilitar debug futuro
+1. **Flexível após signup:** Não bloqueia se a sessão ainda não estiver disponível
+2. **Retry automático:** Aguarda 1 segundo e tenta novamente antes de desistir
+3. **Mensagens claras:** Informa o usuário se precisa confirmar o email
+4. **RLS como proteção:** Deixa o RLS proteger contra acesso não autorizado
+5. **Logs detalhados:** Facilita debug de problemas de sessão
 
 ---
 
@@ -110,12 +125,20 @@ Se o problema persistir, verifique:
 Se o Supabase estiver configurado para exigir confirmação de email:
 
 1. **Após o cadastro:** O usuário receberá um email de confirmação
-2. **Antes de confirmar:** O usuário pode não conseguir completar o onboarding
-3. **Solução temporária:** Desabilitar confirmação de email em desenvolvimento ou garantir que o usuário confirme antes do onboarding
+2. **Antes de confirmar:** O usuário **NÃO** conseguirá completar o onboarding porque:
+   - Não há sessão válida (`auth.uid()` retorna NULL)
+   - O RLS bloqueia inserção/atualização em `user_preferences`
+   - A mensagem de erro será: "Confirme seu email e tente novamente"
+3. **Solução:** O usuário precisa confirmar o email antes de completar o onboarding
 
 **Onde verificar:**
 - Supabase Dashboard > Authentication > Settings > Email Auth
 - Verifique se "Confirm email" está habilitado
+- Se estiver em desenvolvimento, considere desabilitar temporariamente
+
+**Comportamento esperado:**
+- ✅ Se confirmação de email está **desabilitada**: Onboarding funciona imediatamente após signup
+- ⚠️ Se confirmação de email está **habilitada**: Usuário precisa confirmar email antes do onboarding
 
 ---
 

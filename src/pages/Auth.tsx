@@ -59,6 +59,18 @@ const Auth = () => {
     if (user && !isLoading && !error) {
       const redirectUser = async () => {
         try {
+          // Verificar se o email foi confirmado
+          const isEmailConfirmed = user.email_confirmed_at || user.confirmed_at
+          
+          // Se o email não foi confirmado, redirecionar para página de confirmação
+          if (!isEmailConfirmed) {
+            toast.info("Confirme seu email", {
+              description: "Verifique sua caixa de entrada para continuar",
+            });
+            navigate("/confirm-email", { replace: true });
+            return;
+          }
+
           const hasCompleted = await UserService.hasCompletedOnboarding(user.id);
           
           if (hasCompleted) {
@@ -74,7 +86,13 @@ const Auth = () => {
           }
         } catch (err) {
           console.warn("Erro ao verificar onboarding:", err);
-          navigate("/onboarding", { replace: true });
+          // Se houver erro, verificar se email está confirmado antes de redirecionar
+          const isEmailConfirmed = user.email_confirmed_at || user.confirmed_at
+          if (!isEmailConfirmed) {
+            navigate("/confirm-email", { replace: true });
+          } else {
+            navigate("/onboarding", { replace: true });
+          }
         }
       };
 

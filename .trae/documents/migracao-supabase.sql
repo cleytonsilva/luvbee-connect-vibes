@@ -1,4 +1,32 @@
 -- Migração Supabase - Luvbee Connect Vibes
+-- Bucket de imagens de lugares
+select storage.create_bucket('div', public := true);
+
+-- Políticas de leitura pública do bucket div
+create policy if not exists "public_read_div"
+on storage.objects for select
+using (bucket_id = 'div');
+
+-- Tabela de cache de fotos por place_id
+create table if not exists public.cached_place_photos (
+  id uuid primary key default gen_random_uuid(),
+  place_id text not null,
+  photo_reference text,
+  storage_path text not null,
+  public_url text not null,
+  created_at timestamptz not null default now()
+);
+
+alter table public.cached_place_photos enable row level security;
+
+create policy if not exists "cached_place_photos_read"
+on public.cached_place_photos for select
+using (true);
+
+create policy if not exists "cached_place_photos_write_admin"
+on public.cached_place_photos for all to authenticated
+using ((current_setting('request.jwt.claims', true)::jsonb->>'role') = 'admin')
+with check ((current_setting('request.jwt.claims', true)::jsonb->>'role') = 'admin');
 -- Data: 2024-01-15
 -- Responsável: Sistema Esquads
 

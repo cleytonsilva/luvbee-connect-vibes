@@ -1,7 +1,8 @@
-import { Routes, Route, Navigate, Outlet } from 'react-router-dom'
+import { Routes, Route, Navigate, Outlet, useNavigate } from 'react-router-dom'
 import { MainLayout } from './layouts/MainLayout'
 import { AuthLayout } from './layouts/AuthLayout'
 import Auth from './pages/Auth'
+import { ConfirmEmail } from './pages/ConfirmEmail'
 import Welcome from './pages/HomePage'
 import { OnboardingPage } from './pages/OnboardingPage'
 import { PeoplePage } from './pages/PeoplePage'
@@ -13,6 +14,7 @@ import { LocationDetail } from './pages/LocationDetailPage'
 import { ExplorePage } from './pages/ExplorePage'
 import { LocationDetail as ExploreLocationDetail } from './components/discovery/LocationDetail'
 import { TermosDeUso } from './pages/TermosDeUso'
+import AdminCachePage from './pages/AdminCache'
 import { useAuth } from './hooks/useAuth'
 import { UserService } from './services/user.service'
 import { useEffect, useState, useRef } from 'react'
@@ -113,6 +115,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
 function OnboardingRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()
+  const navigate = useNavigate()
   const [checkingOnboarding, setCheckingOnboarding] = useState(true)
   const [onboardingCompleted, setOnboardingCompleted] = useState(false)
   const hasCheckedRef = useRef(false)
@@ -124,8 +127,21 @@ function OnboardingRoute({ children }: { children: React.ReactNode }) {
     let isMounted = true
     
     const checkOnboarding = async () => {
-      // Se há usuário, verificar onboarding imediatamente (mesmo se loading de perfil)
+      // Se há usuário, verificar confirmação de email primeiro
       if (user) {
+        // Verificar se o email foi confirmado
+        const isEmailConfirmed = user.email_confirmed_at || user.confirmed_at
+        
+        if (!isEmailConfirmed) {
+          console.info('[OnboardingRoute] Email não confirmado, redirecionando para /confirm-email')
+          if (isMounted) {
+            setCheckingOnboarding(false)
+            hasCheckedRef.current = true
+            navigate('/confirm-email', { replace: true })
+          }
+          return
+        }
+
         try {
           const completed = await UserService.hasCompletedOnboarding(user.id)
           if (isMounted) {
@@ -161,7 +177,7 @@ function OnboardingRoute({ children }: { children: React.ReactNode }) {
     return () => {
       isMounted = false
     }
-  }, [user, loading])
+  }, [user, loading, navigate])
 
   // Mostrar loading apenas quando ainda checando ou quando autenticação inicial sem usuário
   if (checkingOnboarding || (!user && loading)) {
@@ -186,12 +202,23 @@ function OnboardingRoute({ children }: { children: React.ReactNode }) {
 
 function AuthRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()
+  const navigate = useNavigate()
   const [checkingOnboarding, setCheckingOnboarding] = useState(true)
   const [onboardingCompleted, setOnboardingCompleted] = useState(false)
 
   useEffect(() => {
     const checkOnboarding = async () => {
       if (user && !loading) {
+        // Verificar se o email foi confirmado primeiro
+        const isEmailConfirmed = user.email_confirmed_at || user.confirmed_at
+        
+        if (!isEmailConfirmed) {
+          console.info('[AuthRoute] Email não confirmado, redirecionando para /confirm-email')
+          setCheckingOnboarding(false)
+          navigate('/confirm-email', { replace: true })
+          return
+        }
+
         const completed = await UserService.hasCompletedOnboarding(user.id)
         setOnboardingCompleted(completed)
         setCheckingOnboarding(false)
@@ -203,13 +230,19 @@ function AuthRoute({ children }: { children: React.ReactNode }) {
     }
 
     checkOnboarding()
-  }, [user, loading])
+  }, [user, loading, navigate])
 
   if (loading || checkingOnboarding) {
     return <LoadingSpinner fullScreen />
   }
 
   if (user) {
+    // Verificar confirmação de email novamente antes de redirecionar
+    const isEmailConfirmed = user.email_confirmed_at || user.confirmed_at
+    if (!isEmailConfirmed) {
+      return <Navigate to="/confirm-email" replace />
+    }
+
     // Se já completou onboarding, redirecionar para dashboard
     if (onboardingCompleted) {
       console.info('[AuthRoute] redirect -> /dashboard/vibe-local')
@@ -232,6 +265,9 @@ function App() {
       {/* Rotas de autenticação */}
       <Route path="/auth" element={<AuthRoute><Auth /></AuthRoute>} />
       
+      {/* Rota de confirmação de email */}
+      <Route path="/confirm-email" element={<ConfirmEmail />} />
+      
       {/* Rota pública - Termos de Uso */}
       <Route path="/termos-de-uso" element={<TermosDeUso />} />
       
@@ -249,6 +285,7 @@ function App() {
         <Route path="profile" element={<ProfilePage />} />
         <Route path="explore" element={<ExplorePage />} />
         <Route path="explore/location/:id" element={<ExploreLocationDetail />} />
+        <Route path="admin/cache" element={<AdminCachePage />} />
       </Route>
       
       <Route path="*" element={<Navigate to="/" replace />} />

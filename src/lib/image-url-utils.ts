@@ -3,6 +3,8 @@
  * Converte URLs antigas do Google Maps para usar Edge Function
  */
 
+import { getEdgeFunctionImageUrl } from './edge-function-image-loader'
+
 /**
  * Converte URL do Google Maps Photo para usar Edge Function
  * Se a URL já for da Edge Function ou de outro serviço, retorna como está
@@ -14,8 +16,25 @@ export function normalizeImageUrl(
 ): string {
   // Se tem URL, processar normalmente
   if (url) {
-    // Se já é URL da Edge Function, retornar como está
+    // Se já é URL da Edge Function, retornar como está (já deve ter apikey se necessário)
     if (url.includes('/functions/v1/get-place-photo')) {
+      // Se não tem apikey na URL, adicionar
+      if (!url.includes('apikey=')) {
+        try {
+          const urlObj = new URL(url)
+          const photoreference = urlObj.searchParams.get('photoreference')
+          const maxwidth = urlObj.searchParams.get('maxwidth') || '400'
+          
+          if (photoreference) {
+            return getEdgeFunctionImageUrl('/functions/v1/get-place-photo', {
+              photoreference,
+              maxwidth: parseInt(maxwidth, 10)
+            })
+          }
+        } catch (error) {
+          console.warn('[normalizeImageUrl] Erro ao processar URL da Edge Function:', error)
+        }
+      }
       return url
     }
     
@@ -32,10 +51,10 @@ export function normalizeImageUrl(
         const maxwidth = urlObj.searchParams.get('maxwidth') || '400'
         
         if (photoreference) {
-          const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-          if (supabaseUrl) {
-            return `${supabaseUrl}/functions/v1/get-place-photo?photoreference=${encodeURIComponent(photoreference)}&maxwidth=${maxwidth}`
-          }
+          return getEdgeFunctionImageUrl('/functions/v1/get-place-photo', {
+            photoreference,
+            maxwidth: parseInt(maxwidth, 10)
+          })
         }
       } catch (error) {
         console.warn('[normalizeImageUrl] Erro ao converter URL do Google Maps:', error)
