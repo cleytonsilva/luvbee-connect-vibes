@@ -1,0 +1,16 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: check-merge-conflict
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+  - repo: https://github.com/pre-commit/pygrep-hooks
+    rev: v1.10.0
+    hooks:
+      - id: pygrep
+        name: forbid-google-maps-api-keys
+        entry: AIza[0-9A-Za-z_\-]{35}
+        args: ["--multiline"]
+        types: [text]
+        exclude: "^\.secrets\.baseline$"
