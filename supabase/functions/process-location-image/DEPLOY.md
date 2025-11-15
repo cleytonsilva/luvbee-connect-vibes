@@ -4,6 +4,8 @@
 
 A Edge Function foi criada para processar imagens de locais server-side, resolvendo problemas CORS e mantendo a API key segura.
 
+> ⚠️ **Segurança:** Revogue imediatamente qualquer chave Google Maps anterior exposta (por exemplo, iniciada por `AIza`) e gere uma nova credencial antes de configurá-la como secret.
+
 ---
 
 ## 📁 Estrutura Criada
@@ -40,7 +42,7 @@ supabase/functions/process-location-image/
    - Vá em **Settings** > **Secrets** (ou **Edge Functions** > **Settings**)
    - Clique em **"Add new secret"**
    - Nome: `GOOGLE_MAPS_API_KEY`
-   - Valor: `AIzaSyBu-Xerf1F_Q-yXaEMGM17hMpuKaNa8jXw`
+   - Valor: `<NOVA_GOOGLE_MAPS_BACKEND_KEY>`
    - Clique em **"Save"**
 
 5. **Deploy:**
@@ -63,7 +65,7 @@ supabase link --project-ref zgxtcawgllsnnernlgim
 supabase functions deploy process-location-image
 
 # 5. Configurar variável de ambiente
-supabase secrets set GOOGLE_MAPS_API_KEY=AIzaSyBu-Xerf1F_Q-yXaEMGM17hMpuKaNa8jXw
+supabase secrets set GOOGLE_MAPS_API_KEY=<NOVA_GOOGLE_MAPS_BACKEND_KEY>
 ```
 
 ---
