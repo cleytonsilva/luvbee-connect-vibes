@@ -1,0 +1,236 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* luvbee Design System */
+
+@layer base {
+  :root {
+    /* Base colors - HSL format */
+    --background: 320 20% 97%; /* #f8f5f8 */
+    --foreground: 0 0% 0%; /* #000000 */
+
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 0%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 0%;
+
+    /* Primary - Magenta */
+    --primary: 300 100% 50%; /* #ff00ff */
+    --primary-foreground: 0 0% 100%;
+
+    /* Secondary - Softer purple */
+    --secondary: 280 60% 60%;
+    --secondary-foreground: 0 0% 0%;
+
+    /* Muted - Light beige tones */
+    --muted: 320 15% 92%;
+    --muted-foreground: 0 0% 40%;
+
+    /* Accent - Electric pink */
+    --accent: 330 100% 60%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 0 0% 85%;
+    --input: 0 0% 90%;
+    --ring: 300 100% 50%;
+
+    --radius: 0.375rem;
+
+    /* luvbee specific */
+    --shadow-hard: 4px 4px 0px 0px #000;
+    --success: 140 70% 50%;
+  }
+
+  /* Custom utility classes for responsive design */
+  .location-status-badge {
+    @apply text-xs px-2 py-1 rounded border max-w-[200px] truncate z-10;
+  }
+  
+  @media (max-width: 640px) {
+    .location-status-badge {
+      @apply max-w-[150px];
+    }
+  }
+  
+  @media (max-width: 390px) {
+    .location-status-badge {
+      @apply max-w-[120px] text-[10px];
+    }
+  }
+  
+  /* Prevent horizontal overflow on mobile */
+  .prevent-mobile-overflow {
+    @apply overflow-x-hidden;
+  }
+  
+  /* Enhanced touch targets for mobile */
+  @media (max-width: 768px) {
+    .touch-target-enhanced {
+      @apply min-h-[44px] min-w-[44px];
+    }
+  }
+
+  .dark {
+    --background: 0 0% 0%; /* Preto total */
+    --foreground: 0 0% 100%;
+
+    --card: 0 0% 0%; /* Preto total */
+    --card-foreground: 0 0% 100%;
+
+    --popover: 0 0% 0%; /* Preto total */
+    --popover-foreground: 0 0% 100%;
+
+    --primary: 300 100% 50%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 280 40% 30%;
+    --secondary-foreground: 0 0% 100%;
+
+    --muted: 0 0% 10%; /* Quase preto */
+    --muted-foreground: 0 0% 70%;
+
+    --accent: 330 100% 60%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 62% 50%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 0 0% 20%;
+    --input: 0 0% 20%;
+    --ring: 300 100% 50%;
+
+    --success: 140 60% 45%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans;
+    font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 600;
+  }
+
+  code, pre {
+    font-family: 'Space Mono', monospace;
+  }
+}
+
+@layer utilities {
+  .shadow-hard {
+    box-shadow: var(--shadow-hard);
+  }
+
+  .shadow-hard-sm {
+    box-shadow: 2px 2px 0px 0px #000;
+  }
+
+  .transition-smooth {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* Neo-Brutalist styles */
+  .neo-brutalist {
+    border-width: 4px;
+    border-color: hsl(var(--foreground));
+    box-shadow: var(--shadow-hard);
+  }
+
+  .neo-brutalist-sm {
+    border-width: 2px;
+    border-color: hsl(var(--foreground));
+    box-shadow: 2px 2px 0px 0px #000;
+  }
+}
+
+/* Estilização do Google Places Autocomplete para seguir o design system */
+.pac-container {
+  background-color: hsl(var(--card)) !important;
+  border: 2px solid hsl(var(--border)) !important;
+  border-radius: var(--radius) !important;
+  box-shadow: var(--shadow-hard) !important;
+  font-family: 'Space Grotesk', sans-serif !important;
+  margin-top: 4px !important;
+}
+
+.pac-item {
+  padding: 12px 16px !important;
+  border-top: 1px solid hsl(var(--border)) !important;
+  cursor: pointer !important;
+  color: hsl(var(--foreground)) !important;
+  font-size: 14px !important;
+}
+
+.pac-item:first-child {
+  border-top: none !important;
+}
+
+.pac-item:hover,
+.pac-item-selected {
+  background-color: hsl(var(--primary) / 0.1) !important;
+  color: hsl(var(--primary)) !important;
+}
+
+.pac-icon {
+  display: none !important;
+}
+
+.pac-item-query {
+  color: hsl(var(--foreground)) !important;
+  font-weight: 500 !important;
+}
+
+.pac-matched {
+  color: hsl(var(--primary)) !important;
+  font-weight: 600 !important;
+}
+
+/* Estilização do Places UI Kit para seguir o design system */
+gmp-place-search,
+gmp-place-details,
+gmp-place-details-compact {
+  /* Cores do design system */
+  --gmp-mat-color-on-surface: hsl(var(--foreground)) !important;
+  --gmp-mat-color-surface: hsl(var(--card)) !important;
+  --gmp-mat-color-primary: hsl(var(--primary)) !important;
+  
+  /* Fonte do design system */
+  --gmp-mat-font-family: 'Space Grotesk', sans-serif !important;
+  
+  /* Bordas e sombras neo-brutalistas */
+  border: 2px solid hsl(var(--border)) !important;
+  border-radius: var(--radius) !important;
+  box-shadow: var(--shadow-hard) !important;
+}
+
+/* Estilizar elementos internos do Places UI Kit */
+gmp-place-search *,
+gmp-place-details *,
+gmp-place-details-compact * {
+  font-family: 'Space Grotesk', sans-serif !important;
+}
+
+/* Estilizar lista de resultados do Place Search */
+gmp-place-search gmp-place-list-item {
+  border-top: 1px solid hsl(var(--border)) !important;
+  padding: 12px 16px !important;
+  cursor: pointer !important;
+}
+
+gmp-place-search gmp-place-list-item:hover {
+  background-color: hsl(var(--primary) / 0.1) !important;
+}
