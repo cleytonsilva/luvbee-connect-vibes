@@ -11,6 +11,7 @@ import { MessageService } from '@/services/message.service'
 import { useAuth } from '@/hooks/useAuth'
 import type { MessageWithRelations } from '@/types/message.types'
 import type { ChatWithUsers } from '@/types/chat.types'
+import { csrfService } from '@/lib/csrf'
 
 /**
  * Hook para buscar lista de chats do usuário
@@ -116,7 +117,8 @@ export function useSendMessage() {
   return useMutation({
     mutationFn: async ({ chatId, content }: { chatId: string; content: string }) => {
       if (!user?.id) throw new Error('User not authenticated')
-      const result = await MessageService.sendMessage(chatId, user.id, content)
+      const csrfToken = csrfService.ensureToken()
+      const result = await MessageService.sendMessage(chatId, user.id, content, { csrfToken })
       if (result.error) throw new Error(result.error)
       return result.data!
     },
