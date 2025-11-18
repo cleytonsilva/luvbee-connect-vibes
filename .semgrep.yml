@@ -1,0 +1,19 @@
+rules:
+  - id: luvbee-no-inner-html
+    message: "Evite atribuir diretamente innerHTML sem sanitização"
+    severity: ERROR
+    languages: [javascript, typescript]
+    pattern: |
+      $OBJ.innerHTML = $VALUE
+  - id: luvbee-no-eval
+    message: "eval abre espaço para execuções arbitrárias"
+    severity: ERROR
+    languages: [javascript, typescript]
+    pattern: |
+      eval($X)
+  - id: luvbee-no-dangerously-set-innerhtml
+    message: "dangerouslySetInnerHTML deve ser evitado"
+    severity: ERROR
+    languages: [javascript, typescript]
+    pattern: |
+      <_ dangerouslySetInnerHTML={{ ... }} />
