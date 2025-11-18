@@ -221,7 +221,20 @@ export function useLocations(options: UseLocationsOptions = {}) {
       )
 
       const results = await Promise.all(searchPromises)
-      
+
+      // Validar respostas e propagar erros do Google Places para o React Query
+      const errorMessages = results
+        .map((result, index) =>
+          result.error ? `Erro ao buscar locais do tipo ${types[index]}: ${result.error}` : null
+        )
+        .filter((message): message is string => Boolean(message))
+
+      if (errorMessages.length) {
+        const combinedMessage = errorMessages.join(' | ')
+        console.error('Falha ao buscar locais no Google Places:', combinedMessage)
+        throw new Error(combinedMessage)
+      }
+
       // Combinar todos os resultados e remover duplicatas por place_id
       const allPlaces: GooglePlace[] = []
       const seenPlaceIds = new Set<string>()
