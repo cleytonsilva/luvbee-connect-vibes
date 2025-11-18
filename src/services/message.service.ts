@@ -9,6 +9,8 @@ import { supabase } from '../integrations/supabase'
 import type { ApiResponse } from '../types/app.types'
 import type { Message, MessageWithRelations } from '../types/message.types'
 import { sanitizeMessageContent } from '../lib/sanitize'
+import { validationService } from './validation.service'
+import { csrfService } from '../lib/csrf'
 
 export class MessageService {
   /**
@@ -40,11 +42,15 @@ export class MessageService {
    * Envia uma mensagem em um chat
    */
   static async sendMessage(
-    chatId: string, 
-    senderId: string, 
-    content: string
+    chatId: string,
+    senderId: string,
+    content: string,
+    securityContext?: { csrfToken?: string }
   ): Promise<ApiResponse<MessageWithRelations>> {
     try {
+      validationService.ensureSecureString(content, 'content')
+      csrfService.requireValidToken(securityContext?.csrfToken)
+
       // ✅ Sanitizar conteúdo para prevenir XSS
       const sanitizedContent = sanitizeMessageContent(content)
       

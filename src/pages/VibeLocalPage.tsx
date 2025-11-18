@@ -20,6 +20,24 @@ import { MapPin, Loader2, MapPinned } from 'lucide-react'
 import { toast } from 'sonner'
 import { GooglePlacesService } from '@/services/google-places.service'
 
+type PermissionState = 'granted' | 'denied' | 'prompt'
+
+const GEO_PERMISSION_STATE_KEY = 'luvbee_geo_permission_state'
+const GEO_PERMISSION_TS_KEY = 'luvbee_geo_permission_state_ts'
+
+const getInitialPermissionDenied = () => {
+  if (typeof window === 'undefined') {
+    return false
+  }
+
+  try {
+    return localStorage.getItem(GEO_PERMISSION_STATE_KEY) === 'denied'
+  } catch (error) {
+    console.warn('[VibeLocalPage] failed to read permission state', error)
+    return false
+  }
+}
+
 export function VibeLocalPage() {
   const [latitude, setLatitude] = useState<number | undefined>()
   const [longitude, setLongitude] = useState<number | undefined>()
@@ -28,28 +46,50 @@ export function VibeLocalPage() {
   const [isRequestingLocation, setIsRequestingLocation] = useState(false)
   const [searchRadius, setSearchRadius] = useState(5000) // Raio padrão: 5km
   const [showChangeLocation, setShowChangeLocation] = useState(false)
+  const [permissionDenied, setPermissionDenied] = useState(getInitialPermissionDenied)
   const requestedOnceRef = useRef(false)
   const isMountedRef = useRef(true)
   const isRequestingRef = useRef(false) // Prevenir chamadas simultâneas
 
+  const persistPermissionState = useCallback((state: PermissionState) => {
+    if (typeof window === 'undefined') return
+
+    try {
+      localStorage.setItem(GEO_PERMISSION_STATE_KEY, state)
+      localStorage.setItem(GEO_PERMISSION_TS_KEY, Date.now().toString())
+    } catch (error) {
+      console.warn('[VibeLocalPage] failed to persist permission state', error)
+    }
+  }, [])
+
   // Solicitar localização do usuário
-  const requestLocation = useCallback(() => {
+  const requestLocation = useCallback((force = false) => {
     // Prevenir chamadas simultâneas
     if (isRequestingRef.current) {
       console.info('[VibeLocalPage] requestLocation skipped (already requesting)')
       return
     }
-    
+
     if (!isMountedRef.current) {
       console.info('[VibeLocalPage] requestLocation skipped (component unmounted)')
       return
     }
-    
+
+    if (!force && permissionDenied) {
+      console.info('[VibeLocalPage] requestLocation skipped (permission previously denied)')
+      setShowChangeLocation(true)
+      setLocationError('Permissão de localização negada. Utilize a busca manual para continuar.')
+      setErrorCode(1)
+      return
+    }
+
     console.info('[VibeLocalPage] requestLocation start')
     isRequestingRef.current = true
     setIsRequestingLocation(true)
     setLocationError(null)
     setErrorCode(null)
+    requestedOnceRef.current = true
+    persistPermissionState('prompt')
 
     if (!navigator.geolocation) {
       const errorMsg = 'Geolocalização não é suportada pelo seu navegador'
@@ -75,9 +115,11 @@ export function VibeLocalPage() {
         setIsRequestingLocation(false)
         setLocationError(null)
         setErrorCode(null)
-        requestedOnceRef.current = true // Marcar como bem-sucedido apenas após sucesso
+        requestedOnceRef.current = true // Marcar como bem-sucedido
         isRequestingRef.current = false
-        
+        setPermissionDenied(false)
+        persistPermissionState('granted')
+
         // Os locais serão carregados automaticamente pelo LocationSwipe
         toast.success('Localização obtida!', { description: 'Buscando locais próximos...' })
       },
@@ -97,6 +139,9 @@ export function VibeLocalPage() {
           case 1: // PERMISSION_DENIED
             errorMessage = 'Permissão de localização negada. Por favor, permita o acesso à localização nas configurações do navegador.'
             errorTitle = 'Permissão negada'
+            setPermissionDenied(true)
+            setShowChangeLocation(true)
+            persistPermissionState('denied')
             break
           case 2: // POSITION_UNAVAILABLE
             errorMessage = 'Localização não disponível. Verifique se o GPS está ativado e tente novamente.'
@@ -113,10 +158,8 @@ export function VibeLocalPage() {
         setLocationError(errorMessage)
         setErrorCode(error.code)
         setIsRequestingLocation(false)
-        // Não marcar como requested para permitir nova tentativa
-        requestedOnceRef.current = false
         isRequestingRef.current = false
-        toast.error(errorTitle, { 
+        toast.error(errorTitle, {
           description: errorMessage,
           duration: 5000,
         })
@@ -141,7 +184,7 @@ export function VibeLocalPage() {
         maximumAge: 60000, // Aceitar localização com até 1 minuto de idade
       }
     )
-  }, [])
+  }, [permissionDenied, persistPermissionState])
 
   // Buscar localização manual por cidade/estado
   const handleManualSearch = useCallback(async (city: string, state: string) => {
@@ -181,7 +224,26 @@ export function VibeLocalPage() {
   // Tentar obter localização automaticamente ao carregar (apenas uma vez)
   useEffect(() => {
     isMountedRef.current = true
-    
+
+    let persistedState: PermissionState | null = null
+    if (typeof window !== 'undefined') {
+      try {
+        persistedState = localStorage.getItem(GEO_PERMISSION_STATE_KEY) as PermissionState | null
+      } catch (error) {
+        console.warn('[VibeLocalPage] failed to read cached permission state', error)
+      }
+    }
+
+    if (persistedState === 'denied') {
+      requestedOnceRef.current = true
+      setPermissionDenied(true)
+      setShowChangeLocation(true)
+      console.info('[VibeLocalPage] mount skipped (permission denied cached)')
+      return () => {
+        isMountedRef.current = false
+      }
+    }
+
     // Verificar se já foi solicitado ou se já tem localização
     if (requestedOnceRef.current || (latitude && longitude)) {
       console.info('[VibeLocalPage] mount skipped (already requested or has location)', {
@@ -200,7 +262,7 @@ export function VibeLocalPage() {
     
     console.info('[VibeLocalPage] mount → auto requestLocation')
     requestLocation()
-    
+
     return () => {
       isMountedRef.current = false
     }
@@ -281,9 +343,8 @@ export function VibeLocalPage() {
                   Escolha uma nova localização para buscar locais próximos
                 </SheetDescription>
               </SheetHeader>
-              {latitude && longitude ? (
-                <div className="mt-6 space-y-4">
-                  {/* Opção 1: Buscar por lugar */}
+              <div className="mt-6 space-y-4">
+                {latitude && longitude ? (
                   <div>
                     <h3 className="text-sm font-semibold mb-2">Buscar por lugar</h3>
                     <PlaceSearch
@@ -293,21 +354,21 @@ export function VibeLocalPage() {
                       onPlaceSelect={handlePlaceSelect}
                     />
                   </div>
-
-                  {/* Opção 2: Buscar manualmente por cidade/estado */}
-                  <div>
-                    <h3 className="text-sm font-semibold mb-2">Ou informe cidade e estado</h3>
-                    <GeolocationHandler
-                      onSubmitManual={handleManualSearch}
-                      onRetry={requestLocation}
-                    />
+                ) : (
+                  <div className="text-sm text-muted-foreground bg-muted/40 rounded-lg p-3">
+                    <p>Sem acesso ao GPS. Utilize a busca manual abaixo para definir sua localização.</p>
                   </div>
+                )}
+
+                {/* Opção 2: Buscar manualmente por cidade/estado */}
+                <div>
+                  <h3 className="text-sm font-semibold mb-2">Ou informe cidade e estado</h3>
+                  <GeolocationHandler
+                    onSubmitManual={handleManualSearch}
+                    onRetry={() => requestLocation(true)}
+                  />
                 </div>
-              ) : (
-                <div className="mt-6 text-center text-muted-foreground">
-                  <p>Carregando localização...</p>
-                </div>
-              )}
+              </div>
             </SheetContent>
           </Sheet>
         </div>
@@ -338,11 +399,11 @@ export function VibeLocalPage() {
           <div className="max-w-2xl mx-auto">
             {/* Conteúdo de solicitação de localização */}
             <div className="space-y-4">
-              {/* Mostrar GeolocationHandler quando erro é PERMISSION_DENIED (código 1) e não há localização */}
-              {errorCode === 1 && !latitude && !longitude ? (
+              {/* Mostrar GeolocationHandler quando a permissão foi negada e não há localização */}
+              {permissionDenied && !latitude && !longitude ? (
                 <GeolocationHandler
                   onSubmitManual={handleManualSearch}
-                  onRetry={requestLocation}
+                  onRetry={() => requestLocation(true)}
                 />
               ) : (
                 <>
@@ -376,7 +437,7 @@ export function VibeLocalPage() {
                           : 'Precisamos da sua localização para mostrar os melhores locais perto de você.'}
                       </p>
                       {!isRequestingLocation && (
-                        <Button onClick={requestLocation} size="lg" className="shadow-hard">
+                        <Button onClick={() => requestLocation(true)} size="lg" className="shadow-hard">
                           <MapPin className="w-4 h-4 mr-2" />
                           {locationError ? 'Tentar Novamente' : 'Permitir Localização'}
                         </Button>
