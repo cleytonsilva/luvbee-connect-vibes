@@ -31,8 +31,9 @@ jobs:
       - name: Run Semgrep static analysis
         uses: returntocorp/semgrep-action@v1
         with:
-          config: ./.semgrep.yml
-          args: --sarif --output semgrep.sarif
+          entryPoint: semgrep
+          args: >-
+            scan --config ./.semgrep.yml --sarif --output semgrep.sarif
 
       - name: Upload Semgrep results
         if: always() && hashFiles('semgrep.sarif') != ''

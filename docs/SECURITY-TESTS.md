@@ -32,7 +32,7 @@ O workflow `.github/workflows/security.yml` bloqueia merges em `main` quando qua
 1. `npm ci`
 2. `npm run lint:security`
 3. `npm run test:security`
-4. `returntocorp/semgrep-action` gerando `semgrep.sarif` e upload com `github/codeql-action@v4`
+4. `returntocorp/semgrep-action` executando `semgrep scan --config ./.semgrep.yml --sarif --output semgrep.sarif`, seguido do upload com `github/codeql-action@v4`
 
 Falhas críticas em qualquer etapa marcam o PR como vermelho.
 
