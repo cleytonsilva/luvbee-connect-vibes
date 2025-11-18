@@ -25,6 +25,8 @@ import { GeolocationService } from '@/services/geolocation.service'
 import { useAuth } from '@/hooks/useAuth'
 import { LocationService } from '@/services/location.service'
 import { safeLog } from '@/lib/safe-log'
+import { Switch } from '@/components/ui/switch'
+import { Label } from '@/components/ui/label'
 
 export function VibeLocalPage() {
   const { profile, user } = useAuth()
@@ -41,7 +43,7 @@ export function VibeLocalPage() {
   const isMountedRef = useRef(true)
   const isRequestingRef = useRef(false) // Prevenir chamadas simultâneas
 
-  const { soloMode } = useVibeModeStore()
+  const { soloMode, setSoloMode } = useVibeModeStore()
 
   // Usar o novo hook para buscar lugares
   const {
@@ -440,12 +442,32 @@ export function VibeLocalPage() {
             </div>
           </div>
           
-          <h1 className="text-4xl font-bold mb-2">
-            Vibe <span className="text-primary">Local</span>
-          </h1>
-          <p className="text-muted-foreground">
-            Descubra os melhores locais da noite perto de você
-          </p>
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-4">
+            <div>
+              <h1 className="text-4xl font-bold mb-2">
+                Vibe <span className="text-primary">Local</span>
+              </h1>
+              <p className="text-muted-foreground">
+                Descubra os melhores locais da noite perto de você
+              </p>
+            </div>
+            
+            {/* Toggle Modo Solo */}
+            <div className="flex items-center gap-3 px-4 py-2 border-2 border-foreground rounded-md bg-background">
+              <Label htmlFor="solo-mode" className="text-sm font-semibold cursor-pointer">
+                Modo Solo
+              </Label>
+              <Switch
+                id="solo-mode"
+                checked={soloMode}
+                onCheckedChange={(checked) => {
+                  setSoloMode(checked)
+                  // Re-executar busca quando toggle mudar
+                  refresh()
+                }}
+              />
+            </div>
+          </div>
           
           {/* Sheet sempre renderizado para evitar problemas de montagem/desmontagem */}
           <Sheet 

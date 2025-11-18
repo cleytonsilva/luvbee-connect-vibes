@@ -11,7 +11,9 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { DRINK_PREFERENCES, FOOD_PREFERENCES, MUSIC_PREFERENCES } from '@/lib/constants'
-import { preferencesSchema, formatZodErrors } from '@/lib/validations'
+import { preferencesSchema, formatZodErrors, IDENTITY_OPTIONS, WHO_TO_SEE_OPTIONS } from '@/lib/validations'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Loader2, Upload, X, Camera } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -35,6 +37,12 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
     city: '',
   })
   
+  // Preferências de Descoberta
+  const [discoveryPreferences, setDiscoveryPreferences] = useState({
+    identity: '' as '' | 'woman_cis' | 'man_cis' | 'non_binary' | 'other',
+    who_to_see: [] as string[],
+  })
+
   // Preferências
   const [preferences, setPreferences] = useState({
     drink_preferences: [] as string[],
@@ -182,20 +190,32 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
       setStep(3)
       setError(null)
     } else if (step === 3) {
-      if (preferences.drink_preferences.length === 0) {
-        setError('Selecione pelo menos uma preferência de bebida')
+      // Validar preferências de descoberta
+      if (!discoveryPreferences.identity) {
+        setError('Por favor, selecione como você se identifica')
+        return
+      }
+      if (discoveryPreferences.who_to_see.length === 0) {
+        setError('Por favor, selecione quem você quer ver')
         return
       }
       setStep(4)
       setError(null)
     } else if (step === 4) {
-      if (preferences.food_preferences.length === 0) {
-        setError('Selecione pelo menos uma preferência de comida')
+      if (preferences.drink_preferences.length === 0) {
+        setError('Selecione pelo menos uma preferência de bebida')
         return
       }
       setStep(5)
       setError(null)
     } else if (step === 5) {
+      if (preferences.food_preferences.length === 0) {
+        setError('Selecione pelo menos uma preferência de comida')
+        return
+      }
+      setStep(6)
+      setError(null)
+    } else if (step === 6) {
       if (preferences.music_preferences.length === 0) {
         setError('Selecione pelo menos uma preferência de música')
         return
@@ -245,7 +265,9 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
           ambiente: preferences.vibe_ambiente,
           horario_preferido: preferences.vibe_horario,
           frequencia: preferences.vibe_frequencia,
-        }
+        },
+        identity: discoveryPreferences.identity,
+        who_to_see: discoveryPreferences.who_to_see,
       }
 
       const validatedData = preferencesSchema.parse(preferencesData)
@@ -391,7 +413,97 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
     </div>
   )
 
-  const renderStep3 = () => (
+  const renderStep3 = () => {
+    const identityLabels: Record<string, string> = {
+      'woman_cis': 'Mulher Cis',
+      'man_cis': 'Homem Cis',
+      'non_binary': 'Pessoa Não-Binária',
+      'other': 'Outro'
+    }
+
+    const whoToSeeLabels: Record<string, string> = {
+      'women_cis': 'Mulheres Cis',
+      'men_cis': 'Homens Cis',
+      'lgbtqiapn+': 'Público LGBTQIAPN+',
+      'all': 'Todos'
+    }
+
+    const toggleWhoToSee = (value: string) => {
+      setDiscoveryPreferences(prev => {
+        const current = prev.who_to_see
+        if (current.includes(value)) {
+          return {
+            ...prev,
+            who_to_see: current.filter(v => v !== value)
+          }
+        } else {
+          if (current.length >= 4) {
+            toast.error('Máximo 4 opções')
+            return prev
+          }
+          return {
+            ...prev,
+            who_to_see: [...current, value]
+          }
+        }
+      })
+    }
+
+    return (
+      <div className="space-y-6">
+        <div>
+          <h3 className="text-xl font-bold mb-2">Preferências de Descoberta</h3>
+          <p className="text-sm text-muted-foreground mb-6">
+            Ajude-nos a encontrar as pessoas certas para você
+          </p>
+          
+          <div className="space-y-6">
+            <div>
+              <Label className="text-base font-semibold mb-3 block">
+                Como você se identifica?
+              </Label>
+              <RadioGroup
+                value={discoveryPreferences.identity}
+                onValueChange={(value) => setDiscoveryPreferences(prev => ({ ...prev, identity: value as any }))}
+                className="space-y-3"
+              >
+                {IDENTITY_OPTIONS.map(option => (
+                  <div key={option} className="flex items-center space-x-2">
+                    <RadioGroupItem value={option} id={option} />
+                    <Label htmlFor={option} className="cursor-pointer font-normal">
+                      {identityLabels[option]}
+                    </Label>
+                  </div>
+                ))}
+              </RadioGroup>
+            </div>
+
+            <div>
+              <Label className="text-base font-semibold mb-3 block">
+                Quem você quer ver? (Selecione uma ou mais opções)
+              </Label>
+              <div className="space-y-3">
+                {WHO_TO_SEE_OPTIONS.map(option => (
+                  <div key={option} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={`who-to-see-${option}`}
+                      checked={discoveryPreferences.who_to_see.includes(option)}
+                      onCheckedChange={() => toggleWhoToSee(option)}
+                    />
+                    <Label htmlFor={`who-to-see-${option}`} className="cursor-pointer font-normal">
+                      {whoToSeeLabels[option]}
+                    </Label>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  const renderStep4 = () => (
     <div className="space-y-6">
       <div>
         <h3 className="text-xl font-bold mb-2">Bebidas Favoritas</h3>
@@ -414,7 +526,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
     </div>
   )
 
-  const renderStep4 = () => (
+  const renderStep5 = () => (
     <div className="space-y-6">
       <div>
         <h3 className="text-xl font-bold mb-2">Comidas Favoritas</h3>
@@ -437,7 +549,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
     </div>
   )
 
-  const renderStep5 = () => (
+  const renderStep6 = () => (
     <div className="space-y-6">
       <div>
         <h3 className="text-xl font-bold mb-2">Música Favorita</h3>
@@ -467,10 +579,10 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
           Configure seu Perfil
         </CardTitle>
         <CardDescription className="text-center">
-          Passo {step} de 5 - Vamos conhecer você melhor
+          Passo {step} de 6 - Vamos conhecer você melhor
         </CardDescription>
         <div className="flex gap-2 justify-center mt-4">
-          {[1, 2, 3, 4, 5].map(s => (
+          {[1, 2, 3, 4, 5, 6].map(s => (
             <div
               key={s}
               className={`h-2 flex-1 rounded-full ${
@@ -492,6 +604,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
         {step === 3 && renderStep3()}
         {step === 4 && renderStep4()}
         {step === 5 && renderStep5()}
+        {step === 6 && renderStep6()}
 
         <div className="flex justify-between pt-4">
           <Button
@@ -513,7 +626,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Salvando...
               </>
-            ) : step === 5 ? (
+            ) : step === 6 ? (
               'Finalizar'
             ) : (
               'Próximo'

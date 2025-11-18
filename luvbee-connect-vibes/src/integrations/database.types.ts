@@ -15,6 +15,7 @@ export interface Database {
           preferences: Json | null
           onboarding_completed: boolean
           is_active: boolean
+          role: 'user' | 'admin'
           created_at: string
           updated_at: string
         }
@@ -29,6 +30,7 @@ export interface Database {
           preferences?: Json | null
           onboarding_completed?: boolean
           is_active?: boolean
+          role?: 'user' | 'admin'
           created_at?: string
           updated_at?: string
         }
@@ -43,6 +45,7 @@ export interface Database {
           preferences?: Json | null
           onboarding_completed?: boolean
           is_active?: boolean
+          role?: 'user' | 'admin'
           created_at?: string
           updated_at?: string
         }

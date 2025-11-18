@@ -41,7 +41,7 @@ export function MessageInput({
   }
 
   return (
-    <div className="p-4 border-t-2 border-foreground bg-card">
+    <div className="p-4 border-t-2 border-foreground bg-background">
       <div className="flex space-x-2">
         <Input
           type="text"
@@ -49,13 +49,13 @@ export function MessageInput({
           value={message}
           onChange={(e) => setMessage(e.target.value)}
           onKeyPress={handleKeyPress}
-          className="flex-1 shadow-hard border-2 border-foreground"
+          className="flex-1 shadow-hard border-2 border-foreground rounded-none font-mono"
           disabled={isLoading || disabled}
         />
         <Button
           onClick={handleSend}
           disabled={isLoading || disabled || !message.trim()}
-          className="shadow-hard border-2 border-foreground"
+          className="shadow-hard border-2 border-foreground rounded-none"
           size="icon"
         >
           {isLoading ? (

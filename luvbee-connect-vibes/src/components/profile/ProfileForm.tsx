@@ -9,7 +9,9 @@ import { Camera, MapPin, X } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { UserProfile } from '@/types/app.types'
 import { UserService } from '@/services/user.service'
-import { DRINK_OPTIONS, FOOD_OPTIONS, MUSIC_OPTIONS } from '@/lib/validations'
+import { DRINK_OPTIONS, FOOD_OPTIONS, MUSIC_OPTIONS, IDENTITY_OPTIONS, WHO_TO_SEE_OPTIONS } from '@/lib/validations'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+import { Checkbox } from '@/components/ui/checkbox'
 import { sanitizeText } from '@/lib/sanitize'
 import { toast } from 'sonner'
 import { usePlacesAutocomplete } from '@/hooks/usePlacesAutocomplete'
@@ -25,6 +27,12 @@ export function ProfileForm() {
   // Estado para 3 fotos
   const [photos, setPhotos] = useState<string[]>([])
   
+  // Estado para preferências de descoberta
+  const [discoveryPreferences, setDiscoveryPreferences] = useState({
+    identity: '' as '' | 'woman_cis' | 'man_cis' | 'non_binary' | 'other',
+    who_to_see: [] as string[],
+  })
+
   // Estado para preferências clicáveis
   const [preferences, setPreferences] = useState({
     drink_preferences: [] as string[],
@@ -63,6 +71,10 @@ export function ProfileForm() {
           drink_preferences: result.data.drink_preferences || [],
           food_preferences: result.data.food_preferences || [],
           music_preferences: result.data.music_preferences || [],
+        })
+        setDiscoveryPreferences({
+          identity: (result.data.identity as any) || '',
+          who_to_see: result.data.who_to_see || [],
         })
       }
     } catch (error) {
@@ -422,7 +434,11 @@ export function ProfileForm() {
       await updateProfile(updateData)
       
       // Atualizar preferências na tabela user_preferences
-      await UserService.saveUserPreferences(user.id, preferences)
+      await UserService.saveUserPreferences(user.id, {
+        ...preferences,
+        identity: discoveryPreferences.identity || null,
+        who_to_see: discoveryPreferences.who_to_see,
+      })
       
       toast.success('Perfil atualizado com sucesso!')
     } catch (error) {
@@ -548,6 +564,81 @@ export function ProfileForm() {
             placeholder="Conte um pouco sobre você..."
             rows={4}
           />
+        </div>
+
+        {/* Preferências de Descoberta */}
+        <div className="space-y-6">
+          <h3 className="text-lg font-semibold text-gray-900">Preferências de Descoberta</h3>
+          
+          <div className="space-y-6">
+            <div>
+              <Label className="text-base font-semibold mb-3 block">
+                Como você se identifica?
+              </Label>
+              <RadioGroup
+                value={discoveryPreferences.identity}
+                onValueChange={(value) => setDiscoveryPreferences(prev => ({ ...prev, identity: value as any }))}
+                className="space-y-3"
+              >
+                {IDENTITY_OPTIONS.map(option => {
+                  const labels: Record<string, string> = {
+                    'woman_cis': 'Mulher Cis',
+                    'man_cis': 'Homem Cis',
+                    'non_binary': 'Pessoa Não-Binária',
+                    'other': 'Outro'
+                  }
+                  return (
+                    <div key={option} className="flex items-center space-x-2">
+                      <RadioGroupItem value={option} id={`identity-${option}`} />
+                      <Label htmlFor={`identity-${option}`} className="cursor-pointer font-normal">
+                        {labels[option]}
+                      </Label>
+                    </div>
+                  )
+                })}
+              </RadioGroup>
+            </div>
+
+            <div>
+              <Label className="text-base font-semibold mb-3 block">
+                Quem você quer ver? (Selecione uma ou mais opções)
+              </Label>
+              <div className="space-y-3">
+                {WHO_TO_SEE_OPTIONS.map(option => {
+                  const labels: Record<string, string> = {
+                    'women_cis': 'Mulheres Cis',
+                    'men_cis': 'Homens Cis',
+                    'lgbtqiapn+': 'Público LGBTQIAPN+',
+                    'all': 'Todos'
+                  }
+                  return (
+                    <div key={option} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={`who-to-see-${option}`}
+                        checked={discoveryPreferences.who_to_see.includes(option)}
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            setDiscoveryPreferences(prev => ({
+                              ...prev,
+                              who_to_see: [...prev.who_to_see, option]
+                            }))
+                          } else {
+                            setDiscoveryPreferences(prev => ({
+                              ...prev,
+                              who_to_see: prev.who_to_see.filter(v => v !== option)
+                            }))
+                          }
+                        }}
+                      />
+                      <Label htmlFor={`who-to-see-${option}`} className="cursor-pointer font-normal">
+                        {labels[option]}
+                      </Label>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Preferências Clicáveis */}

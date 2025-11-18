@@ -96,6 +96,22 @@ export const MUSIC_OPTIONS = [
   'indie',
 ] as const
 
+// Identity options
+export const IDENTITY_OPTIONS = ['woman_cis', 'man_cis', 'non_binary', 'other'] as const
+
+// Who to see options
+export const WHO_TO_SEE_OPTIONS = ['women_cis', 'men_cis', 'lgbtqiapn+', 'all'] as const
+
+// Identity schema
+export const identitySchema = z.enum(IDENTITY_OPTIONS, {
+  errorMap: () => ({ message: 'Identidade inválida' })
+})
+
+// Who to see schema
+export const whoToSeeSchema = z.array(z.enum(WHO_TO_SEE_OPTIONS))
+  .min(1, 'Selecione pelo menos uma opção')
+  .max(4, 'Máximo 4 opções')
+
 export const userPreferencesSchema = z.object({
   drink_preferences: z
     .array(z.enum(DRINK_OPTIONS))
@@ -117,6 +133,8 @@ export const userPreferencesSchema = z.object({
     })
     .optional()
     .nullable(),
+  identity: identitySchema.optional().nullable(),
+  who_to_see: whoToSeeSchema.optional().nullable(),
 })
 
 export type UserPreferencesInput = z.infer<typeof userPreferencesSchema>
@@ -126,6 +144,8 @@ export const updatePreferencesSchema = userPreferencesSchema.partial().extend({
   drink_preferences: z.array(z.enum(DRINK_OPTIONS)).min(1).max(10).optional(),
   food_preferences: z.array(z.enum(FOOD_OPTIONS)).min(1).max(10).optional(),
   music_preferences: z.array(z.enum(MUSIC_OPTIONS)).min(1).max(10).optional(),
+  identity: identitySchema.optional().nullable(),
+  who_to_see: whoToSeeSchema.optional().nullable(),
 })
 
 // Alias para compatibilidade

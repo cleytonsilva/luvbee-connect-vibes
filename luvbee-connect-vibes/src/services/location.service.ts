@@ -349,7 +349,7 @@ export class LocationService {
       if (uuids.length > 0) {
         const { data: uuidLocations, error: uuidError } = await supabase
           .from('locations')
-          .select('id,name,address,type,place_id,lat,lng,rating,price_level,image_url,peak_hours,google_rating,google_place_data,created_at,updated_at,is_active,is_verified,owner_id')
+          .select('id,name,address,type,place_id,lat,lng,rating,price_level,image_url,peak_hours,google_rating,google_place_data,created_at,updated_at')
           .in('id', uuids)
 
         if (!uuidError && uuidLocations) {
@@ -361,7 +361,7 @@ export class LocationService {
       if (placeIds.length > 0) {
         const { data: placeLocations, error: placeError } = await supabase
           .from('locations')
-          .select('id,name,address,type,place_id,lat,lng,rating,price_level,image_url,peak_hours,google_rating,google_place_data,created_at,updated_at,is_active,is_verified,owner_id')
+          .select('id,name,address,type,place_id,lat,lng,rating,price_level,image_url,peak_hours,google_rating,google_place_data,created_at,updated_at')
           .in('place_id', placeIds)
 
         if (!placeError && placeLocations) {
@@ -827,6 +827,56 @@ export class LocationService {
   /**
    * Busca todos os matches ativos do usuário com locais
    */
+  /**
+   * Busca locais por IDs (array de UUIDs)
+   */
+  static async getLocationsByIds(locationIds: string[]): Promise<ApiResponse<LocationData[]>> {
+    try {
+      if (!locationIds || locationIds.length === 0) {
+        return { data: [] }
+      }
+
+      const { data, error } = await supabase
+        .from('locations')
+        .select('id,name,address,type,lat,lng,rating,price_level,image_url,description,place_id,google_rating,google_place_data,created_at,updated_at')
+        .in('id', locationIds)
+
+      if (error) {
+        console.error('[LocationService] getLocationsByIds error:', error)
+        throw error
+      }
+
+      // Mapear dados do banco para LocationData
+      const mappedData: LocationData[] = (data || []).map((loc: any) => ({
+        id: loc.id,
+        name: loc.name,
+        address: loc.address,
+        category: loc.type || 'outro',
+        type: loc.type,
+        description: loc.description || undefined,
+        images: loc.image_url ? [loc.image_url] : undefined,
+        image_url: loc.image_url,
+        rating: Number(loc.rating) || Number(loc.google_rating) || 0,
+        price_level: loc.price_level || undefined,
+        place_id: loc.place_id || undefined,
+        lat: Number(loc.lat),
+        lng: Number(loc.lng),
+        location: {
+          lat: Number(loc.lat),
+          lng: Number(loc.lng),
+        },
+        is_verified: false,
+        is_active: true,
+        created_at: loc.created_at,
+        updated_at: loc.updated_at,
+      }))
+
+      return { data: mappedData }
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : 'Failed to get locations by IDs' }
+    }
+  }
+
   static async getUserLocationMatches(userId: string): Promise<ApiResponse<any[]>> {
     try {
       // Buscar location_matches primeiro (sem join porque location_id é TEXT e não há foreign key)
@@ -867,40 +917,9 @@ export class LocationService {
         return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
       })
 
-      let locationsMap: Map<string, any> = new Map()
-
-      if (uuidIds.length > 0) {
-        // Buscar locations em lotes se necessário (Supabase tem limite de 100 itens no .in())
-        const batchSize = 100
-        for (let i = 0; i < uuidIds.length; i += batchSize) {
-          const batch = uuidIds.slice(i, i + batchSize)
-          const { data: locations, error: locationsError } = await supabase
-            .from('locations')
-            .select('id,name,address,type,place_id,lat,lng,rating,price_level,image_url,peak_hours,google_rating,google_place_data,created_at,updated_at,is_active,is_verified,owner_id')
-            .in('id', batch)
-
-          if (locationsError) {
-            console.warn('[LocationService] Error fetching locations batch:', locationsError)
-            continue
-          }
-
-          if (locations) {
-            locations.forEach((loc: any) => {
-              locationsMap.set(loc.id, loc)
-            })
-          }
-        }
-      }
-
-      // Combinar matches com locations
-      const result = activeMatches.map((match: any) => {
-        const location = locationsMap.get(match.location_id) || null
-        return {
-          ...match,
-          location
-        }
-      })
-
+      // Não buscar locations aqui para evitar requisições duplicadas
+      // A UI pode decidir se precisa dos detalhes e buscar separadamente
+      const result = activeMatches.map((match: any) => ({ ...match, location: null }))
       return { data: result }
     } catch (error) {
       console.error('[LocationService] getUserLocationMatches exception:', error)
@@ -1011,7 +1030,7 @@ export class LocationService {
       // Usar RPC ou query direta com tratamento de erro 406
       const { data, error } = await supabase
         .from('locations')
-        .select('id,name,address,type,place_id,lat,lng,rating,price_level,image_url,peak_hours,google_rating,google_place_data,created_at,updated_at,is_active,is_verified,owner_id')
+        .select('id,name,address,type,place_id,lat,lng,rating,price_level,image_url,peak_hours,google_rating,google_place_data,created_at,updated_at')
         .eq('place_id', placeId)
         .maybeSingle() // Usar maybeSingle ao invés de single para evitar erro se não encontrar
 
@@ -1134,7 +1153,7 @@ export class LocationService {
       const { data: directData, error: directError } = await supabase
             .from('locations')
             .insert(locationData)
-            .select('id,name,address,type,place_id,lat,lng,rating,price_level,image_url,peak_hours,google_rating,google_place_data,created_at,updated_at,is_active,is_verified,owner_id')
+            .select('id,name,address,type,place_id,lat,lng,rating,price_level,image_url,peak_hours,google_rating,google_place_data,created_at,updated_at')
             .single()
           
           if (directError) {

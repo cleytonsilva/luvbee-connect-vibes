@@ -6,9 +6,11 @@
 
 import { useState, useEffect } from 'react'
 import { supabase } from '@/integrations/supabase'
+import { safeLog } from '@/lib/safe-log'
 import { invokeCachePlacePhoto } from '@/lib/cache-place-photo-helper'
 
 const photoCache = new Map<string, string>()
+const inflight = new Set<string>()
 
 export function usePlacePhoto(placeId: string | null | undefined, fallbackUrl?: string | null): string {
   const [photoUrl, setPhotoUrl] = useState<string>(fallbackUrl || '/placeholder-location.jpg')
@@ -41,6 +43,20 @@ export function usePlacePhoto(placeId: string | null | undefined, fallbackUrl?: 
       return () => { cancelled = true }
     }
 
+    // Cache em sessionStorage
+    const sessionKey = `place-photo:${placeId}`
+    try {
+      const cachedStr = typeof window !== 'undefined' ? window.sessionStorage.getItem(sessionKey) : null
+      if (cachedStr) {
+        const cached = JSON.parse(cachedStr)
+        if (cached && cached.imageUrl && typeof cached.ts === 'number' && Date.now() - cached.ts < 86400000) {
+          photoCache.set(placeId, cached.imageUrl)
+        } else if (typeof window !== 'undefined') {
+          window.sessionStorage.removeItem(sessionKey)
+        }
+      }
+    } catch {}
+
     // Verificar cache
     if (photoCache.has(placeId)) {
       updatePhotoUrl(photoCache.get(placeId)!)
@@ -49,19 +65,41 @@ export function usePlacePhoto(placeId: string | null | undefined, fallbackUrl?: 
 
     const fetchPhoto = async () => {
       try {
+        if (inflight.has(placeId)) {
+          if (import.meta.env.DEV) {
+            console.debug('[usePlacePhoto] Requisição já em andamento para', placeId)
+          }
+          return
+        }
+        inflight.add(placeId)
+        try {
+          const unavailableStr = typeof window !== 'undefined' ? window.sessionStorage.getItem('edge-cache-place-photo-unavailable') : null
+          if (unavailableStr) {
+            const ts = Number(unavailableStr)
+            if (!Number.isNaN(ts) && Date.now() - ts < 300000) {
+              updatePhotoUrl('/placeholder-location.jpg')
+              return
+            }
+          }
+        } catch {}
         // Primeiro, verificar se já existe no storage
         const list = await supabase.storage.from('div').list(`places/${placeId}`)
         if (!cancelled && list.data && list.data.length > 0) {
           const filePath = `places/${placeId}/${list.data[0].name}`
           const { data: { publicUrl } } = supabase.storage.from('div').getPublicUrl(filePath)
           photoCache.set(placeId, publicUrl)
+          try {
+            if (typeof window !== 'undefined') {
+              window.sessionStorage.setItem(sessionKey, JSON.stringify({ imageUrl: publicUrl, ts: Date.now() }))
+            }
+          } catch {}
           updatePhotoUrl(publicUrl)
           return
         }
 
         // Se não encontrou no storage, chamar Edge Function usando helper
         if (import.meta.env.DEV) {
-          console.log('[usePlacePhoto] Chamando Edge Function cache-place-photo para placeId:', placeId)
+          console.debug('[usePlacePhoto] Edge cache-place-photo →', placeId)
         }
 
         const result = await invokeCachePlacePhoto(placeId, { maxWidth: 800 })
@@ -70,16 +108,24 @@ export function usePlacePhoto(placeId: string | null | undefined, fallbackUrl?: 
 
         if (result.success && result.imageUrl) {
           photoCache.set(placeId, result.imageUrl)
+          try {
+            if (typeof window !== 'undefined') {
+              window.sessionStorage.setItem(sessionKey, JSON.stringify({ imageUrl: result.imageUrl, ts: Date.now() }))
+            }
+          } catch {}
           updatePhotoUrl(result.imageUrl)
           if (import.meta.env.DEV) {
-            console.log('[usePlacePhoto] Foto obtida com sucesso:', result.imageUrl.substring(0, 50) + '...')
+            console.debug('[usePlacePhoto] Foto obtida:', result.imageUrl.substring(0, 50) + '...')
           }
           return
         }
 
         // Se falhou, logar erro e usar fallback
-        if (import.meta.env.DEV && result.error) {
-          console.warn('[usePlacePhoto] Erro ao obter foto:', result.error)
+        if (result.error) {
+          safeLog('warn', '[usePlacePhoto] erro foto', { placeId, error: result.error })
+          if (result.error.includes('404') && typeof window !== 'undefined') {
+            try { window.sessionStorage.setItem('edge-cache-place-photo-unavailable', String(Date.now())) } catch {}
+          }
         }
         updatePhotoUrl('/placeholder-location.jpg')
       } catch (err) {
@@ -87,8 +133,11 @@ export function usePlacePhoto(placeId: string | null | undefined, fallbackUrl?: 
           if (import.meta.env.DEV) {
             console.error('[usePlacePhoto] Erro não tratado:', err)
           }
+          safeLog('error', '[usePlacePhoto] erro não tratado', { placeId, error: err instanceof Error ? err.message : String(err) })
           updatePhotoUrl('/placeholder-location.jpg')
         }
+      } finally {
+        inflight.delete(placeId)
       }
     }
 

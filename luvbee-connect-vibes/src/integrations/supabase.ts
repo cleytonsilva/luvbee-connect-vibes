@@ -65,15 +65,18 @@ export const isSupabaseConfigured = (): boolean => {
 
 // Helper para obter informações de debug (apenas em desenvolvimento)
 if (import.meta.env.DEV) {
-  const configInfo = {
-    url: supabaseUrl ? `${supabaseUrl.substring(0, 30)}...` : '❌ Não configurado',
-    hasKey: !!supabaseAnonKey,
-    configured: isSupabaseConfigured()
+  const alreadyLogged = typeof window !== 'undefined' && (window as any).__supabaseLogged
+  if (!alreadyLogged) {
+    const configInfo = {
+      url: supabaseUrl ? `${supabaseUrl.substring(0, 30)}...` : '❌ Não configurado',
+      hasKey: !!supabaseAnonKey,
+      configured: isSupabaseConfigured()
+    }
+    console.debug('🔌 Supabase:', configInfo)
+    if (typeof window !== 'undefined') {
+      ;(window as any).__supabaseLogged = true
+    }
   }
-  console.log('🔌 Supabase Client Configurado:', configInfo)
-  console.log('   URL:', configInfo.url)
-  console.log('   Chave configurada:', configInfo.hasKey)
-  console.log('   Cliente configurado:', configInfo.configured)
 }
 
 export default supabase

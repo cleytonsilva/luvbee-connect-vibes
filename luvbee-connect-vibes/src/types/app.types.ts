@@ -12,6 +12,7 @@ export interface UserProfile {
   distance?: number
   onboarding_completed?: boolean
   is_active: boolean
+  role?: 'user' | 'admin'
   created_at: string
   updated_at: string
 }

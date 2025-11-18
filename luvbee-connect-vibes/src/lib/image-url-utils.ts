@@ -60,6 +60,9 @@ export function normalizeImageUrl(
         console.warn('[normalizeImageUrl] Erro ao converter URL do Google Maps:', error)
       }
     }
+    if (url.includes('PhotoService.GetPhoto')) {
+      return '/placeholder-location.jpg'
+    }
     
     // Se é uma URL válida de outro serviço, retornar como está
     if (url.startsWith('http://') || url.startsWith('https://')) {

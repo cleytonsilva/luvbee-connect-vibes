@@ -116,7 +116,8 @@ export class AuthService {
             email: data.email.trim().toLowerCase(),
             name: data.name.trim(),
             age: (authData.user.user_metadata?.age ?? null) ?? 18,
-            location: null
+            location: null,
+            role: 'user' // Todos os novos usuários recebem role 'user' por padrão
           })
 
         if (profileError) {
@@ -129,7 +130,8 @@ export class AuthService {
                 email: data.email.trim().toLowerCase(),
                 name: data.name.trim(),
                 age: 18,
-                location: null
+                location: null,
+                role: 'user' // Todos os novos usuários recebem role 'user' por padrão
               })
 
             if (retryError) {

@@ -11,10 +11,9 @@ import { ProfilePage } from './pages/ProfilePage'
 import { LocationsPage } from './pages/LocationsPage'
 import { VibeLocalPage } from './pages/VibeLocalPage'
 import { LocationDetail } from './pages/LocationDetailPage'
-import { ExplorePage } from './pages/ExplorePage'
-import { LocationDetail as ExploreLocationDetail } from './components/discovery/LocationDetail'
 import { TermosDeUso } from './pages/TermosDeUso'
 import AdminCachePage from './pages/AdminCache'
+import { AdminRoute } from './components/admin/AdminRoute'
 import { useAuth } from './hooks/useAuth'
 import { UserService } from './services/user.service'
 import { useEffect, useState, useRef } from 'react'
@@ -283,9 +282,14 @@ function App() {
         <Route path="people" element={<PeoplePage />} />
         <Route path="messages" element={<MessagesPage />} />
         <Route path="profile" element={<ProfilePage />} />
-        <Route path="explore" element={<ExplorePage />} />
-        <Route path="explore/location/:id" element={<ExploreLocationDetail />} />
-        <Route path="admin/cache" element={<AdminCachePage />} />
+        <Route 
+          path="admin/cache" 
+          element={
+            <AdminRoute>
+              <AdminCachePage />
+            </AdminRoute>
+          } 
+        />
       </Route>
       
       <Route path="*" element={<Navigate to="/" replace />} />

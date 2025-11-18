@@ -25,6 +25,8 @@ import { toast } from 'sonner'
 import { usePlacePhoto } from '@/hooks/usePlacePhoto'
 import { normalizeImageUrl } from '@/lib/image-url-utils'
 import { AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from '@/components/ui/alert-dialog'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
+import { PeopleForLocation } from '@/components/people/PeopleForLocation'
 
 interface ReviewData {
   id: string
@@ -283,7 +285,14 @@ export function LocationDetail({ locationId }: LocationDetailProps) {
           </Card>
 
           <Card className="p-6">
-            <h3 className="text-xl font-semibold text-gray-900 mb-4">Reviews</h3>
+            <Tabs defaultValue="reviews" className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="reviews">Reviews</TabsTrigger>
+                <TabsTrigger value="people">Pessoas</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="reviews" className="mt-4">
+                <h3 className="text-xl font-semibold text-gray-900 mb-4">Reviews</h3>
             
             {user && (
               <div className="mb-6 p-4 bg-gray-50 rounded-lg">
@@ -352,7 +361,13 @@ export function LocationDetail({ locationId }: LocationDetailProps) {
                   <p className="text-gray-600">No reviews yet. Be the first to review!</p>
                 </div>
               )}
-            </div>
+              </div>
+              </TabsContent>
+              
+              <TabsContent value="people" className="mt-4">
+                <PeopleForLocation locationId={location.id} />
+              </TabsContent>
+            </Tabs>
           </Card>
         </div>
 

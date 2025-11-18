@@ -3,6 +3,7 @@ import { useAuth } from './useAuth'
 import { supabase } from '@/integrations/supabase'
 import type { Database } from '@/integrations/database.types'
 import { LocationService } from '@/services/location.service'
+import { UserService } from '@/services/user.service'
 import { safeLog } from '@/lib/safe-log'
 
 type Location = Database['public']['Tables']['locations']['Row']
@@ -152,13 +153,35 @@ export function useVibePlaces({
           }
         }
 
+        // Buscar preferências do usuário para filtrar locais
+        let drinkPrefs: string[] | null = null
+        let foodPrefs: string[] | null = null
+        let musicPrefs: string[] | null = null
+
+        if (user?.id) {
+          try {
+            const prefsResult = await UserService.getUserPreferences(user.id)
+            if (prefsResult.data) {
+              drinkPrefs = prefsResult.data.drink_preferences || null
+              foodPrefs = prefsResult.data.food_preferences || null
+              musicPrefs = prefsResult.data.music_preferences || null
+            }
+          } catch (prefsError) {
+            safeLog('warn', '[useVibePlaces] Erro ao buscar preferências:', prefsError)
+            // Continuar sem filtros de preferências se houver erro
+          }
+        }
+
         // Buscar lugares do banco local (sempre priorizar local)
         const { data, error: dbError } = await supabase
           .rpc('get_places_nearby', {
             lat: userLocation.lat,
             long: userLocation.lng,
             radius_meters: radius,
-            filter_adult: mode === 'solo'
+            filter_adult: mode === 'solo',
+            drink_preferences: drinkPrefs,
+            food_preferences: foodPrefs,
+            music_preferences: musicPrefs
           })
           .range(offset, offset + limit - 1)
 

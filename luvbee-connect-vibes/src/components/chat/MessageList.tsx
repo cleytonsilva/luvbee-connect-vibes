@@ -80,29 +80,29 @@ export function MessageList({ messages, isLoading = false }: MessageListProps) {
 
             <div
               className={cn(
-                "max-w-xs lg:max-w-md px-4 py-2 rounded-lg shadow-hard border-2 border-foreground",
+                "max-w-xs lg:max-w-md px-4 py-2 rounded-none shadow-hard border-2 border-foreground",
                 isOwnMessage
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-card text-card-foreground"
+                  ? "bg-primary text-foreground"
+                  : "bg-background text-foreground"
               )}
             >
               {!isOwnMessage && sender && (
-                <p className="text-xs font-semibold mb-1 opacity-80">
+                <p className="text-xs font-semibold mb-1 opacity-80 font-mono">
                   {sender.name}
                 </p>
               )}
-              <p className="text-sm whitespace-pre-wrap break-words">
+              <p className="text-sm whitespace-pre-wrap break-words font-mono">
                 {message.content}
               </p>
               <div className="flex items-center justify-end space-x-1 mt-1">
-                <span className="text-xs opacity-60">
+                <span className="text-xs opacity-60 font-mono">
                   {formatDistanceToNow(new Date(message.created_at), {
                     addSuffix: true,
                     locale: ptBR
                   })}
                 </span>
                 {isOwnMessage && message.read_at && (
-                  <span className="text-xs opacity-60 ml-1">✓✓</span>
+                  <span className="text-xs opacity-60 ml-1 font-mono">✓✓</span>
                 )}
               </div>
             </div>

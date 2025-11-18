@@ -1,6 +1,7 @@
 import { MapPin, Star } from "lucide-react";
 import { useState, useEffect } from 'react'
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useLocation as useRouterLocation, useNavigate } from "react-router-dom";
 import type { Location } from "@/types/location.types";
 import type { LocationData } from "@/types/app.types";
@@ -10,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog";
 import { useAuth } from "@/hooks/useAuth";
 import { LocationService } from "@/services/location.service";
+import { safeLog } from "@/lib/safe-log";
 import { toast } from "sonner";
 
 interface LocationCardProps {
@@ -18,6 +20,7 @@ interface LocationCardProps {
   onLike?: () => void;
   onDislike?: () => void;
   onLocationClick?: (locationId: string) => void;
+  mutualLikesCount?: number;
 }
 
 export const LocationCard = ({
@@ -26,12 +29,14 @@ export const LocationCard = ({
   onLike,
   onDislike,
   onLocationClick,
+  mutualLikesCount,
 }: LocationCardProps) => {
   const navigate = useNavigate()
   const routerLocation = useRouterLocation()
   const { user } = useAuth()
   const [hasMatch, setHasMatch] = useState<boolean>(false)
   const [matchChecked, setMatchChecked] = useState<boolean>(false)
+  const [imageLoading, setImageLoading] = useState<boolean>(true)
   
   // Priorizar imagem salva no Supabase Storage
   // Se image_url é do Supabase Storage, usar ela
@@ -78,6 +83,7 @@ export const LocationCard = ({
     }
     // Tentar placeholder
     target.src = '/placeholder-location.jpg';
+    safeLog('warn', '[LocationCard] image error', { url: imageUrl, placeId })
   };
 
   const handleCardClick = (e: React.MouseEvent) => {
@@ -128,8 +134,14 @@ export const LocationCard = ({
           alt={location.name}
           className="w-full h-full object-cover"
           onError={handleImageError}
+          onLoad={() => setImageLoading(false)}
           loading="lazy"
         />
+        {imageLoading && (
+          <div className="absolute inset-0">
+            <Skeleton className="w-full h-full" />
+          </div>
+        )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
       </div>
 
@@ -197,6 +209,11 @@ export const LocationCard = ({
         </div>
 
         <div className="flex items-center gap-2 mb-3 flex-wrap">
+          {mutualLikesCount !== undefined && mutualLikesCount > 0 && (
+            <Badge variant="default" className="bg-primary text-primary-foreground border-2 border-foreground shadow-hard">
+              ⭐ {mutualLikesCount} {mutualLikesCount === 1 ? 'match' : 'matches'} também curtiu
+            </Badge>
+          )}
           {locationType && (
             <Badge variant="secondary" className="bg-white/20 text-white border-white/40">
               {locationType}

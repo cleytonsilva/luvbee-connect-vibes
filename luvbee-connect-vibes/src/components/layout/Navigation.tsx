@@ -2,6 +2,7 @@ import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { NotificationBell } from '@/components/notifications/NotificationBell'
 import { 
   Home, 
   MapPin, 
@@ -84,6 +85,8 @@ export function Navigation({ className = '' }: NavigationProps) {
           <div className="flex items-center space-x-4">
             {user ? (
               <div className="flex items-center space-x-3">
+                <NotificationBell />
+                
                 <div className="hidden md:flex items-center space-x-2">
                   <Avatar className="h-8 w-8">
                     <AvatarImage src={profile?.avatar_url || (profile?.photos && profile.photos.length > 0 ? profile.photos[0] : undefined)} />
