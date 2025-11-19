@@ -1,0 +1,42 @@
+name: "CodeQL Config"
+
+disable-default-queries: false
+
+queries:
+  - uses: security-and-quality
+  - uses: security-extended
+  - uses: javascript-security-and-quality
+
+paths:
+  - src
+  - api
+  - supabase/functions
+
+paths-ignore:
+  - node_modules
+  - dist
+  - build
+  - public
+  - '**/*.test.ts'
+  - '**/*.test.tsx'
+  - '**/__tests__/**'
+  - '**/test/**'
+  - '**/tests/**'
+
+query-filters:
+  - exclude:
+      id: js/regex/duplicate-in-character-class
+  - exclude:
+      id: js/regex/missing-regexp-anchor
+  - exclude:
+      id: js/regex/unmatchable-caret
+  - exclude:
+      id: js/useless-assignment-to-property
+  - exclude:
+      id: js/useless-assignment-to-local
+  - exclude:
+      id: js/useless-assignment-to-parameter
+
+packs:
+  - codeql/javascript-queries:1.0.0
+  - codeql/javascript-experimental-queries:1.0.0

@@ -75,18 +75,27 @@ export class GooglePlacesService {
 
   /**
    * Busca locais próximos usando Edge Function (evita CORS e usa nova arquitetura)
+   * Fallback para REST API quando Edge Function não está disponível
    * Migrado de PlacesService para evitar deprecação
    */
   static async searchNearby(params: NearbySearchParams): Promise<ApiResponse<GooglePlace[]>> {
     try {
       const { latitude, longitude, radius = GOOGLE_PLACES_CONFIG.radius, type, keyword } = params
 
-      // Usar Edge Function para evitar CORS e usar REST API diretamente
+      // Tentar usar Edge Function primeiro (evita CORS e protege chave da API)
       try {
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+        
+        // Se não há URL do Supabase configurada, usar fallback REST diretamente
+        if (!supabaseUrl) {
+          console.warn('[GooglePlacesService] VITE_SUPABASE_URL não configurada, usando fallback REST')
+          return await this.searchNearbyRest(params)
+        }
+
         const supabaseModule = await import('@/integrations/supabase')
         const { data: { session } } = await supabaseModule.supabase.auth.getSession()
         
-        const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/search-nearby`, {
+        const response = await fetch(`${supabaseUrl}/functions/v1/search-nearby`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -97,16 +106,24 @@ export class GooglePlacesService {
         })
 
         if (!response.ok) {
+          // Se Edge Function retornou erro, tentar fallback REST
           const errorData = await response.json().catch(() => ({ error: 'Erro desconhecido' }))
-          return { error: errorData.error || `Erro ao buscar locais: ${response.statusText}` }
+          console.warn('[GooglePlacesService] Edge Function falhou, usando fallback REST:', errorData.error || response.statusText)
+          return await this.searchNearbyRest(params)
         }
 
         const result = await response.json()
+        if (result.error) {
+          // Se resposta contém erro, tentar fallback REST
+          console.warn('[GooglePlacesService] Edge Function retornou erro, usando fallback REST:', result.error)
+          return await this.searchNearbyRest(params)
+        }
+
         return { data: result.data || [] }
       } catch (error) {
-        return {
-          error: error instanceof Error ? error.message : 'Failed to search nearby places - Edge Function não disponível'
-        }
+        // Se Edge Function não está disponível ou falhou, usar fallback REST
+        console.warn('[GooglePlacesService] Edge Function não disponível, usando fallback REST:', error instanceof Error ? error.message : 'Unknown error')
+        return await this.searchNearbyRest(params)
       }
     } catch (error) {
       return {

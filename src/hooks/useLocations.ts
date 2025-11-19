@@ -323,12 +323,22 @@ export function useLocations(options: UseLocationsOptions = {}) {
     return uniqueLocations
   }, [allGooglePlaces, latitude, longitude])
 
+  // Estabilizar place_ids para evitar recálculos desnecessários da queryKey
+  const placeIdsString = useMemo(() => {
+    if (!allLocations.length) return ''
+    const placeIds = allLocations
+      .map(loc => loc.place_id)
+      .filter(Boolean)
+      .sort() // Ordenar para garantir consistência
+    return placeIds.join(',')
+  }, [allLocations])
+
   // Filtrar locais já curtidos usando função RPC no backend
   const {
     data: unmatchedPlaceIds,
     isLoading: isLoadingFilter,
   } = useQuery({
-    queryKey: ['filter-unmatched-locations', user?.id, allLocations.map(l => l.place_id).join(',')],
+    queryKey: ['filter-unmatched-locations', user?.id, placeIdsString],
     queryFn: async () => {
       if (!user || !allLocations.length) return []
       

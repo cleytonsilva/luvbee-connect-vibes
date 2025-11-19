@@ -1,6 +1,7 @@
 import { MapPin, Star, Clock } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useNavigate } from "react-router-dom";
+import { useMemo } from "react";
 import type { Location } from "@/types/location.types";
 import type { LocationData } from "@/types/app.types";
 import { normalizeImageUrl } from "@/lib/image-url-utils";
@@ -23,21 +24,25 @@ export const LocationCard = ({
 }: LocationCardProps) => {
   const navigate = useNavigate()
   
-  // Priorizar imagem salva no Supabase Storage
-  // Se image_url é do Supabase Storage, usar ela
-  // Caso contrário, tentar outros campos ou placeholder
-  const rawImageUrl = 
-    location.image_url ||
-    (location as any).photo_url || 
-    (Array.isArray(location.images) && location.images.length > 0 ? location.images[0] : null) ||
-    (Array.isArray((location as any).images) && (location as any).images.length > 0 ? (location as any).images[0] : null) ||
-    null;
+  // Estabilizar valores para evitar recálculos desnecessários
+  const placeId = useMemo(() => {
+    return location.place_id || (location as any).place_id || null
+  }, [location])
+
+  const rawImageUrl = useMemo(() => {
+    return location.image_url ||
+      (location as any).photo_url || 
+      (Array.isArray(location.images) && location.images.length > 0 ? location.images[0] : null) ||
+      (Array.isArray((location as any).images) && (location as any).images.length > 0 ? (location as any).images[0] : null) ||
+      null
+  }, [location])
   
   // Normalizar URL para converter URLs antigas do Google Maps para Edge Function
-  const normalizedUrl = normalizeImageUrl(rawImageUrl, location.place_id);
+  const normalizedUrl = useMemo(() => {
+    return normalizeImageUrl(rawImageUrl, placeId)
+  }, [rawImageUrl, placeId])
   
-  // Se não tem URL mas tem place_id, buscar foto do Google Places
-  const placeId = location.place_id || (location as any).place_id
+  // Usar hook para buscar foto
   const imageUrl = usePlacePhoto(placeId, normalizedUrl);
   
   const rating = Number(location.rating) || Number((location as any).google_rating) || 0;

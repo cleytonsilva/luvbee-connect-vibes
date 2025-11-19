@@ -342,7 +342,7 @@ export class LocationService {
       if (uuids.length > 0) {
         const { data: uuidLocations, error: uuidError } = await supabase
           .from('locations')
-          .select('id,name,address,type,place_id,lat,lng,rating,price_level,image_url,peak_hours,google_rating,google_place_data,created_at,updated_at,is_active,is_verified,owner_id')
+          .select('id,name,address,type,place_id,lat,lng,rating,price_level,image_url,peak_hours,google_rating,google_place_data,created_at,updated_at')
           .in('id', uuids)
 
         if (!uuidError && uuidLocations) {
@@ -354,7 +354,7 @@ export class LocationService {
       if (placeIds.length > 0) {
         const { data: placeLocations, error: placeError } = await supabase
           .from('locations')
-          .select('id,name,address,type,place_id,lat,lng,rating,price_level,image_url,peak_hours,google_rating,google_place_data,created_at,updated_at,is_active,is_verified,owner_id')
+          .select('id,name,address,type,place_id,lat,lng,rating,price_level,image_url,peak_hours,google_rating,google_place_data,created_at,updated_at')
           .in('place_id', placeIds)
 
         if (!placeError && placeLocations) {
@@ -775,7 +775,7 @@ export class LocationService {
           const batch = uuidIds.slice(i, i + batchSize)
           const { data: locations, error: locationsError } = await supabase
             .from('locations')
-            .select('id,name,address,type,place_id,lat,lng,rating,price_level,image_url,peak_hours,google_rating,google_place_data,created_at,updated_at,is_active,is_verified,owner_id')
+            .select('id,name,address,type,place_id,lat,lng,rating,price_level,image_url,peak_hours,google_rating,google_place_data,created_at,updated_at')
             .in('id', batch)
 
           if (locationsError) {
@@ -910,7 +910,7 @@ export class LocationService {
       // Usar RPC ou query direta com tratamento de erro 406
       const { data, error } = await supabase
         .from('locations')
-        .select('id,name,address,type,place_id,lat,lng,rating,price_level,image_url,peak_hours,google_rating,google_place_data,created_at,updated_at,is_active,is_verified,owner_id')
+        .select('id,name,address,type,place_id,lat,lng,rating,price_level,image_url,peak_hours,google_rating,google_place_data,created_at,updated_at')
         .eq('place_id', placeId)
         .maybeSingle() // Usar maybeSingle ao invés de single para evitar erro se não encontrar
 
@@ -1033,7 +1033,7 @@ export class LocationService {
       const { data: directData, error: directError } = await supabase
             .from('locations')
             .insert(locationData)
-            .select('id,name,address,type,place_id,lat,lng,rating,price_level,image_url,peak_hours,google_rating,google_place_data,created_at,updated_at,is_active,is_verified,owner_id')
+            .select('id,name,address,type,place_id,lat,lng,rating,price_level,image_url,peak_hours,google_rating,google_place_data,created_at,updated_at')
             .single()
           
           if (directError) {

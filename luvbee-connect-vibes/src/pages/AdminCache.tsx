@@ -1,9 +1,10 @@
 import React from 'react';
 import { CacheMonitorDashboard } from '@/components/admin/CacheMonitorDashboard';
 import { VenueInsertionForm } from '@/components/admin/VenueInsertionForm';
+import { SpiderEventsTest } from '@/components/admin/SpiderEventsTest';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { Shield, BarChart3, Plus, MapPin } from 'lucide-react';
+import { Shield, BarChart3, Plus, MapPin, Bug } from 'lucide-react';
 
 export default function AdminCachePage() {
   return (
@@ -83,6 +84,22 @@ export default function AdminCachePage() {
           </CardHeader>
           <CardContent>
             <VenueInsertionForm />
+          </CardContent>
+        </Card>
+
+        {/* Spider Events Test */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Bug className="h-5 w-5 text-primary" />
+              <CardTitle>Teste do Sistema de Eventos</CardTitle>
+            </div>
+            <CardDescription>
+              Teste e monitoramento do robô de scraping de eventos (Sympla, Eventbrite, Ingresse, Shotgun)
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <SpiderEventsTest />
           </CardContent>
         </Card>
 
