@@ -14,7 +14,37 @@ import { sanitizeText } from './sanitize'
 // ============================================
 
 export const userRegisterSchema = z.object({
-  email: z.string().email('Email inválido'),
+  email: z.string()
+    .min(5, 'Email muito curto')
+    .max(254, 'Email muito longo')
+    .refine((email) => email.includes('@'), 'Email deve conter @')
+    .refine((email) => {
+      const atCount = (email.match(/@/g) || []).length;
+      return atCount === 1;
+    }, 'Email deve conter apenas um @')
+    .refine((email) => {
+      const [, domainPart] = email.split('@');
+      return domainPart && domainPart.includes('.');
+    }, 'Domínio deve conter um ponto (ex: .com, .com.br)')
+    .refine((email) => {
+      const [, domainPart] = email.split('@');
+      return domainPart && !domainPart.startsWith('.') && !domainPart.endsWith('.');
+    }, 'Domínio não pode começar ou terminar com ponto')
+    .refine((email) => {
+      const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/i;
+      return emailRegex.test(email);
+    }, 'Formato de email inválido')
+    .refine((email) => {
+      const [localPart] = email.split('@');
+      const invalidCharsPattern = /[<>()[\]\\,;:\s@\"]/;
+      return !invalidCharsPattern.test(localPart);
+    }, 'Caracteres inválidos na parte do email')
+    .refine((email) => {
+      const [, domainPart] = email.split('@');
+      const domainParts = domainPart.split('.');
+      const tld = domainParts[domainParts.length - 1];
+      return tld && tld.length >= 2;
+    }, 'Domínio deve ter uma extensão válida (ex: .com, .com.br)'),
   password: z.string().min(8, 'Senha deve ter no mínimo 8 caracteres'),
   name: z.string().min(2, 'Nome deve ter no mínimo 2 caracteres').max(100, 'Nome muito longo'),
   acceptTerms: z.boolean().refine((val) => val === true, {
@@ -23,7 +53,37 @@ export const userRegisterSchema = z.object({
 })
 
 export const userLoginSchema = z.object({
-  email: z.string().email('Email inválido'),
+  email: z.string()
+    .min(5, 'Email muito curto')
+    .max(254, 'Email muito longo')
+    .refine((email) => email.includes('@'), 'Email deve conter @')
+    .refine((email) => {
+      const atCount = (email.match(/@/g) || []).length;
+      return atCount === 1;
+    }, 'Email deve conter apenas um @')
+    .refine((email) => {
+      const [, domainPart] = email.split('@');
+      return domainPart && domainPart.includes('.');
+    }, 'Domínio deve conter um ponto (ex: .com, .com.br)')
+    .refine((email) => {
+      const [, domainPart] = email.split('@');
+      return domainPart && !domainPart.startsWith('.') && !domainPart.endsWith('.');
+    }, 'Domínio não pode começar ou terminar com ponto')
+    .refine((email) => {
+      const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/i;
+      return emailRegex.test(email);
+    }, 'Formato de email inválido')
+    .refine((email) => {
+      const [localPart] = email.split('@');
+      const invalidCharsPattern = /[<>()[\]\\,;:\s@\"]/;
+      return !invalidCharsPattern.test(localPart);
+    }, 'Caracteres inválidos na parte do email')
+    .refine((email) => {
+      const [, domainPart] = email.split('@');
+      const domainParts = domainPart.split('.');
+      const tld = domainParts[domainParts.length - 1];
+      return tld && tld.length >= 2;
+    }, 'Domínio deve ter uma extensão válida (ex: .com, .com.br)'),
   password: z.string().min(1, 'Senha é obrigatória'),
 })
 
