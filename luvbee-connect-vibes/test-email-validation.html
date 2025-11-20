@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste de Validação de Email</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .valid {
+            color: green;
+            font-weight: bold;
+        }
+        .invalid {
+            color: red;
+            font-weight: bold;
+        }
+        input {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        .error-message {
+            color: red;
+            font-size: 14px;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Teste de Validação de Email</h1>
+    
+    <div class="test-section">
+        <h2>Teste Manual</h2>
+        <input type="email" id="email-input" placeholder="Digite um email para testar">
+        <div id="validation-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Testes Automáticos</h2>
+        <div id="test-results"></div>
+    </div>
+
+    <script>
+        // Função de validação de email (copiada do nosso hook)
+        function validateEmail(email) {
+            const cleanEmail = email.trim().toLowerCase();
+            
+            // Validações básicas
+            if (!cleanEmail) {
+                return { isValid: false, error: 'Email é obrigatório' };
+            }
+            
+            if (cleanEmail.length < 5) {
+                return { isValid: false, error: 'Email muito curto' };
+            }
+            
+            if (cleanEmail.length > 254) {
+                return { isValid: false, error: 'Email muito longo' };
+            }
+            
+            // Verificar se contém @
+            if (!cleanEmail.includes('@')) {
+                return { isValid: false, error: 'Email deve conter @' };
+            }
+            
+            // Verificar se tem apenas um @
+            const atCount = (cleanEmail.match(/@/g) || []).length;
+            if (atCount > 1) {
+                return { isValid: false, error: 'Email deve conter apenas um @' };
+            }
+            
+            // Separar local e domínio
+            const [localPart, domainPart] = cleanEmail.split('@');
+            
+            // Validar parte local (antes do @)
+            if (!localPart || localPart.length === 0) {
+                return { isValid: false, error: 'Parte antes do @ não pode estar vazia' };
+            }
+            
+            if (localPart.length > 64) {
+                return { isValid: false, error: 'Parte antes do @ muito longa' };
+            }
+            
+            // Validar parte do domínio (depois do @)
+            if (!domainPart || domainPart.length === 0) {
+                return { isValid: false, error: 'Domínio não pode estar vazio' };
+            }
+            
+            if (domainPart.length > 255) {
+                return { isValid: false, error: 'Domínio muito longo' };
+            }
+            
+            // Verificar se domínio tem pelo menos um ponto
+            if (!domainPart.includes('.')) {
+                return { isValid: false, error: 'Domínio deve conter um ponto (ex: .com, .com.br)' };
+            }
+            
+            // Verificar se não começa ou termina com ponto
+            if (domainPart.startsWith('.') || domainPart.endsWith('.')) {
+                return { isValid: false, error: 'Domínio não pode começar ou terminar com ponto' };
+            }
+            
+            // Validar formato geral com regex
+            const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/i;
+            if (!emailRegex.test(cleanEmail)) {
+                return { isValid: false, error: 'Formato de email inválido' };
+            }
+            
+            // Validar caracteres especiais na parte local
+            const invalidCharsPattern = /[<>()[\]\\,;:\s@\"]/;
+            if (invalidCharsPattern.test(localPart)) {
+                return { isValid: false, error: 'Caracteres inválidos na parte do email' };
+            }
+            
+            // Validar domínio com TLD válido
+            const domainParts = domainPart.split('.');
+            const tld = domainParts[domainParts.length - 1];
+            
+            if (tld.length < 2) {
+                return { isValid: false, error: 'Domínio deve ter uma extensão válida (ex: .com, .com.br)' };
+            }
+            
+            // Email válido
+            return { isValid: true, error: null };
+        }
+
+        // Teste manual
+        const emailInput = document.getElementById('email-input');
+        const validationResult = document.getElementById('validation-result');
+        
+        emailInput.addEventListener('input', (e) => {
+            const result = validateEmail(e.target.value);
+            if (result.isValid) {
+                validationResult.innerHTML = '<span class="valid">✓ Email válido</span>';
+            } else {
+                validationResult.innerHTML = `<span class="invalid">✗ ${result.error}</span>`;
+            }
+        });
+
+        // Testes automáticos
+        const testCases = [
+            // Válidos
+            { email: 'usuario@example.com', expected: true },
+            { email: 'nome.sobrenome@empresa.com.br', expected: true },
+            { email: 'teste+tag@gmail.com', expected: true },
+            { email: 'user123@hotmail.com', expected: true },
+            { email: 'a@b.co', expected: true },
+            
+            // Inválidos
+            { email: '', expected: false },
+            { email: 'sem-arroba', expected: false },
+            { email: '@sem-local.com', expected: false },
+            { email: 'local@', expected: false },
+            { email: 'local@sem-ponto', expected: false },
+            { email: 'local@.com', expected: false },
+            { email: 'local@com.', expected: false },
+            { email: 'local@@dominio.com', expected: false },
+            { email: 'user<>@example.com', expected: false },
+            { email: 'user[]@example.com', expected: false },
+            { email: 'local@a', expected: false },
+            { email: 'local@ab', expected: false }
+        ];
+
+        const testResults = document.getElementById('test-results');
+        let passed = 0;
+        let failed = 0;
+
+        testCases.forEach((testCase, index) => {
+            const result = validateEmail(testCase.email);
+            const passedTest = result.isValid === testCase.expected;
+            
+            if (passedTest) {
+                passed++;
+            } else {
+                failed++;
+            }
+            
+            const testResult = document.createElement('div');
+            testResult.className = passedTest ? 'valid' : 'invalid';
+            testResult.innerHTML = `
+                Teste ${index + 1}: "${testCase.email}" - 
+                ${passedTest ? '✓ PASSOU' : '✗ FALHOU'} 
+                (${result.isValid ? 'válido' : 'inválido'} - ${result.error || 'sem erro'})
+            `;
+            testResults.appendChild(testResult);
+        });
+
+        // Resumo
+        const summary = document.createElement('div');
+        summary.style.marginTop = '20px';
+        summary.style.fontWeight = 'bold';
+        summary.innerHTML = `
+            <hr>
+            Total: ${testCases.length} testes<br>
+            <span class="valid">Passou: ${passed}</span><br>
+            <span class="invalid">Falhou: ${failed}</span>
+        `;
+        testResults.appendChild(summary);
+    </script>
+</body>
+</html>

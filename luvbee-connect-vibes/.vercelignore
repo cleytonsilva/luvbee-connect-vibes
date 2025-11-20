@@ -1,0 +1,56 @@
+# Arquivos e pastas que não devem ser enviados para o deploy na Vercel
+
+# Documentação interna
+*.md
+!README.md
+docs/
+specs/
+memory/
+
+# Scripts de desenvolvimento
+scripts/
+testsprite_tests/
+
+# Arquivos de configuração local
+.env.local
+.env.development.local
+.env.test.local
+start-dev.ps1
+*.ps1
+
+# Arquivos de teste
+*.test.ts
+*.test.tsx
+*.spec.ts
+*.spec.tsx
+vitest.config.ts
+
+# Arquivos de desenvolvimento
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+
+# Arquivos temporários
+tmp/
+temp/
+*.tmp
+*.temp
+*.log
+
+# Lock files alternativos
+bun.lockb
+yarn.lock
+pnpm-lock.yaml
+
+# Arquivos de build local
+dist/
+coverage/
+.nyc_output/
+
+# Arquivos do Supabase local (se houver)
+supabase/.branches/
+supabase/.temp/
+
