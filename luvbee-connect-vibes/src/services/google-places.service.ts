@@ -52,6 +52,9 @@ export interface PlaceDetailsParams {
 export class GooglePlacesService {
   private static readonly API_BASE = 'https://maps.googleapis.com/maps/api'
   private static apiKey: string | null = null
+  private static pendingSearches: Map<string, Promise<ApiResponse<GooglePlace[]>>> = new Map()
+  private static cache: Map<string, { data: GooglePlace[]; expiresAt: number }> = new Map()
+  private static readonly CACHE_TTL_MS = 30 * 60 * 1000
 
   /**
    * Inicializa a API key do Google Places
@@ -81,33 +84,81 @@ export class GooglePlacesService {
     try {
       const { latitude, longitude, radius = GOOGLE_PLACES_CONFIG.radius, type, keyword } = params
 
-      // Usar Edge Function para evitar CORS e usar REST API diretamente
-      try {
-        const supabaseModule = await import('@/integrations/supabase')
-        const { data: { session } } = await supabaseModule.supabase.auth.getSession()
-        
-        const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/search-nearby`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(import.meta.env.VITE_SUPABASE_ANON_KEY && { 'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY }),
-            ...(session?.access_token && { 'Authorization': `Bearer ${session.access_token}` }),
-          },
-          body: JSON.stringify({ latitude, longitude, radius, type, keyword }),
-        })
-
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({ error: 'Erro desconhecido' }))
-          return { error: errorData.error || `Erro ao buscar locais: ${response.statusText}` }
-        }
-
-        const result = await response.json()
-        return { data: result.data || [] }
-      } catch (error) {
-        return {
-          error: error instanceof Error ? error.message : 'Failed to search nearby places - Edge Function não disponível'
-        }
+      if (typeof latitude !== 'number' || typeof longitude !== 'number' || isNaN(latitude) || isNaN(longitude)) {
+        return { error: 'Parâmetros inválidos para busca de locais' }
       }
+
+      const key = `${latitude}|${longitude}|${radius}|${type || ''}|${keyword || ''}`
+      const now = Date.now()
+
+      const cached = this.cache.get(key)
+      if (cached && cached.expiresAt > now) {
+        return { data: cached.data }
+      }
+
+      const stored = typeof window !== 'undefined' ? window.localStorage.getItem(`gplaces:${key}`) : null
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored)
+          if (parsed && parsed.expiresAt > now && Array.isArray(parsed.data)) {
+            this.cache.set(key, parsed)
+            return { data: parsed.data }
+          }
+        } catch {}
+      }
+
+      if (this.pendingSearches.has(key)) {
+        return await this.pendingSearches.get(key)!
+      }
+
+      const promise = (async (): Promise<ApiResponse<GooglePlace[]>> => {
+        try {
+          const supabaseModule = await import('@/integrations/supabase')
+          const { data: { session } } = await supabaseModule.supabase.auth.getSession()
+
+          const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/search-nearby`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(import.meta.env.VITE_SUPABASE_ANON_KEY && { 'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY }),
+              ...(session?.access_token && { 'Authorization': `Bearer ${session.access_token}` }),
+            },
+            body: JSON.stringify({ latitude, longitude, radius, type, keyword }),
+          })
+
+          if (!response.ok) {
+            let message = response.statusText
+            try {
+              const errorData = await response.json()
+              message = errorData?.error || message
+            } catch {}
+            if (response.status === 400) {
+              return { error: message || 'Requisição inválida' }
+            }
+            return { error: message || 'Erro ao buscar locais' }
+          }
+
+          const result = await response.json()
+          const data = result.data || []
+          const expiresAt = Date.now() + this.CACHE_TTL_MS
+          this.cache.set(key, { data, expiresAt })
+          if (typeof window !== 'undefined') {
+            try {
+              window.localStorage.setItem(`gplaces:${key}`, JSON.stringify({ data, expiresAt }))
+            } catch {}
+          }
+          return { data }
+        } catch (error) {
+          return {
+            error: error instanceof Error ? error.message : 'Failed to search nearby places - Edge Function não disponível'
+          }
+        } finally {
+          this.pendingSearches.delete(key)
+        }
+      })()
+
+      this.pendingSearches.set(key, promise)
+      return await promise
     } catch (error) {
       return {
         error: error instanceof Error ? error.message : 'Failed to search nearby places'

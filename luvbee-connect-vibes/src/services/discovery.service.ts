@@ -4,6 +4,7 @@ import { GooglePlacesService } from "./google-places.service";
 import { LocationService } from "./location.service";
 import { toast } from "sonner";
 import { safeLog } from "@/lib/safe-log";
+import SupabaseErrorHandler from "./supabase-error-handler.service";
 
 export interface DiscoveryFeedItem extends Location {
     is_event: boolean;
@@ -15,6 +16,9 @@ export class DiscoveryService {
     private static readonly MIN_FEED_ITEMS = 5;
     private static readonly CACHE_RADIUS_KM = 5; // 5km radius
     private static readonly EVENT_SPIDER_RADIUS_KM = 50; // Event spider searches in a larger area
+    private static lastPopulatedAt: Map<string, number> = new Map();
+    private static inFlightFeeds: Map<string, Promise<DiscoveryFeedItem[]>> = new Map();
+    private static readonly POPULATE_TTL_MS = 15 * 60 * 1000;
 
     static async getFeed(
         lat: number,
@@ -24,7 +28,13 @@ export class DiscoveryService {
     ): Promise<DiscoveryFeedItem[]> {
         console.log('[DiscoveryService] Getting feed for:', { lat, lng, radius });
 
-        try {
+        const locationKey = `${lat}|${lng}|${radius}|${userId || ''}`;
+        if (this.inFlightFeeds.has(locationKey)) {
+            return await this.inFlightFeeds.get(locationKey)!;
+        }
+
+        const feedPromise = (async (): Promise<DiscoveryFeedItem[]> => {
+            try {
             // 1. Cache First: Query Supabase for locations and events
             let items = await this.fetchFromSupabase(lat, lng, radius);
             console.log(`[DiscoveryService] Found ${items.length} items in cache`);
@@ -44,10 +54,21 @@ export class DiscoveryService {
                 console.log(`[DiscoveryService] Location: ${city}, ${state}`);
 
                 // Run population strategies in parallel
-                const populationResults = await Promise.allSettled([
-                    this.populateFromGoogle(lat, lng, radius),
-                    this.populateFromEvents(lat, lng, city, state)
-                ]);
+                const now = Date.now();
+                const ttlOk = !this.lastPopulatedAt.has(locationKey) || (now - (this.lastPopulatedAt.get(locationKey) || 0)) > this.POPULATE_TTL_MS;
+                let populationResults: PromiseSettledResult<any>[] = [];
+                if (ttlOk) {
+                    populationResults = await Promise.allSettled([
+                        this.populateFromGoogle(lat, lng, radius),
+                        this.populateFromEvents(lat, lng, city, state)
+                    ]);
+                    this.lastPopulatedAt.set(locationKey, Date.now());
+                    try {
+                        if (typeof window !== 'undefined') {
+                            window.localStorage.setItem(`discover:last:${locationKey}`, String(Date.now()));
+                        }
+                    } catch {}
+                }
 
                 // Log population results
                 populationResults.forEach((result, index) => {
@@ -58,12 +79,13 @@ export class DiscoveryService {
                     }
                 });
 
-                // Re-fetch from Supabase after population
-                items = await this.fetchFromSupabase(lat, lng, radius);
-                if (userId) {
-                    items = await this.filterUserInteractions(items, userId);
+                if (ttlOk) {
+                    items = await this.fetchFromSupabase(lat, lng, radius);
+                    if (userId) {
+                        items = await this.filterUserInteractions(items, userId);
+                    }
+                    console.log(`[DiscoveryService] After population: ${items.length} items`);
                 }
-                console.log(`[DiscoveryService] After population: ${items.length} items`);
             }
 
             // 3. Shuffle and Return
@@ -72,14 +94,20 @@ export class DiscoveryService {
             
             return shuffledItems;
 
-        } catch (error) {
-            console.error('[DiscoveryService] Error getting feed:', error);
-            safeLog('error', '[DiscoveryService] Discovery error', { error: error.message, lat, lng });
-            toast.error('Erro ao carregar locais e eventos', { 
-                description: 'Não foi possível carregar os locais próximos. Tente novamente.' 
-            });
-            return [];
-        }
+            } catch (error: any) {
+                console.error('[DiscoveryService] Error getting feed:', error);
+                safeLog('error', '[DiscoveryService] Discovery error', { error: error.message, lat, lng });
+                toast.error('Erro ao carregar locais e eventos', { 
+                    description: 'Não foi possível carregar os locais próximos. Tente novamente.' 
+                });
+                return [];
+            } finally {
+                this.inFlightFeeds.delete(`${lat}|${lng}|${radius}|${userId || ''}`);
+            }
+        })();
+
+        this.inFlightFeeds.set(locationKey, feedPromise);
+        return await feedPromise;
     }
 
     private static async fetchFromSupabase(lat: number, lng: number, radius: number): Promise<DiscoveryFeedItem[]> {
@@ -90,27 +118,36 @@ export class DiscoveryService {
 
             console.log(`[DiscoveryService] Fetching from Supabase with bounding box: lat±${latDelta}, lng±${lngDelta}`);
 
+            // Validar parâmetros antes da query
+            SupabaseErrorHandler.validateQueryParams({ lat, lng, radius }, 'fetchFromSupabase');
+
             // Query locations table with bounding box and event-specific columns
-            // Using only columns that definitely exist in the schema
-            const { data: locations, error: tableError } = await supabase
-                .from('locations')
-                .select('id, name, address, image_url, type, lat, lng, event_start_date, event_end_date, ticket_url, description, rating, price_level, google_place_data, opening_hours, source_id, metadata, city, state, created_at, updated_at')
-                .gte('lat', lat - latDelta)
-                .lte('lat', lat + latDelta)
-                .gte('lng', lng - lngDelta)
-                .lte('lng', lng + lngDelta)
-                .order('created_at', { ascending: false })
-                .limit(50); // Limit to prevent excessive data
+            // Now includes opening_hours and is_active columns after migration
+            const result = await SupabaseErrorHandler.executeWithRetry(
+                async () => {
+                    const res = await supabase
+                        .from('locations')
+                        .select('id, name, address, image_url, type, lat, lng, event_start_date, event_end_date, ticket_url, description, rating, price_level, opening_hours, city, state, is_active, created_at, updated_at')
+                        .eq('is_active', true)
+                        .gte('lat', lat - latDelta)
+                        .lte('lat', lat + latDelta)
+                        .gte('lng', lng - lngDelta)
+                        .lte('lng', lng + lngDelta)
+                        .order('created_at', { ascending: false })
+                        .limit(50);
+                    if (res.error) {
+                        throw res.error;
+                    }
+                    return res;
+                },
+                'fetchFromSupabase.query'
+            );
 
-            if (tableError) {
-                console.error('[DiscoveryService] Error querying locations table:', tableError);
-                return [];
-            }
-
-            console.log(`[DiscoveryService] Raw locations from DB: ${locations?.length || 0}`);
+            const locations = (result as any)?.data || [];
+            console.log(`[DiscoveryService] Raw locations from DB: ${locations.length}`);
 
             // Client-side distance filter and mapping to DiscoveryFeedItem
-            const items = (locations || [])
+            const items = (locations)
                 .map(loc => {
                     // Handle events without coordinates (lat: 0, lng: 0)
                     let dist = this.getDistanceFromLatLonInKm(lat, lng, loc.lat, loc.lng);
@@ -156,7 +193,15 @@ export class DiscoveryService {
             return items as DiscoveryFeedItem[];
 
         } catch (error) {
-            console.error('[DiscoveryService] Error in fetchFromSupabase:', error);
+            const errorDetails = SupabaseErrorHandler.handleError(error, 'fetchFromSupabase');
+            
+            // Mostrar mensagem amigável ao usuário apenas para erros críticos
+            if (errorDetails.statusCode && errorDetails.statusCode >= 500) {
+                toast.error('Erro ao carregar locais', { 
+                    description: SupabaseErrorHandler.getUserFriendlyMessage(errorDetails)
+                });
+            }
+            
             return [];
         }
     }
@@ -195,7 +240,7 @@ export class DiscoveryService {
     private static async populateFromGoogle(lat: number, lng: number, radius: number) {
         try {
             console.log('[DiscoveryService] Populating from Google Places...');
-            await GooglePlacesService.searchNearby(lat, lng, radius);
+            await GooglePlacesService.searchNearby({ latitude: lat, longitude: lng, radius });
             console.log('[DiscoveryService] Google Places population completed');
         } catch (error) {
             console.error('[DiscoveryService] Google population failed:', error);

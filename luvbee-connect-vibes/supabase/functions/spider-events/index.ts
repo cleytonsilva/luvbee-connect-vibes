@@ -60,9 +60,37 @@ serve(async (req) => {
             Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
         )
 
+        // TTL de execução para evitar repetições frequentes
+        const TTL_MS = 15 * 60 * 1000
+
         // Obter data atual e próximos 30 dias
         const today = new Date()
         const nextMonth = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000)
+
+        // Checar cache recente: eventos atualizados recentemente para a mesma cidade/estado
+        try {
+            const { count: recentCount } = await supabaseAdmin
+                .from('locations')
+                .select('id', { count: 'exact', head: true })
+                .eq('type', 'event')
+                .eq('city', city)
+                .eq('state', state)
+                .gte('updated_at', new Date(Date.now() - TTL_MS).toISOString())
+
+            if ((recentCount || 0) > 0) {
+                console.log(`⏱️ [spider-events] Cache recente detectado para ${city}, ${state} (events: ${recentCount}). Pulando varredura.`)
+                return new Response(
+                    JSON.stringify({
+                        message: 'Usando cache recente, varredura pulada',
+                        cached: true,
+                        recent_events: recentCount
+                    }),
+                    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+                )
+            }
+        } catch (cacheErr) {
+            console.warn('⚠️ [spider-events] Falha ao checar cache recente:', cacheErr)
+        }
 
         // Run scrapers in parallel
         const results = await Promise.allSettled([

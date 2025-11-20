@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { DiscoveryService, DiscoveryFeedItem } from '@/services/discovery.service';
 import { VibeCard } from '@/components/location/VibeCard';
@@ -13,14 +13,34 @@ export function VibeLocalPage() {
   const [loading, setLoading] = useState(true);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [hunting, setHunting] = useState(false);
+  const didInitRef = useRef(false);
+  const inFlightRef = useRef<Promise<void> | null>(null);
+  const lastParamsRef = useRef<string>('');
+  const loadIdRef = useRef(0);
 
   useEffect(() => {
-    loadFeed();
+    const key = `${user?.id || ''}`;
+    if (!didInitRef.current) {
+      didInitRef.current = true;
+      loadFeed();
+      lastParamsRef.current = key;
+      return;
+    }
+    if (lastParamsRef.current !== key) {
+      lastParamsRef.current = key;
+      loadFeed();
+    }
   }, [user]);
 
   const loadFeed = async () => {
+    if (inFlightRef.current) {
+      await inFlightRef.current;
+      return;
+    }
     setLoading(true);
-    try {
+    const currentLoadId = ++loadIdRef.current;
+    const promise = (async () => {
+      try {
       // Default to São Paulo coords if geolocation fails or for initial load
       let lat = -23.5505;
       let lng = -46.6333;
@@ -40,14 +60,22 @@ export function VibeLocalPage() {
 
       setHunting(true);
       const items = await DiscoveryService.getFeed(lat, lng, 5000, user?.id);
-      setFeed(items);
+      if (currentLoadId === loadIdRef.current) {
+        setFeed(items);
+      }
     } catch (error) {
       console.error('Failed to load feed:', error);
       toast.error('Erro ao carregar vibes. Tente novamente.');
     } finally {
-      setLoading(false);
-      setHunting(false);
+      if (currentLoadId === loadIdRef.current) {
+        setLoading(false);
+        setHunting(false);
+      }
+      inFlightRef.current = null;
     }
+    })();
+    inFlightRef.current = promise;
+    await promise;
   };
 
   const handleSwipe = (direction: 'left' | 'right') => {
@@ -69,9 +97,9 @@ export function VibeLocalPage() {
             <Search className="w-8 h-8 text-primary animate-pulse" />
           </div>
         </div>
-        <h2 className="text-2xl font-bold animate-pulse">Caçando Vibes...</h2>
+        <h2 className="text-2xl font-bold animate-pulse">Descobrindo Locais...</h2>
         <p className="text-muted-foreground text-center max-w-xs">
-          Buscando os melhores locais e eventos próximos a você.
+          Encontrando os melhores lugares e eventos próximos a você.
         </p>
       </div>
     );
@@ -84,10 +112,22 @@ export function VibeLocalPage() {
           <RefreshCw className="w-12 h-12 text-muted-foreground" />
         </div>
         <div>
-          <h2 className="text-2xl font-bold mb-2">Fim da linha!</h2>
-          <p className="text-muted-foreground">
-            Você já viu todas as vibes disponíveis nesta área por enquanto.
+          <h2 className="text-2xl font-bold mb-2">Nenhum local encontrado</h2>
+          <p className="text-muted-foreground mb-4">
+            Parece que não há locais disponíveis nesta área no momento.
           </p>
+          <div className="bg-gradient-to-r from-purple-500 to-pink-500 text-white p-4 rounded-lg mb-4">
+            <p className="font-semibold mb-2">💡 Dica: Siga-nos no Instagram!</p>
+            <p className="text-sm mb-3">
+              Fique por dentro das novidades e descubra os melhores lugares antes de todo mundo.
+            </p>
+            <button 
+              onClick={() => window.open('https://instagram.com/luvbeebr', '_blank')}
+              className="bg-white text-purple-600 px-4 py-2 rounded-full font-semibold hover:bg-gray-100 transition-colors"
+            >
+              @luvbeebr 📸
+            </button>
+          </div>
         </div>
         <Button onClick={() => { setCurrentIndex(0); loadFeed(); }} size="lg" className="shadow-hard">
           Buscar Novamente
@@ -102,10 +142,13 @@ export function VibeLocalPage() {
         <AnimatePresence mode="wait">
           <motion.div
             key={currentItem.id}
-            initial={{ scale: 0.95, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 1.05, opacity: 0 }}
-            transition={{ duration: 0.3 }}
+            initial={{ scale: 0.9, opacity: 0, y: 20 }}
+            animate={{ scale: 1, opacity: 1, y: 0 }}
+            exit={{ scale: 0.9, opacity: 0, y: -20 }}
+            transition={{ 
+              duration: 0.4,
+              ease: [0.25, 0.46, 0.45, 0.94]
+            }}
             className="absolute inset-0"
           >
             <VibeCard
@@ -118,23 +161,23 @@ export function VibeLocalPage() {
 
       {/* Controls */}
       <div className="flex justify-center gap-6 mb-4">
-        <Button
-          variant="outline"
-          size="icon"
-          className="w-16 h-16 rounded-full border-2 border-destructive text-destructive hover:bg-destructive/10 shadow-hard"
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          className="w-16 h-16 rounded-full bg-secondary text-secondary-foreground shadow-hard hover:scale-105 transition-all duration-200 border-2 border-secondary-foreground/20 hover:border-secondary-foreground/40"
           onClick={() => handleSwipe('left')}
         >
           <span className="text-2xl">✕</span>
-        </Button>
+        </motion.button>
 
-        <Button
-          variant="default"
-          size="icon"
-          className="w-16 h-16 rounded-full bg-primary text-primary-foreground shadow-hard hover:scale-105 transition-transform"
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          className="w-16 h-16 rounded-full bg-primary text-primary-foreground shadow-hard hover:scale-105 transition-all duration-200 border-2 border-primary-foreground/20 hover:border-primary-foreground/40"
           onClick={() => handleSwipe('right')}
         >
           <span className="text-2xl">♥</span>
-        </Button>
+        </motion.button>
       </div>
     </div>
   );

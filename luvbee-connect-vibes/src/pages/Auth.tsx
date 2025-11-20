@@ -14,6 +14,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { userLoginSchema, userRegisterSchema, type UserLoginInput, type UserRegisterInput } from "@/lib/validations";
 import { toast } from "sonner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { logEmailValidationError, getErrorCode } from "@/lib/email-validation-logger";
 
 const Auth = () => {
   const navigate = useNavigate();
@@ -115,6 +116,17 @@ const Auth = () => {
       // O redirecionamento será feito pelo useEffect quando user for definido
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Erro ao fazer login";
+      
+      // Log email validation errors in the specific format
+      if (errorMessage.includes('email') || errorMessage.includes('Email')) {
+        const errorCode = getErrorCode(errorMessage);
+        logEmailValidationError({
+          email: data.email,
+          error: errorMessage,
+          code: errorCode
+        });
+      }
+      
       toast.error("Erro ao fazer login", {
         description: errorMessage,
       });
@@ -143,6 +155,17 @@ const Auth = () => {
       // O redirecionamento será feito pelo useEffect quando user for definido
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Erro ao criar conta";
+      
+      // Log email validation errors in the specific format
+      if (errorMessage.includes('email') || errorMessage.includes('Email')) {
+        const errorCode = getErrorCode(errorMessage);
+        logEmailValidationError({
+          email: data.email,
+          error: errorMessage,
+          code: errorCode
+        });
+      }
+      
       toast.error("Erro ao criar conta", {
         description: errorMessage,
       });
@@ -202,6 +225,7 @@ const Auth = () => {
                       placeholder="seu@email.com"
                       {...registerLogin('email')}
                       disabled={isLoading}
+                      className={errorsLogin.email ? 'border-destructive' : ''}
                     />
                     {errorsLogin.email && (
                       <p className="text-sm text-destructive">{errorsLogin.email.message}</p>
@@ -253,6 +277,7 @@ const Auth = () => {
                       placeholder="seu@email.com"
                       {...registerSignup('email')}
                       disabled={isLoading}
+                      className={errorsSignup.email ? 'border-destructive' : ''}
                     />
                     {errorsSignup.email && (
                       <p className="text-sm text-destructive">{errorsSignup.email.message}</p>

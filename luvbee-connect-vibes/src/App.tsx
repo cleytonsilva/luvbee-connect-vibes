@@ -12,6 +12,7 @@ import { LocationsPage } from './pages/LocationsPage'
 import { VibeLocalPage } from './pages/VibeLocalPage'
 import { LocationDetail } from './pages/LocationDetailPage'
 import { TermosDeUso } from './pages/TermosDeUso'
+import { EmailValidationTestPage } from './pages/EmailValidationTestPage'
 import AdminCachePage from './pages/AdminCache'
 import { AdminRoute } from './components/admin/AdminRoute'
 import { useAuth } from './hooks/useAuth'
@@ -269,6 +270,9 @@ function App() {
       
       {/* Rota pública - Termos de Uso */}
       <Route path="/termos-de-uso" element={<TermosDeUso />} />
+      
+      {/* Rota de teste de validação de email */}
+      <Route path="/test-email-validation" element={<EmailValidationTestPage />} />
       
       {/* Rota de onboarding */}
       <Route path="/onboarding" element={<OnboardingRoute><OnboardingPage /></OnboardingRoute>} />
