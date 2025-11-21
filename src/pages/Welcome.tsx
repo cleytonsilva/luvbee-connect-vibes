@@ -6,6 +6,29 @@ import { Heart, MapPin, Users, Zap, Music, MessageSquare } from "lucide-react";
 import { Footer } from "@/components/layout/Footer";
 import { useHeroVideos } from "@/services/video.service";
 
+// Helper function para mapear cores para classes Tailwind completas
+// Isso garante que o Tailwind detecte todas as classes no build time
+const getColorClasses = (color: 'primary' | 'secondary' | 'accent') => {
+  const colorMap = {
+    primary: {
+      border: 'border-primary',
+      bg: 'bg-primary',
+      borderForeground: 'border-primary-foreground',
+    },
+    secondary: {
+      border: 'border-secondary',
+      bg: 'bg-secondary',
+      borderForeground: 'border-secondary-foreground',
+    },
+    accent: {
+      border: 'border-accent',
+      bg: 'bg-accent',
+      borderForeground: 'border-accent-foreground',
+    },
+  };
+  return colorMap[color];
+};
+
 const Welcome = () => {
   const navigate = useNavigate();
   const { videoUrls, isLoading } = useHeroVideos();
@@ -256,16 +279,18 @@ const Welcome = () => {
               { icon: MapPin, title: "Descubra Locais", desc: "Navegue por bares e baladas próximos que combinam com seu estilo", color: "primary" },
               { icon: Heart, title: "Dê Match", desc: "Curta os locais que te interessam e veja quem mais está indo", color: "accent" },
               { icon: Users, title: "Conecte-se", desc: "Converse com pessoas que curtiram o mesmo lugar e têm gostos similares", color: "secondary" },
-            ].map((item, index) => (
+            ].map((item, index) => {
+              const colorClasses = getColorClasses(item.color as 'primary' | 'secondary' | 'accent');
+              return (
               <motion.div
                 key={index}
                 initial={{ opacity: 0, scale: 0.9 }}
                 whileInView={{ opacity: 1, scale: 1 }}
                 transition={{ duration: 0.5, delay: index * 0.15 }}
                 whileHover={{ scale: 1.05, y: -10 }}
-                className={`p-8 border-4 border-${item.color} bg-card shadow-hard neo-brutalist-box group hover:shadow-2xl transition-all`}
+                className={`p-8 border-4 ${colorClasses.border} bg-card shadow-hard neo-brutalist-box group hover:shadow-2xl transition-all`}
               >
-                <div className={`w-20 h-20 mx-auto mb-6 bg-${item.color} border-4 border-${item.color}-foreground flex items-center justify-center shadow-hard group-hover:scale-110 transition-transform`}>
+                <div className={`w-20 h-20 mx-auto mb-6 ${colorClasses.bg} border-4 ${colorClasses.borderForeground} flex items-center justify-center shadow-hard group-hover:scale-110 transition-transform`}>
                   <item.icon className="w-10 h-10 text-card" />
                 </div>
                 <h3 className="text-2xl font-bold font-display mb-4">{item.title}</h3>
@@ -273,7 +298,8 @@ const Welcome = () => {
                   {item.desc}
                 </p>
               </motion.div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </section>
