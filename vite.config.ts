@@ -17,19 +17,23 @@ export default defineConfig(({ mode }) => ({
   },
   build: {
     cssCodeSplit: false, // Garante que CSS seja incluído em um único arquivo
+    cssMinify: true, // Minifica CSS para produção
     rollupOptions: {
       output: {
         assetFileNames: (assetInfo) => {
-          // Garante que CSS tenha extensão correta
+          // Garante que CSS tenha extensão correta e seja servido como arquivo externo
           if (assetInfo.name && assetInfo.name.endsWith('.css')) {
             return 'assets/[name]-[hash][extname]';
           }
           return 'assets/[name]-[hash][extname]';
         },
+        entryFileNames: 'assets/[name]-[hash].js',
+        chunkFileNames: 'assets/[name]-[hash].js',
       },
     },
   },
   css: {
     postcss: './postcss.config.js',
+    devSourcemap: true, // Source maps em desenvolvimento
   },
 }));
