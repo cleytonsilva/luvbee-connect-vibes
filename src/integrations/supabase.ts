@@ -7,21 +7,32 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
 // Validação das variáveis de ambiente
 if (!supabaseUrl || !supabaseAnonKey) {
+  const isProduction = import.meta.env.PROD || import.meta.env.MODE === 'production'
   const errorMessage = `
     ❌ Variáveis de ambiente do Supabase não configuradas!
     
-    Por favor, configure as seguintes variáveis no arquivo .env.local:
-    - VITE_SUPABASE_URL=https://[project-id].supabase.co
-    - VITE_SUPABASE_ANON_KEY=[anon-key]
-    
-    Veja SUPABASE_SETUP.md para mais detalhes.
+    ${isProduction 
+      ? `🔴 PRODUÇÃO (Vercel): Configure no Vercel Console:
+      1. Acesse: https://vercel.com/dashboard
+      2. Selecione projeto: luvbee-connect-vibes
+      3. Settings → Environment Variables
+      4. Adicione:
+         - VITE_SUPABASE_URL=https://zgxtcawgllsnnernlgim.supabase.co
+         - VITE_SUPABASE_ANON_KEY=[sua-chave-anon]
+      5. Faça Redeploy
+      
+      Veja: VERCEL_ENV_SETUP.md para guia completo.`
+      : `💻 DESENVOLVIMENTO: Configure no arquivo .env.local:
+      - VITE_SUPABASE_URL=https://zgxtcawgllsnnernlgim.supabase.co
+      - VITE_SUPABASE_ANON_KEY=[sua-chave-anon]`
+    }
   `
   
   if (import.meta.env.DEV) {
     console.error(errorMessage)
     // Em desenvolvimento, não quebra a aplicação, apenas mostra warning
   } else {
-    throw new Error('Missing Supabase environment variables')
+    throw new Error(`Missing Supabase environment variables. ${isProduction ? 'Configure no Vercel Console → Settings → Environment Variables' : 'Configure no arquivo .env.local'}`)
   }
 }
 

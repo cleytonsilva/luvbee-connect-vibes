@@ -17,7 +17,9 @@
     "setup:realtime": "tsx scripts/setup-realtime.ts",
     "db:check": "tsx scripts/check-database.ts",
     "db:migrate": "tsx scripts/apply-migration.ts",
-    "db:generate-types": "supabase gen types typescript --local > src/integrations/database.types.ts"
+    "db:generate-types": "supabase gen types typescript --local > src/integrations/database.types.ts",
+    "clean:deps": "rm -rf node_modules package-lock.json && npm install",
+    "verify:env": "node -e \"console.log('VITE_SUPABASE_URL:', process.env.VITE_SUPABASE_URL ? '✅' : '❌'); console.log('VITE_SUPABASE_ANON_KEY:', process.env.VITE_SUPABASE_ANON_KEY ? '✅' : '❌')\""
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
