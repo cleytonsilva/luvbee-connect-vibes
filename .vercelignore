@@ -1,4 +1,4 @@
-# Configuração local
+# Ambiente local
 .env
 .env.local
 .env.*.local
@@ -6,17 +6,17 @@
 .env.test.local
 .env.production.local
 
-# Testes
+# Testes (não incluir em build)
 __tests__/
 src/**/__tests__/
-test/
+src/test/
 *.test.*
 *.spec.*
 coverage/
 .nyc_output/
 vitest.config.ts
 
-# Documentação interna
+# Documentação interna (não precisa em produção)
 docs/
 specs/
 .trae/
@@ -24,60 +24,38 @@ specs/
 .specify/
 spec-kit-temp/
 .github/
-README-internal.md
-.project-info.md
+.git/
+
+# Arquivos locais
 *.md
 !README.md
+*.local
+*.tmp
 
-# Scripts e ferramentas locais
-scripts/
-*.ps1
-start-dev.ps1
-testsprite_tests/
-.pre-commit-config.yaml
-.semgrep.yml
-eslint-security-plugin.js
-eslint.config.js
+# Cache e build
+node_modules/
+dist/
+build/
+.cache/
+.turbo/
 
 # IDE
 .vscode/
 .idea/
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
+*.swp
+*.swo
 
-# Temporários e cache
-.tmp/
-.temp/
-tmp/
-temp/
-*.tmp
-*.temp
-*.log
-.cache/
-.parcel-cache/
-Thumbs.db
+# Sistema
 .DS_Store
-.eslintcache
-*.tsbuildinfo
+Thumbs.db
 
-# Dependências e locks alternativos
-node_modules/
-bun.lockb
-yarn.lock
-pnpm-lock.yaml
+# Scripts locais
+scripts/
+supabase/migrations/
+supabase/monitoring/
 
-# Build local
-dist/
-dist-ssr/
-
-# Assets grandes não usados
-public/videos/
-public/videos2/
-*.mp4
-*.webm
-
-# Supabase (não necessário no deploy Vercel)
-supabase/**
-
+# Relatórios gerados
+SUPABASE_*.md
+ALERTAS_*.md
+GITHUB_*.md
+*.json.backup
