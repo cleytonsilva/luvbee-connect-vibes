@@ -20,7 +20,7 @@ export const locationSchema = z.object({
   description: z.string().max(1000, 'Descrição muito longa').nullable(),
   lat: z.number().min(-90).max(90, 'Latitude inválida'),
   lng: z.number().min(-180).max(180, 'Longitude inválida'),
-  phone: z.string().regex(/^\+?[\d\s\-()]+$/, 'Telefone inválido').nullable(),
+  phone: z.string().regex(/^\+?[\d\s\-\(\)]+$/, 'Telefone inválido').nullable(),
   website: z.string().url('URL inválida').nullable(),
   rating: z.number().min(0).max(5, 'Avaliação deve ser entre 0 e 5').nullable(),
   price_level: z.number().int().min(1).max(4, 'Nível de preço deve ser entre 1 e 4').nullable()
@@ -48,20 +48,6 @@ export type ReviewInput = z.infer<typeof reviewSchema>
  */
 export class ValidationService {
   private static instance: ValidationService
-  private readonly sqlInjectionPatterns = [
-    /('.+--)/i,
-    /(\bor\b|\band\b)\s+\d+=\d+/i,
-    /(;\s*drop\s+table)/i,
-    /(union\s+select)/i,
-    /(\bexec\b|\bexecute\b)\s+/i,
-  ]
-
-  private readonly xssPatterns = [
-    /<script[\s>]/i,
-    /on[a-z]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/i,
-    /javascript:/i,
-    /data:text\/html/i,
-  ]
 
   private constructor() {}
 
@@ -113,9 +99,7 @@ export class ValidationService {
    */
   validateMessage(data: any): MessageInput {
     try {
-      const parsed = messageSchema.parse(data)
-      this.ensureSecureString(parsed.content, 'content')
-      return parsed
+      return messageSchema.parse(data)
     } catch (error) {
       if (error instanceof z.ZodError) {
         const fieldErrors = error.errors.map(err => ({
@@ -443,28 +427,6 @@ export class ValidationService {
       if (lowerData.includes(word)) {
         throw new ValidationError('Conteúdo contém informações sensíveis proibidas', 'content')
       }
-    }
-  }
-
-  ensureSecureString(value: string, field: string = 'input'): void {
-    if (!value) return
-    this.detectSQLInjection(value, field)
-    this.detectXSSPayload(value, field)
-  }
-
-  detectSQLInjection(value: string, field: string = 'input'): void {
-    if (this.sqlInjectionPatterns.some(pattern => pattern.test(value))) {
-      throw new ValidationError('Entrada contém padrão suspeito de SQL Injection', {
-        [field]: ['Padrão de SQL Injection detectado']
-      })
-    }
-  }
-
-  detectXSSPayload(value: string, field: string = 'input'): void {
-    if (this.xssPatterns.some(pattern => pattern.test(value))) {
-      throw new ValidationError('Entrada contém padrão suspeito de XSS', {
-        [field]: ['Padrão de XSS detectado']
-      })
     }
   }
 }

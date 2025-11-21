@@ -154,7 +154,7 @@ Antes de testar, confirme:
 
 **Solução:**
 1. Vá em: Supabase Dashboard > Project Settings > Edge Functions > Secrets
-2. Adicione: `GOOGLE_MAPS_BACKEND_KEY` = `<NOVA_GOOGLE_MAPS_BACKEND_KEY>`
+2. Adicione: `GOOGLE_MAPS_BACKEND_KEY` = `AIzaSyC95_3c8Sxs6nuXeNuLabGAI7VHW5-HqnQ`
 3. Clique em "Save"
 4. Aguarde alguns minutos
 

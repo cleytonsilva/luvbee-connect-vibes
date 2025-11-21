@@ -7,11 +7,6 @@
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "13.0.5"
-  }
   public: {
     Tables: {
       cached_place_photos: {
@@ -73,9 +68,9 @@ export type Database = {
           last_message_at?: string | null
           people_match_id?: string | null
           updated_at?: string
-          user1_id?: string
+          user1_id: string
           user1_unread_count?: number
-          user2_id?: string
+          user2_id: string
           user2_unread_count?: number
         }
         Relationships: [
@@ -102,124 +97,35 @@ export type Database = {
           },
         ]
       }
-      location_categories: {
+      check_ins: {
         Row: {
           created_at: string
-          description: string | null
-          display_order: number | null
-          icon_url: string | null
           id: string
-          is_active: boolean
-          name: string
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          description?: string | null
-          display_order?: number | null
-          icon_url?: string | null
-          id?: string
-          is_active?: boolean
-          name: string
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          description?: string | null
-          display_order?: number | null
-          icon_url?: string | null
-          id?: string
-          is_active?: boolean
-          name?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      location_likes: {
-        Row: {
-          id: string
-          liked_at: string
           location_id: string
           user_id: string
         }
         Insert: {
+          created_at?: string
           id?: string
-          liked_at?: string
           location_id: string
           user_id: string
         }
         Update: {
+          created_at?: string
           id?: string
-          liked_at?: string
           location_id?: string
           user_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "location_likes_location_id_fkey"
+            foreignKeyName: "check_ins_location_id_fkey"
             columns: ["location_id"]
             isOneToOne: false
             referencedRelation: "locations"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "location_likes_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      location_matches: {
-        Row: {
-          id: string
-          location_id: string
-          matched_at: string | null
-          status: string | null
-          user_id: string
-        }
-        Insert: {
-          id?: string
-          location_id: string
-          matched_at?: string | null
-          status?: string | null
-          user_id: string
-        }
-        Update: {
-          id?: string
-          location_id?: string
-          matched_at?: string | null
-          status?: string | null
-          user_id?: string
-        }
-        Relationships: []
-      }
-      location_rejections: {
-        Row: {
-          created_at: string
-          id: string
-          location_id: string
-          rejected_at: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          location_id: string
-          rejected_at?: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          location_id?: string
-          rejected_at?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "location_rejections_user_id_fkey"
+            foreignKeyName: "check_ins_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "users"
@@ -227,47 +133,104 @@ export type Database = {
           },
         ]
       }
-      location_views: {
+      favorites: {
         Row: {
-          action_taken: string | null
-          created_at: string | null
-          first_viewed_at: string | null
+          created_at: string
           id: string
-          last_viewed_at: string | null
           location_id: string
-          place_id: string
-          updated_at: string | null
           user_id: string
-          view_count: number | null
-          view_type: string | null
         }
         Insert: {
-          action_taken?: string | null
-          created_at?: string | null
-          first_viewed_at?: string | null
+          created_at?: string
           id?: string
-          last_viewed_at?: string | null
           location_id: string
-          place_id: string
-          updated_at?: string | null
           user_id: string
-          view_count?: number | null
-          view_type?: string | null
         }
         Update: {
-          action_taken?: string | null
-          created_at?: string | null
-          first_viewed_at?: string | null
+          created_at?: string
           id?: string
-          last_viewed_at?: string | null
           location_id?: string
-          place_id?: string
-          updated_at?: string | null
           user_id?: string
-          view_count?: number | null
-          view_type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "favorites_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "favorites_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      location_categories: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          slug: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          slug: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          slug?: string
         }
         Relationships: []
+      }
+      location_matches: {
+        Row: {
+          created_at: string
+          id: string
+          location_id: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          location_id: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          location_id?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "location_matches_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "location_matches_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       locations: {
         Row: {
@@ -275,6 +238,8 @@ export type Database = {
           city: string | null
           created_at: string
           description: string | null
+          event_end_date: string | null
+          event_start_date: string | null
           google_place_data: Json | null
           google_place_id: string | null
           google_rating: number | null
@@ -283,20 +248,29 @@ export type Database = {
           image_url: string
           instagram: string | null
           instagram_handle: string | null
+          is_active: boolean | null
           is_adult: boolean | null
+          is_curated: boolean | null
+          is_verified: boolean | null
           last_synced: string | null
+          last_synced_at: string | null
           lat: number
           latitude: number | null
           lng: number
           longitude: number | null
+          metadata: Json | null
           name: string
+          opening_hours: Json | null
+          owner_id: string | null
           peak_hours: number[]
           peak_hours_calculated: boolean | null
           place_id: string | null
           price_level: number
           rating: number
           source: string | null
+          source_id: string | null
           state: string | null
+          ticket_url: string | null
           type: string
           updated_at: string
         }
@@ -305,6 +279,8 @@ export type Database = {
           city?: string | null
           created_at?: string
           description?: string | null
+          event_end_date?: string | null
+          event_start_date?: string | null
           google_place_data?: Json | null
           google_place_id?: string | null
           google_rating?: number | null
@@ -313,20 +289,29 @@ export type Database = {
           image_url: string
           instagram?: string | null
           instagram_handle?: string | null
+          is_active?: boolean | null
           is_adult?: boolean | null
+          is_curated?: boolean | null
+          is_verified?: boolean | null
           last_synced?: string | null
+          last_synced_at?: string | null
           lat: number
           latitude?: number | null
           lng: number
           longitude?: number | null
+          metadata?: Json | null
           name: string
-          peak_hours: number[]
+          opening_hours?: Json | null
+          owner_id?: string | null
+          peak_hours?: number[]
           peak_hours_calculated?: boolean | null
           place_id?: string | null
-          price_level: number
+          price_level?: number
           rating?: number
           source?: string | null
+          source_id?: string | null
           state?: string | null
+          ticket_url?: string | null
           type: string
           updated_at?: string
         }
@@ -335,6 +320,8 @@ export type Database = {
           city?: string | null
           created_at?: string
           description?: string | null
+          event_end_date?: string | null
+          event_start_date?: string | null
           google_place_data?: Json | null
           google_place_id?: string | null
           google_rating?: number | null
@@ -343,204 +330,81 @@ export type Database = {
           image_url?: string
           instagram?: string | null
           instagram_handle?: string | null
+          is_active?: boolean | null
           is_adult?: boolean | null
+          is_curated?: boolean | null
+          is_verified?: boolean | null
           last_synced?: string | null
+          last_synced_at?: string | null
           lat?: number
           latitude?: number | null
           lng?: number
           longitude?: number | null
+          metadata?: Json | null
           name?: string
+          opening_hours?: Json | null
+          owner_id?: string | null
           peak_hours?: number[]
           peak_hours_calculated?: boolean | null
           place_id?: string | null
           price_level?: number
           rating?: number
           source?: string | null
+          source_id?: string | null
           state?: string | null
+          ticket_url?: string | null
           type?: string
           updated_at?: string
         }
         Relationships: []
       }
-      logs: {
-        Row: {
-          action: string
-          created_at: string | null
-          details: Json | null
-          id: string
-          level: string
-          timestamp: string
-          user_id: string | null
-        }
-        Insert: {
-          action: string
-          created_at?: string | null
-          details?: Json | null
-          id?: string
-          level: string
-          timestamp?: string
-          user_id?: string | null
-        }
-        Update: {
-          action?: string
-          created_at?: string | null
-          details?: Json | null
-          id?: string
-          level?: string
-          timestamp?: string
-          user_id?: string | null
-        }
-        Relationships: []
-      }
-      matches: {
-        Row: {
-          compatibility_score: number | null
-          created_at: string | null
-          id: string
-          status: string | null
-          updated_at: string | null
-          user_id_1: string
-          user_id_2: string
-          venue_id: string | null
-        }
-        Insert: {
-          compatibility_score?: number | null
-          created_at?: string | null
-          id?: string
-          status?: string | null
-          updated_at?: string | null
-          user_id_1: string
-          user_id_2: string
-          venue_id?: string | null
-        }
-        Update: {
-          compatibility_score?: number | null
-          created_at?: string | null
-          id?: string
-          status?: string | null
-          updated_at?: string | null
-          user_id_1?: string
-          user_id_2?: string
-          venue_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "matches_user1_id_fkey"
-            columns: ["user_id_1"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "matches_user2_id_fkey"
-            columns: ["user_id_2"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "matches_venue_id_fkey"
-            columns: ["venue_id"]
-            isOneToOne: false
-            referencedRelation: "venues"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      people_matches: {
-        Row: {
-          common_locations_count: number
-          compatibility_score: number | null
-          created_at: string
-          id: string
-          matched_at: string | null
-          status: string
-          updated_at: string
-          user1_id: string
-          user1_liked_at: string | null
-          user2_id: string
-          user2_liked_at: string | null
-        }
-        Insert: {
-          common_locations_count?: number
-          compatibility_score?: number | null
-          created_at?: string
-          id?: string
-          matched_at?: string | null
-          status?: string
-          updated_at?: string
-          user1_id: string
-          user1_liked_at?: string | null
-          user2_id: string
-          user2_liked_at?: string | null
-        }
-        Update: {
-          common_locations_count?: number
-          compatibility_score?: number | null
-          created_at?: string
-          id?: string
-          matched_at?: string | null
-          status?: string
-          updated_at?: string
-          user1_id?: string
-          user1_liked_at?: string | null
-          user2_id?: string
-          user2_liked_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "people_matches_user1_id_fkey"
-            columns: ["user1_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "people_matches_user2_id_fkey"
-            columns: ["user2_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          }
-        ]
-      }
       messages: {
         Row: {
+          chat_id: string | null
           content: string
-          created_at: string | null
+          created_at: string
           id: string
-          is_read: boolean
+          is_read: boolean | null
           match_id: string | null
-          message_type: string | null
-          receiver_id: string | null
-          sender_id: string | null
+          message_type: string
+          receiver_id: string
+          sender_id: string
         }
         Insert: {
+          chat_id?: string | null
           content: string
-          created_at?: string | null
+          created_at?: string
           id?: string
-          is_read?: boolean
+          is_read?: boolean | null
           match_id?: string | null
-          message_type?: string | null
-          receiver_id?: string | null
-          sender_id?: string | null
+          message_type?: string
+          receiver_id: string
+          sender_id: string
         }
         Update: {
+          chat_id?: string | null
           content?: string
-          created_at?: string | null
+          created_at?: string
           id?: string
-          is_read?: boolean
+          is_read?: boolean | null
           match_id?: string | null
-          message_type?: string | null
-          receiver_id?: string | null
-          sender_id?: string | null
+          message_type?: string
+          receiver_id?: string
+          sender_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "messages_chat_id_fkey"
+            columns: ["chat_id"]
+            isOneToOne: false
+            referencedRelation: "chats"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "messages_match_id_fkey"
             columns: ["match_id"]
             isOneToOne: false
-            referencedRelation: "matches"
+            referencedRelation: "people_matches"
             referencedColumns: ["id"]
           },
           {
@@ -559,78 +423,33 @@ export type Database = {
           },
         ]
       }
-      notifications: {
-        Row: {
-          created_at: string | null
-          data: Json | null
-          id: string
-          message: string
-          read: boolean | null
-          title: string
-          type: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string | null
-          data?: Json | null
-          id?: string
-          message: string
-          read?: boolean | null
-          title: string
-          type: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string | null
-          data?: Json | null
-          id?: string
-          message?: string
-          read?: boolean | null
-          title?: string
-          type?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
       people_matches: {
         Row: {
-          common_locations_count: number
-          compatibility_score: number | null
           created_at: string
           id: string
-          matched_at: string | null
+          is_super_like: boolean | null
           status: string
           updated_at: string
           user1_id: string
-          user1_liked_at: string | null
           user2_id: string
-          user2_liked_at: string | null
         }
         Insert: {
-          common_locations_count?: number
-          compatibility_score?: number | null
           created_at?: string
           id?: string
-          matched_at?: string | null
+          is_super_like?: boolean | null
           status?: string
           updated_at?: string
           user1_id: string
-          user1_liked_at?: string | null
           user2_id: string
-          user2_liked_at?: string | null
         }
         Update: {
-          common_locations_count?: number
-          compatibility_score?: number | null
           created_at?: string
           id?: string
-          matched_at?: string | null
+          is_super_like?: boolean | null
           status?: string
           updated_at?: string
           user1_id?: string
-          user1_liked_at?: string | null
           user2_id?: string
-          user2_liked_at?: string | null
         }
         Relationships: [
           {
@@ -649,441 +468,164 @@ export type Database = {
           },
         ]
       }
-      preference_save_logs: {
-        Row: {
-          action: string
-          client_info: Json | null
-          created_at: string | null
-          error_message: string | null
-          id: string
-          new_values: Json | null
-          old_values: Json | null
-          preference_type: string
-          success: boolean | null
-          user_id: string
-        }
-        Insert: {
-          action: string
-          client_info?: Json | null
-          created_at?: string | null
-          error_message?: string | null
-          id?: string
-          new_values?: Json | null
-          old_values?: Json | null
-          preference_type: string
-          success?: boolean | null
-          user_id: string
-        }
-        Update: {
-          action?: string
-          client_info?: Json | null
-          created_at?: string | null
-          error_message?: string | null
-          id?: string
-          new_values?: Json | null
-          old_values?: Json | null
-          preference_type?: string
-          success?: boolean | null
-          user_id?: string
-        }
-        Relationships: []
-      }
       profiles: {
         Row: {
-          additional_photos: string[] | null
           avatar_url: string | null
           bio: string | null
-          biography: string | null
           birth_date: string | null
           created_at: string
-          drinks_preferences: string[] | null
-          email: string
-          first_name: string | null
-          food_preferences: string[] | null
           full_name: string | null
+          gender: string | null
           id: string
-          initial_preferences_saved: boolean | null
-          last_name: string | null
-          location: Json | null
-          location_enabled: boolean | null
-          location_preferences: string[] | null
-          onboarding_complete: boolean | null
-          onboarding_completed_at: string | null
-          onboarding_started_at: string | null
-          onboarding_step: string | null
-          preferences_verified_at: string | null
-          profile_photo_url: string | null
-          profile_photos_uploaded: number | null
+          instagram_username: string | null
+          interests: string[] | null
+          is_onboarded: boolean | null
+          location: string | null
+          photos: string[] | null
           updated_at: string
+          username: string | null
+          website: string | null
         }
         Insert: {
-          additional_photos?: string[] | null
           avatar_url?: string | null
           bio?: string | null
-          biography?: string | null
           birth_date?: string | null
           created_at?: string
-          drinks_preferences?: string[] | null
-          email: string
-          first_name?: string | null
-          food_preferences?: string[] | null
           full_name?: string | null
+          gender?: string | null
           id: string
-          initial_preferences_saved?: boolean | null
-          last_name?: string | null
-          location?: Json | null
-          location_enabled?: boolean | null
-          location_preferences?: string[] | null
-          onboarding_complete?: boolean | null
-          onboarding_completed_at?: string | null
-          onboarding_started_at?: string | null
-          onboarding_step?: string | null
-          preferences_verified_at?: string | null
-          profile_photo_url?: string | null
-          profile_photos_uploaded?: number | null
+          instagram_username?: string | null
+          interests?: string[] | null
+          is_onboarded?: boolean | null
+          location?: string | null
+          photos?: string[] | null
           updated_at?: string
+          username?: string | null
+          website?: string | null
         }
         Update: {
-          additional_photos?: string[] | null
           avatar_url?: string | null
           bio?: string | null
-          biography?: string | null
           birth_date?: string | null
           created_at?: string
-          drinks_preferences?: string[] | null
-          email?: string
-          first_name?: string | null
-          food_preferences?: string[] | null
           full_name?: string | null
+          gender?: string | null
           id?: string
-          initial_preferences_saved?: boolean | null
-          last_name?: string | null
-          location?: Json | null
-          location_enabled?: boolean | null
-          location_preferences?: string[] | null
-          onboarding_complete?: boolean | null
-          onboarding_completed_at?: string | null
-          onboarding_started_at?: string | null
-          onboarding_step?: string | null
-          preferences_verified_at?: string | null
-          profile_photo_url?: string | null
-          profile_photos_uploaded?: number | null
+          instagram_username?: string | null
+          interests?: string[] | null
+          is_onboarded?: boolean | null
+          location?: string | null
+          photos?: string[] | null
           updated_at?: string
-        }
-        Relationships: []
-      }
-      search_cache_logs: {
-        Row: {
-          created_at: string | null
-          id: string
-          latitude: number
-          longitude: number
-          radius_meters: number
-          search_type: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          id?: string
-          latitude: number
-          longitude: number
-          radius_meters: number
-          search_type?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          id?: string
-          latitude?: number
-          longitude?: number
-          radius_meters?: number
-          search_type?: string | null
-        }
-        Relationships: []
-      }
-      user_matches: {
-        Row: {
-          id: string
-          is_mutual: boolean | null
-          matched_at: string
-          matched_locations: string[] | null
-          user1_id: string
-          user2_id: string
-        }
-        Insert: {
-          id?: string
-          is_mutual?: boolean | null
-          matched_at?: string
-          matched_locations?: string[] | null
-          user1_id: string
-          user2_id: string
-        }
-        Update: {
-          id?: string
-          is_mutual?: boolean | null
-          matched_at?: string
-          matched_locations?: string[] | null
-          user1_id?: string
-          user2_id?: string
+          username?: string | null
+          website?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "user_matches_user1_id_fkey"
-            columns: ["user1_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "user_matches_user2_id_fkey"
-            columns: ["user2_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
+            foreignKeyName: "profiles_id_fkey"
+            columns: ["id"]
+            isOneToOne: true
+            referencedRelation: "users"
             referencedColumns: ["id"]
           },
         ]
       }
-      user_onboarding_preferences: {
+      reviews: {
         Row: {
-          created_at: string | null
+          comment: string | null
+          created_at: string
           id: string
-          preference_type: string
-          preferences: Json
-          source: string | null
-          updated_at: string | null
-          user_id: string
-          verified: boolean | null
-          verified_at: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          id?: string
-          preference_type: string
-          preferences?: Json
-          source?: string | null
-          updated_at?: string | null
-          user_id: string
-          verified?: boolean | null
-          verified_at?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          id?: string
-          preference_type?: string
-          preferences?: Json
-          source?: string | null
-          updated_at?: string | null
-          user_id?: string
-          verified?: boolean | null
-          verified_at?: string | null
-        }
-        Relationships: []
-      }
-      user_photos: {
-        Row: {
-          created_at: string | null
-          file_format: string | null
-          file_size: number | null
-          id: string
-          is_primary: boolean | null
-          photo_order: number | null
-          photo_url: string
-          updated_at: string | null
-          upload_source: string | null
+          location_id: string
+          rating: number
           user_id: string
         }
         Insert: {
-          created_at?: string | null
-          file_format?: string | null
-          file_size?: number | null
+          comment?: string | null
+          created_at?: string
           id?: string
-          is_primary?: boolean | null
-          photo_order?: number | null
-          photo_url: string
-          updated_at?: string | null
-          upload_source?: string | null
+          location_id: string
+          rating: number
           user_id: string
         }
         Update: {
-          created_at?: string | null
-          file_format?: string | null
-          file_size?: number | null
+          comment?: string | null
+          created_at?: string
           id?: string
-          is_primary?: boolean | null
-          photo_order?: number | null
-          photo_url?: string
-          updated_at?: string | null
-          upload_source?: string | null
+          location_id?: string
+          rating?: number
           user_id?: string
         }
-        Relationships: []
-      }
-      user_preferences: {
-        Row: {
-          created_at: string | null
-          drink_preferences: string[]
-          drinks: Json | null
-          food_preferences: string[]
-          foods: Json | null
-          id: string
-          identity: string | null
-          interests: Json | null
-          music_preferences: string[]
-          updated_at: string | null
-          user_id: string
-          vibe_preferences: Json | null
-          who_to_see: string[] | null
-        }
-        Insert: {
-          created_at?: string | null
-          drink_preferences?: string[]
-          drinks?: Json | null
-          food_preferences?: string[]
-          foods?: Json | null
-          id?: string
-          identity?: string | null
-          interests?: Json | null
-          music_preferences?: string[]
-          updated_at?: string | null
-          user_id: string
-          vibe_preferences?: Json | null
-          who_to_see?: string[] | null
-        }
-        Update: {
-          created_at?: string | null
-          drink_preferences?: string[]
-          drinks?: Json | null
-          food_preferences?: string[]
-          foods?: Json | null
-          id?: string
-          identity?: string | null
-          interests?: Json | null
-          music_preferences?: string[]
-          updated_at?: string | null
-          user_id?: string
-          vibe_preferences?: Json | null
-          who_to_see?: string[] | null
-        }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "reviews_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reviews_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       users: {
         Row: {
-          age: number | null
+          avatar_url: string | null
           bio: string | null
-          created_at: string | null
+          birth_date: string | null
+          created_at: string
           email: string
+          full_name: string | null
+          gender: string | null
           id: string
-          is_active: boolean
-          location: Json | null
-          name: string
-          onboarding_completed: boolean
+          instagram_username: string | null
+          interests: string[] | null
+          is_onboarded: boolean | null
+          location: string | null
           photos: string[] | null
-          preferences: Json
-          role: string
-          updated_at: string | null
+          updated_at: string
+          username: string | null
+          website: string | null
         }
         Insert: {
-          age?: number | null
+          avatar_url?: string | null
           bio?: string | null
-          created_at?: string | null
+          birth_date?: string | null
+          created_at?: string
           email: string
-          id?: string
-          is_active?: boolean
-          location?: Json | null
-          name: string
-          onboarding_completed?: boolean
+          full_name?: string | null
+          gender?: string | null
+          id: string
+          instagram_username?: string | null
+          interests?: string[] | null
+          is_onboarded?: boolean | null
+          location?: string | null
           photos?: string[] | null
-          preferences?: Json
-          role?: string
-          updated_at?: string | null
+          updated_at?: string
+          username?: string | null
+          website?: string | null
         }
         Update: {
-          age?: number | null
+          avatar_url?: string | null
           bio?: string | null
-          created_at?: string | null
+          birth_date?: string | null
+          created_at?: string
           email?: string
+          full_name?: string | null
+          gender?: string | null
           id?: string
-          is_active?: boolean
-          location?: Json | null
-          name?: string
-          onboarding_completed?: boolean
+          instagram_username?: string | null
+          interests?: string[] | null
+          is_onboarded?: boolean | null
+          location?: string | null
           photos?: string[] | null
-          preferences?: Json
-          role?: string
-          updated_at?: string | null
-        }
-        Relationships: []
-      }
-      venue_preferences: {
-        Row: {
-          created_at: string | null
-          id: string
-          preference_level: number | null
-          updated_at: string | null
-          user_id: string
-          venue_type: string
-        }
-        Insert: {
-          created_at?: string | null
-          id?: string
-          preference_level?: number | null
-          updated_at?: string | null
-          user_id: string
-          venue_type: string
-        }
-        Update: {
-          created_at?: string | null
-          id?: string
-          preference_level?: number | null
-          updated_at?: string | null
-          user_id?: string
-          venue_type?: string
-        }
-        Relationships: []
-      }
-      venues: {
-        Row: {
-          address: string
-          amenities: string[] | null
-          category: string
-          created_at: string | null
-          description: string
-          id: string
-          location: Json
-          name: string
-          opening_hours: Json | null
-          photos: string[] | null
-          price_range: number | null
-          rating: number | null
-          updated_at: string | null
-        }
-        Insert: {
-          address: string
-          amenities?: string[] | null
-          category: string
-          created_at?: string | null
-          description: string
-          id?: string
-          location: Json
-          name: string
-          opening_hours?: Json | null
-          photos?: string[] | null
-          price_range?: number | null
-          rating?: number | null
-          updated_at?: string | null
-        }
-        Update: {
-          address?: string
-          amenities?: string[] | null
-          category?: string
-          created_at?: string | null
-          description?: string
-          id?: string
-          location?: Json
-          name?: string
-          opening_hours?: Json | null
-          photos?: string[] | null
-          price_range?: number | null
-          rating?: number | null
-          updated_at?: string | null
+          updated_at?: string
+          username?: string | null
+          website?: string | null
         }
         Relationships: []
       }
@@ -1092,264 +634,106 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      calculate_compatibility_score: {
-        Args: { user1_id: string; user2_id: string }
-        Returns: number
-      }
-      check_search_cache: {
-        Args: {
-          lat: number
-          long: number
-          max_age_days?: number
-          radius_meters: number
-          search_type: string
-        }
-        Returns: boolean
-      }
       create_people_match: {
-        Args: { p_liker_id: string; p_user1_id: string; p_user2_id: string }
-        Returns: {
-          common_locations_count: number
-          compatibility_score: number | null
-          created_at: string
-          id: string
-          matched_at: string | null
-          status: string
-          updated_at: string
-          user1_id: string
-          user1_liked_at: string | null
-          user2_id: string
-          user2_liked_at: string | null
-        }
-        SetofOptions: {
-          from: "*"
-          to: "people_matches"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
-      delete_old_profile_photos: {
-        Args: { new_photo_path: string; user_id_param: string }
-        Returns: undefined
-      }
-      filter_unmatched_locations: {
-        Args: { p_place_ids: string[]; p_user_id: string }
-        Returns: {
-          place_id: string
-        }[]
-      }
-      find_location_based_matches: {
-        Args: { min_common_locations?: number; target_user_id: string }
-        Returns: {
-          common_location_ids: string[]
-          match_score: number
+        Args: {
           user_id: string
-        }[]
-      }
-      get_cached_photo_url: {
-        Args: { place_id_param: string }
-        Returns: string
-      }
-      get_common_locations: {
-        Args: { user1_uuid: string; user2_uuid: string }
-        Returns: string[]
-      }
-      get_excluded_locations: {
-        Args: { p_user_id: string }
-        Returns: {
-          location_id: string
-          place_id: string
-          reason: string
-        }[]
-      }
-      get_location_rejection_rate: {
-        Args: { p_location_id: string }
-        Returns: number
-      }
-      get_locations_with_mutual_likes: {
-        Args: { p_user_id: string }
-        Returns: {
-          location_id: string
-          mutual_count: number
-        }[]
-      }
-      get_nearby_locations: {
-        Args: { radius_meters?: number; user_lat: number; user_lng: number }
-        Returns: {
-          address: string
-          created_at: string
-          description: string
-          distance_meters: number
-          google_rating: number
-          google_user_ratings_total: number
-          id: string
-          image_url: string
-          instagram: string
-          lat: number
-          lng: number
-          name: string
-          peak_hours: number[]
-          peak_hours_calculated: boolean
-          place_id: string
-          price_level: number
-          rating: number
-          type: string
-          updated_at: string
-        }[]
-      }
-      get_places_by_city_state: {
-        Args: { city_name: string; filter_adult?: boolean; state_name: string }
-        Returns: {
-          address: string
-          city: string | null
-          created_at: string
-          description: string | null
-          google_place_data: Json | null
-          google_place_id: string | null
-          google_rating: number | null
-          google_user_ratings_total: number | null
-          id: string
-          image_url: string
-          instagram: string | null
-          instagram_handle: string | null
-          is_adult: boolean | null
-          last_synced: string | null
-          lat: number
-          latitude: number | null
-          lng: number
-          longitude: number | null
-          name: string
-          peak_hours: number[]
-          peak_hours_calculated: boolean | null
-          place_id: string | null
-          price_level: number
-          rating: number
-          source: string | null
-          state: string | null
-          type: string
-          updated_at: string
-        }[]
-        SetofOptions: {
-          from: "*"
-          to: "locations"
-          isOneToOne: false
-          isSetofReturn: true
+          target_user_id: string
+          status: string
         }
+        Returns: Json
       }
       get_places_nearby: {
         Args: {
-          drink_preferences?: string[]
-          filter_adult?: boolean
-          food_preferences?: string[]
           lat: number
           long: number
-          music_preferences?: string[]
           radius_meters?: number
+          filter_adult?: boolean
+          drink_preferences?: string[]
+          food_preferences?: string[]
+          music_preferences?: string[]
         }
         Returns: {
-          address: string
-          category: string
-          created_at: string
-          description: string
-          distance_meters: number
-          google_place_id: string
-          google_places_data: Json
           id: string
-          images: string[]
-          is_active: boolean
-          is_curated: boolean
-          is_verified: boolean
-          last_synced_at: string
+          google_place_id: string
+          name: string
+          type: string
+          address: string
           latitude: number
           longitude: number
-          name: string
-          opening_hours: Json
-          owner_id: string
-          phone: string
-          photo_url: string
-          price_level: number
+          image_url: string
+          description: string
           rating: number
-          type: string
+          price_level: number
+          opening_hours: Json
+          google_places_data: Json
+          owner_id: string
+          is_active: boolean
+          is_verified: boolean
+          is_curated: boolean
+          created_at: string
           updated_at: string
-          website: string
+          last_synced_at: string
+          distance_meters: number
         }[]
       }
       get_potential_matches: {
-        Args: { match_limit?: number; p_user_id: string }
+        Args: {
+          user_id: string
+        }
         Returns: {
-          age: number
+          id: string
+          full_name: string
           avatar_url: string
           bio: string
-          common_locations_count: number
-          compatibility_score: number
-          created_at: string
-          drink_preferences: string[]
-          email: string
-          food_preferences: string[]
-          id: string
-          identity: string
-          is_active: boolean
-          location: string
-          location_latitude: number
-          location_longitude: number
-          music_preferences: string[]
-          name: string
-          onboarding_completed: boolean
-          updated_at: string
+          interests: string[]
+          common_locations: string[]
         }[]
       }
-      get_recent_conversations: {
-        Args: { conversation_limit?: number; p_user_id: string }
-        Returns: {
-          created_at: string
-          last_message_content: string
-          last_message_created_at: string
-          match_id: string
-          other_user_avatar_url: string
-          other_user_id: string
-          other_user_name: string
-          unread_count: number
-        }[]
-      }
-      insert_user_photo: {
+      gtrgm_compress: {
         Args: {
-          p_file_format?: string
-          p_file_size?: number
-          p_photo_url: string
-          p_upload_source?: string
+          "": unknown
         }
-        Returns: string
+        Returns: unknown
       }
-      log_preference_save: {
+      gtrgm_decompress: {
         Args: {
-          p_action: string
-          p_client_info?: Json
-          p_error_message?: string
-          p_new_values?: Json
-          p_old_values?: Json
-          p_preference_type: string
-          p_success?: boolean
-          p_user_id: string
+          "": unknown
+        }
+        Returns: unknown
+      }
+      gtrgm_in: {
+        Args: {
+          "": unknown
+        }
+        Returns: unknown
+      }
+      gtrgm_options: {
+        Args: {
+          "": unknown
         }
         Returns: undefined
       }
-      record_location_view: {
+      gtrgm_out: {
         Args: {
-          p_action_taken?: string
-          p_location_id: string
-          p_place_id: string
-          p_user_id: string
-          p_view_type?: string
+          "": unknown
         }
-        Returns: undefined
+        Returns: unknown
       }
-      verify_user_preferences: {
-        Args: { p_user_id: string }
-        Returns: {
-          preference_type: string
-          verified: boolean
-          verified_at: string
-        }[]
+      set_limit: {
+        Args: {
+          "": number
+        }
+        Returns: number
+      }
+      show_limit: {
+        Args: Record<PropertyKey, never>
+        Returns: number
+      }
+      show_trgm: {
+        Args: {
+          "": string
+        }
+        Returns: string[]
       }
     }
     Enums: {
@@ -1361,33 +745,27 @@ export type Database = {
   }
 }
 
-type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
-
-type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
+type PublicSchema = Database[Extract<keyof Database, "public">]
 
 export type Tables<
-  DefaultSchemaTableNameOrOptions extends
-  | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
-  | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
-  }
-  ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-    DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
+  PublicTableNameOrOptions extends
+  | keyof (PublicSchema["Tables"] & PublicSchema["Views"])
+  | { schema: keyof Database },
+  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
+  ? keyof (Database[PublicTableNameOrOptions["schema"]]["Tables"] &
+    Database[PublicTableNameOrOptions["schema"]]["Views"])
   : never = never,
-> = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
-}
-  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-    DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+> = PublicTableNameOrOptions extends { schema: keyof Database }
+  ? (Database[PublicTableNameOrOptions["schema"]]["Tables"] &
+    Database[PublicTableNameOrOptions["schema"]]["Views"])[TableName] extends {
       Row: infer R
     }
   ? R
   : never
-  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
-    DefaultSchema["Views"])
-  ? (DefaultSchema["Tables"] &
-    DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+  : PublicTableNameOrOptions extends keyof (PublicSchema["Tables"] &
+    PublicSchema["Views"])
+  ? (PublicSchema["Tables"] &
+    PublicSchema["Views"])[PublicTableNameOrOptions] extends {
       Row: infer R
     }
   ? R
@@ -1395,24 +773,20 @@ export type Tables<
   : never
 
 export type TablesInsert<
-  DefaultSchemaTableNameOrOptions extends
-  | keyof DefaultSchema["Tables"]
-  | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
-  }
-  ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+  PublicTableNameOrOptions extends
+  | keyof PublicSchema["Tables"]
+  | { schema: keyof Database },
+  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
+  ? keyof Database[PublicTableNameOrOptions["schema"]]["Tables"]
   : never = never,
-> = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
-}
-  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+> = PublicTableNameOrOptions extends { schema: keyof Database }
+  ? Database[PublicTableNameOrOptions["schema"]]["Tables"][TableName] extends {
     Insert: infer I
   }
   ? I
   : never
-  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
-  ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+  : PublicTableNameOrOptions extends keyof PublicSchema["Tables"]
+  ? PublicSchema["Tables"][PublicTableNameOrOptions] extends {
     Insert: infer I
   }
   ? I
@@ -1420,24 +794,20 @@ export type TablesInsert<
   : never
 
 export type TablesUpdate<
-  DefaultSchemaTableNameOrOptions extends
-  | keyof DefaultSchema["Tables"]
-  | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
-  }
-  ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+  PublicTableNameOrOptions extends
+  | keyof PublicSchema["Tables"]
+  | { schema: keyof Database },
+  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
+  ? keyof Database[PublicTableNameOrOptions["schema"]]["Tables"]
   : never = never,
-> = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
-}
-  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+> = PublicTableNameOrOptions extends { schema: keyof Database }
+  ? Database[PublicTableNameOrOptions["schema"]]["Tables"][TableName] extends {
     Update: infer U
   }
   ? U
   : never
-  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
-  ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+  : PublicTableNameOrOptions extends keyof PublicSchema["Tables"]
+  ? PublicSchema["Tables"][PublicTableNameOrOptions] extends {
     Update: infer U
   }
   ? U
@@ -1445,41 +815,29 @@ export type TablesUpdate<
   : never
 
 export type Enums<
-  DefaultSchemaEnumNameOrOptions extends
-  | keyof DefaultSchema["Enums"]
-  | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
-  }
-  ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
+  PublicEnumNameOrOptions extends
+  | keyof PublicSchema["Enums"]
+  | { schema: keyof Database },
+  EnumName extends PublicEnumNameOrOptions extends { schema: keyof Database }
+  ? keyof Database[PublicEnumNameOrOptions["schema"]]["Enums"]
   : never = never,
-> = DefaultSchemaEnumNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
-}
-  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
-  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
-  ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
+> = PublicEnumNameOrOptions extends { schema: keyof Database }
+  ? Database[PublicEnumNameOrOptions["schema"]]["Enums"][EnumName]
+  : PublicEnumNameOrOptions extends keyof PublicSchema["Enums"]
+  ? PublicSchema["Enums"][PublicEnumNameOrOptions]
   : never
 
 export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
-  | keyof DefaultSchema["CompositeTypes"]
-  | { schema: keyof DatabaseWithoutInternals },
+  | keyof PublicSchema["CompositeTypes"]
+  | { schema: keyof Database },
   CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
+    schema: keyof Database
   }
-  ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+  ? keyof Database[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
   : never = never,
-> = PublicCompositeTypeNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
-}
-  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
-  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
-  ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+> = PublicCompositeTypeNameOrOptions extends { schema: keyof Database }
+  ? Database[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
+  : PublicCompositeTypeNameOrOptions extends keyof PublicSchema["CompositeTypes"]
+  ? PublicSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
   : never
-
-export const Constants = {
-  public: {
-    Enums: {},
-  },
-} as const

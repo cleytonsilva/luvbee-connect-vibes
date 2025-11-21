@@ -1,462 +1,237 @@
-/**
- * VibeLocal Page - Core Loop 1: Descobrir e dar match com locais
- * T044: User Story 2 - Core Loop 1: Vibe Local
- */
-
-import { useState, useEffect, useRef, useCallback } from 'react'
-import { LocationSwipe } from '@/components/location/LocationSwipe'
-import { PlaceSearch } from '@/components/location/PlaceSearch'
-import { GeolocationHandler } from '@/components/GeolocationHandler'
-import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Button } from '@/components/ui/button'
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from '@/components/ui/sheet'
-import { MapPin, Loader2, MapPinned } from 'lucide-react'
-import { toast } from 'sonner'
-import { GooglePlacesService } from '@/services/google-places.service'
-
-type PermissionState = 'granted' | 'denied' | 'prompt'
-
-const GEO_PERMISSION_STATE_KEY = 'luvbee_geo_permission_state'
-const GEO_PERMISSION_TS_KEY = 'luvbee_geo_permission_state_ts'
-
-const getInitialPermissionDenied = () => {
-  if (typeof window === 'undefined') {
-    return false
-  }
-
-  try {
-    return localStorage.getItem(GEO_PERMISSION_STATE_KEY) === 'denied'
-  } catch (error) {
-    console.warn('[VibeLocalPage] failed to read permission state', error)
-    return false
-  }
-}
+import { useState, useEffect, useRef } from 'react';
+import { useAuth } from '@/hooks/useAuth';
+import { DiscoveryService, DiscoveryFeedItem } from '@/services/discovery.service';
+import { LocationService } from '@/services/location.service';
+import { VibeCard } from '@/components/location/VibeCard';
+import { Button } from '@/components/ui/button';
+import { Loader2, RefreshCw, Search } from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { toast } from 'sonner';
 
 export function VibeLocalPage() {
-  const [latitude, setLatitude] = useState<number | undefined>()
-  const [longitude, setLongitude] = useState<number | undefined>()
-  const [locationError, setLocationError] = useState<string | null>(null)
-  const [errorCode, setErrorCode] = useState<number | null>(null)
-  const [isRequestingLocation, setIsRequestingLocation] = useState(false)
-  const [searchRadius, setSearchRadius] = useState(5000) // Raio padrão: 5km
-  const [showChangeLocation, setShowChangeLocation] = useState(false)
-  const [permissionDenied, setPermissionDenied] = useState(getInitialPermissionDenied)
-  const requestedOnceRef = useRef(false)
-  const isMountedRef = useRef(true)
-  const isRequestingRef = useRef(false) // Prevenir chamadas simultâneas
+  const { user } = useAuth();
+  const [feed, setFeed] = useState<DiscoveryFeedItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [hunting, setHunting] = useState(false);
+  const didInitRef = useRef(false);
+  const inFlightRef = useRef<Promise<void> | null>(null);
+  const lastParamsRef = useRef<string>('');
+  const loadIdRef = useRef(0);
 
-  const persistPermissionState = useCallback((state: PermissionState) => {
-    if (typeof window === 'undefined') return
-
-    try {
-      localStorage.setItem(GEO_PERMISSION_STATE_KEY, state)
-      localStorage.setItem(GEO_PERMISSION_TS_KEY, Date.now().toString())
-    } catch (error) {
-      console.warn('[VibeLocalPage] failed to persist permission state', error)
-    }
-  }, [])
-
-  // Solicitar localização do usuário
-  const requestLocation = useCallback((force = false) => {
-    // Prevenir chamadas simultâneas
-    if (isRequestingRef.current) {
-      console.info('[VibeLocalPage] requestLocation skipped (already requesting)')
-      return
-    }
-
-    if (!isMountedRef.current) {
-      console.info('[VibeLocalPage] requestLocation skipped (component unmounted)')
-      return
-    }
-
-    if (!force && permissionDenied) {
-      console.info('[VibeLocalPage] requestLocation skipped (permission previously denied)')
-      setShowChangeLocation(true)
-      setLocationError('Permissão de localização negada. Utilize a busca manual para continuar.')
-      setErrorCode(1)
-      return
-    }
-
-    console.info('[VibeLocalPage] requestLocation start')
-    isRequestingRef.current = true
-    setIsRequestingLocation(true)
-    setLocationError(null)
-    setErrorCode(null)
-    requestedOnceRef.current = true
-    persistPermissionState('prompt')
-
-    if (!navigator.geolocation) {
-      const errorMsg = 'Geolocalização não é suportada pelo seu navegador'
-      setLocationError(errorMsg)
-      setIsRequestingLocation(false)
-      isRequestingRef.current = false
-      toast.error('Geolocalização não suportada', { description: errorMsg })
-      return
-    }
-
-    navigator.geolocation.getCurrentPosition(
-      position => {
-        if (!isMountedRef.current) {
-          isRequestingRef.current = false
-          return
-        }
-        console.info('[VibeLocalPage] geolocation success', {
-          lat: position.coords.latitude,
-          lng: position.coords.longitude,
-        })
-        setLatitude(position.coords.latitude)
-        setLongitude(position.coords.longitude)
-        setIsRequestingLocation(false)
-        setLocationError(null)
-        setErrorCode(null)
-        requestedOnceRef.current = true // Marcar como bem-sucedido
-        isRequestingRef.current = false
-        setPermissionDenied(false)
-        persistPermissionState('granted')
-
-        // Os locais serão carregados automaticamente pelo LocationSwipe
-        toast.success('Localização obtida!', { description: 'Buscando locais próximos...' })
-      },
-      error => {
-        if (!isMountedRef.current) {
-          isRequestingRef.current = false
-          return
-        }
-        let errorMessage = 'Erro ao obter localização'
-        let errorTitle = 'Erro de localização'
-        
-        // Códigos de erro da Geolocation API:
-        // 1 = PERMISSION_DENIED
-        // 2 = POSITION_UNAVAILABLE
-        // 3 = TIMEOUT
-        switch (error.code) {
-          case 1: // PERMISSION_DENIED
-            errorMessage = 'Permissão de localização negada. Por favor, permita o acesso à localização nas configurações do navegador.'
-            errorTitle = 'Permissão negada'
-            setPermissionDenied(true)
-            setShowChangeLocation(true)
-            persistPermissionState('denied')
-            break
-          case 2: // POSITION_UNAVAILABLE
-            errorMessage = 'Localização não disponível. Verifique se o GPS está ativado e tente novamente.'
-            errorTitle = 'Localização indisponível'
-            break
-          case 3: // TIMEOUT
-            errorMessage = 'Tempo esgotado ao obter localização. Verifique sua conexão e tente novamente.'
-            errorTitle = 'Tempo esgotado'
-            break
-          default:
-            errorMessage = `Erro ao obter localização: ${error.message || 'Erro desconhecido'}`
-        }
-        
-        setLocationError(errorMessage)
-        setErrorCode(error.code)
-        setIsRequestingLocation(false)
-        isRequestingRef.current = false
-        toast.error(errorTitle, {
-          description: errorMessage,
-          duration: 5000,
-        })
-        // Log apenas como info quando há alternativa manual (permissão negada)
-        if (error.code === 1) {
-          console.info('[VibeLocalPage] geolocation permission denied - showing manual input', { 
-            code: error.code, 
-            message: error.message,
-            userMessage: errorMessage 
-          })
-        } else {
-          console.error('[VibeLocalPage] geolocation error', { 
-            code: error.code, 
-            message: error.message,
-            userMessage: errorMessage 
-          })
-        }
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 15000, // Aumentar timeout para 15 segundos
-        maximumAge: 60000, // Aceitar localização com até 1 minuto de idade
-      }
-    )
-  }, [permissionDenied, persistPermissionState])
-
-  // Buscar localização manual por cidade/estado
-  const handleManualSearch = useCallback(async (city: string, state: string) => {
-    setIsRequestingLocation(true)
-    setLocationError(null)
-    
-    try {
-      const address = `${city}, ${state}, Brasil`
-      const result = await GooglePlacesService.geocodeAddress(address)
-      
-      if (result.error) {
-        setLocationError(result.error)
-        toast.error('Erro ao buscar localização', { description: result.error })
-        setIsRequestingLocation(false)
-        return
-      }
-      
-      if (result.data) {
-        setLatitude(result.data.lat)
-        setLongitude(result.data.lng)
-        setLocationError(null)
-        setErrorCode(null)
-        requestedOnceRef.current = true
-        setShowChangeLocation(false) // Fechar o sheet após mudar localização
-        
-        toast.success('Localização alterada!', { description: `Buscando locais em ${city}, ${state}...` })
-      }
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : 'Erro ao buscar localização'
-      setLocationError(errorMsg)
-      toast.error('Erro ao buscar localização', { description: errorMsg })
-    } finally {
-      setIsRequestingLocation(false)
-    }
-  }, [])
-
-  // Tentar obter localização automaticamente ao carregar (apenas uma vez)
   useEffect(() => {
-    isMountedRef.current = true
+    const key = `${user?.id || ''}`;
+    if (!didInitRef.current) {
+      didInitRef.current = true;
+      loadFeed();
+      lastParamsRef.current = key;
+      return;
+    }
+    if (lastParamsRef.current !== key) {
+      lastParamsRef.current = key;
+      loadFeed();
+    }
+  }, [user]);
 
-    let persistedState: PermissionState | null = null
-    if (typeof window !== 'undefined') {
+  const loadFeed = async () => {
+    if (inFlightRef.current) {
+      await inFlightRef.current;
+      return;
+    }
+    setLoading(true);
+    const currentLoadId = ++loadIdRef.current;
+    const promise = (async () => {
       try {
-        persistedState = localStorage.getItem(GEO_PERMISSION_STATE_KEY) as PermissionState | null
+      // Default to São Paulo coords if geolocation fails or for initial load
+      let lat = -23.5505;
+      let lng = -46.6333;
+
+      if (navigator.geolocation) {
+        try {
+          const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+            navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 10000 });
+          });
+          lat = position.coords.latitude;
+          lng = position.coords.longitude;
+        } catch (e) {
+          console.warn('Geolocation failed, using default:', e);
+          toast.error('Não foi possível obter sua localização. Usando padrão (SP).');
+        }
+      }
+
+      setHunting(true);
+      const items = await DiscoveryService.getFeed(lat, lng, 5000, user?.id);
+      if (currentLoadId === loadIdRef.current) {
+        setFeed(items);
+      }
+    } catch (error) {
+      console.error('Failed to load feed:', error);
+      toast.error('Erro ao carregar vibes. Tente novamente.');
+    } finally {
+      if (currentLoadId === loadIdRef.current) {
+        setLoading(false);
+        setHunting(false);
+      }
+      inFlightRef.current = null;
+    }
+    })();
+    inFlightRef.current = promise;
+    await promise;
+  };
+
+  const handleSwipe = async (direction: 'left' | 'right') => {
+    if (!user || !currentItem) {
+      return;
+    }
+
+    if (currentIndex >= feed.length - 1) {
+      // End of feed
+      return;
+    }
+
+    // Preferir UUID (id) sobre place_id para garantir consistência
+    let locationId = currentItem.id;
+    
+    // Se não tem UUID mas tem place_id, tentar buscar o UUID
+    if (!locationId && currentItem.place_id) {
+      try {
+        const locationResult = await LocationService.getLocationByPlaceId(currentItem.place_id);
+        if (locationResult.data?.id) {
+          locationId = locationResult.data.id;
+        } else {
+          // Se não encontrou UUID, usar place_id mesmo
+          locationId = currentItem.place_id;
+        }
       } catch (error) {
-        console.warn('[VibeLocalPage] failed to read cached permission state', error)
+        // Em caso de erro, usar place_id
+        locationId = currentItem.place_id;
       }
     }
 
-    if (persistedState === 'denied') {
-      requestedOnceRef.current = true
-      setPermissionDenied(true)
-      setShowChangeLocation(true)
-      console.info('[VibeLocalPage] mount skipped (permission denied cached)')
-      return () => {
-        isMountedRef.current = false
+    if (!locationId) {
+      console.error('Location ID not found:', currentItem);
+      toast.error('Erro ao processar local');
+      setCurrentIndex(prev => prev + 1);
+      return;
+    }
+
+    try {
+      if (direction === 'right') {
+        // Like - criar match
+        const result = await LocationService.createLocationMatch(user.id, locationId);
+        if (result.error) {
+          console.error('Erro ao salvar match:', result.error);
+          toast.error('Erro ao salvar match. Tente novamente.');
+        } else {
+          toast.success('Match salvo!', { duration: 2000 });
+        }
+      } else {
+        // Dislike - criar rejeição e remover match se existir
+        await LocationService.createLocationRejection(user.id, locationId);
+        await LocationService.removeLocationMatch(user.id, locationId);
       }
+    } catch (error) {
+      console.error('Erro ao processar swipe:', error);
+      toast.error('Erro ao processar ação. Tente novamente.');
+    } finally {
+      // Avançar para o próximo item independente de erro
+      setCurrentIndex(prev => prev + 1);
     }
+  };
 
-    // Verificar se já foi solicitado ou se já tem localização
-    if (requestedOnceRef.current || (latitude && longitude)) {
-      console.info('[VibeLocalPage] mount skipped (already requested or has location)', {
-        requestedOnce: requestedOnceRef.current,
-        hasLatitude: !!latitude,
-        hasLongitude: !!longitude
-      })
-      return
-    }
-    
-    // Verificar se já está solicitando
-    if (isRequestingRef.current) {
-      console.info('[VibeLocalPage] mount skipped (already requesting)')
-      return
-    }
-    
-    console.info('[VibeLocalPage] mount → auto requestLocation')
-    requestLocation()
+  const currentItem = feed[currentIndex];
 
-    return () => {
-      isMountedRef.current = false
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []) // Executar apenas uma vez no mount
+  if (loading || hunting) {
+    return (
+      <div className="flex flex-col items-center justify-center h-[80vh] space-y-4">
+        <div className="relative">
+          <div className="absolute inset-0 bg-primary/20 rounded-full animate-ping" />
+          <div className="relative bg-background p-4 rounded-full border-2 border-primary shadow-hard">
+            <Search className="w-8 h-8 text-primary animate-pulse" />
+          </div>
+        </div>
+        <h2 className="text-2xl font-bold animate-pulse">Descobrindo Locais...</h2>
+        <p className="text-muted-foreground text-center max-w-xs">
+          Encontrando os melhores lugares e eventos próximos a você.
+        </p>
+      </div>
+    );
+  }
 
-  // Opções de raio de busca
-  const radiusOptions = [
-    { label: 'Perto (5km)', value: 5000 },
-    { label: 'Cidade (15km)', value: 15000 },
-    { label: 'Região (30km)', value: 30000 },
-  ]
-
-  // Handler para mudar localização via PlaceSearch
-  const handlePlaceSelect = useCallback((place: {
-    place_id: string
-    name?: string
-    formatted_address?: string
-    geometry?: {
-      lat: number
-      lng: number
-    }
-  }) => {
-    if (place.geometry) {
-      setLatitude(place.geometry.lat)
-      setLongitude(place.geometry.lng)
-      setShowChangeLocation(false)
-      toast.success('Localização alterada!', {
-        description: `Buscando locais próximos a ${place.name || place.formatted_address}...`,
-      })
-    }
-  }, [])
+  if (!currentItem) {
+    return (
+      <div className="flex flex-col items-center justify-center h-[80vh] space-y-6 p-4 text-center">
+        <div className="bg-muted p-6 rounded-full">
+          <RefreshCw className="w-12 h-12 text-muted-foreground" />
+        </div>
+        <div>
+          <h2 className="text-2xl font-bold mb-2">Nenhum local encontrado</h2>
+          <p className="text-muted-foreground mb-4">
+            Parece que não há locais disponíveis nesta área no momento.
+          </p>
+          <div className="bg-gradient-to-r from-purple-500 to-pink-500 text-white p-4 rounded-lg mb-4">
+            <p className="font-semibold mb-2">💡 Dica: Siga-nos no Instagram!</p>
+            <p className="text-sm mb-3">
+              Fique por dentro das novidades e descubra os melhores lugares antes de todo mundo.
+            </p>
+            <button 
+              onClick={() => window.open('https://instagram.com/luvbeebr', '_blank')}
+              className="bg-white text-purple-600 px-4 py-2 rounded-full font-semibold hover:bg-gray-100 transition-colors"
+            >
+              @luvbeebr 📸
+            </button>
+          </div>
+        </div>
+        <Button onClick={() => { setCurrentIndex(0); loadFeed(); }} size="lg" className="shadow-hard">
+          Buscar Novamente
+        </Button>
+      </div>
+    );
+  }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="max-w-2xl mx-auto">
-        <div className="mb-8 text-center relative">
-          <h1 className="text-4xl font-bold mb-2">
-            Vibe <span className="text-primary">Local</span>
-          </h1>
-          <p className="text-muted-foreground">
-            Descubra os melhores locais da noite perto de você
-          </p>
-
-          {/* Botão discreto para mudar localização - posicionado no canto superior direito */}
-          {latitude && longitude && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="absolute top-0 right-0 h-8 w-8 text-muted-foreground hover:text-foreground"
-              title="Mudar localização de busca"
-              onClick={(e) => {
-                e.preventDefault()
-                e.stopPropagation()
-                // Usar requestAnimationFrame para garantir que o estado seja atualizado após o evento
-                requestAnimationFrame(() => {
-                  setShowChangeLocation(true)
-                })
-              }}
-            >
-              <MapPinned className="h-4 w-4" />
-            </Button>
-          )}
-          
-          {/* Sheet sempre renderizado para evitar problemas de montagem/desmontagem */}
-          <Sheet 
-            open={showChangeLocation} 
-            onOpenChange={setShowChangeLocation}
+    <div className="container max-w-md mx-auto py-4 h-[calc(100vh-80px)] flex flex-col">
+      <div className="flex-1 relative mb-6">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={currentItem.id}
+            initial={{ scale: 0.9, opacity: 0, y: 20 }}
+            animate={{ scale: 1, opacity: 1, y: 0 }}
+            exit={{ scale: 0.9, opacity: 0, y: -20 }}
+            transition={{ 
+              duration: 0.4,
+              ease: [0.25, 0.46, 0.45, 0.94]
+            }}
+            className="absolute inset-0"
           >
-            <SheetContent 
-              side="right" 
-              className="w-full sm:max-w-md"
-            >
-              <SheetHeader>
-                <SheetTitle>Mudar Localização de Busca</SheetTitle>
-                <SheetDescription>
-                  Escolha uma nova localização para buscar locais próximos
-                </SheetDescription>
-              </SheetHeader>
-              <div className="mt-6 space-y-4">
-                {latitude && longitude ? (
-                  <div>
-                    <h3 className="text-sm font-semibold mb-2">Buscar por lugar</h3>
-                    <PlaceSearch
-                      latitude={latitude}
-                      longitude={longitude}
-                      radius={searchRadius}
-                      onPlaceSelect={handlePlaceSelect}
-                    />
-                  </div>
-                ) : (
-                  <div className="text-sm text-muted-foreground bg-muted/40 rounded-lg p-3">
-                    <p>Sem acesso ao GPS. Utilize a busca manual abaixo para definir sua localização.</p>
-                  </div>
-                )}
+            <VibeCard
+              item={currentItem}
+              onAction={() => console.log('Action clicked')}
+            />
+          </motion.div>
+        </AnimatePresence>
+      </div>
 
-                {/* Opção 2: Buscar manualmente por cidade/estado */}
-                <div>
-                  <h3 className="text-sm font-semibold mb-2">Ou informe cidade e estado</h3>
-                  <GeolocationHandler
-                    onSubmitManual={handleManualSearch}
-                    onRetry={() => requestLocation(true)}
-                  />
-                </div>
-              </div>
-            </SheetContent>
-          </Sheet>
-        </div>
+      {/* Controls */}
+      <div className="flex justify-center gap-6 mb-4">
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          className="w-16 h-16 rounded-full bg-secondary text-secondary-foreground shadow-hard hover:scale-105 transition-all duration-200 border-2 border-secondary-foreground/20 hover:border-secondary-foreground/40"
+          onClick={() => handleSwipe('left')}
+        >
+          <span className="text-2xl">✕</span>
+        </motion.button>
 
-        {/* Controle de Raio de Busca - Mostrar apenas quando tem localização */}
-        {latitude && longitude && (
-          <div className="mb-6 flex justify-center gap-2">
-            {radiusOptions.map((option) => (
-              <button
-                key={option.value}
-                onClick={() => setSearchRadius(option.value)}
-                className={`font-mono text-sm py-2 px-3 border-2 border-foreground transition-all ${
-                  searchRadius === option.value
-                    ? 'bg-primary text-background border-4 shadow-hard'
-                    : 'bg-accent text-foreground hover:bg-accent/80'
-                }`}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
-        )}
-
-        {/* LocationSwipe - Os locais são carregados automaticamente quando há localização */}
-        {latitude && longitude ? (
-          <LocationSwipe latitude={latitude} longitude={longitude} radius={searchRadius} />
-        ) : (
-          <div className="max-w-2xl mx-auto">
-            {/* Conteúdo de solicitação de localização */}
-            <div className="space-y-4">
-              {/* Mostrar GeolocationHandler quando a permissão foi negada e não há localização */}
-              {permissionDenied && !latitude && !longitude ? (
-                <GeolocationHandler
-                  onSubmitManual={handleManualSearch}
-                  onRetry={() => requestLocation(true)}
-                />
-              ) : (
-                <>
-                  {locationError && errorCode !== 1 && !latitude && !longitude && (
-                    <Alert variant="destructive">
-                      <AlertDescription className="space-y-2">
-                        <p>{locationError}</p>
-                        {locationError.includes('Permissão') && (
-                          <div className="mt-3 text-sm space-y-1">
-                            <p className="font-semibold">Como permitir a localização:</p>
-                            <ul className="list-disc list-inside space-y-1 ml-2">
-                              <li>Clique no ícone de cadeado ou informações na barra de endereço</li>
-                              <li>Selecione "Permitir" para localização</li>
-                              <li>Ou ajuste nas configurações do navegador</li>
-                            </ul>
-                          </div>
-                        )}
-                      </AlertDescription>
-                    </Alert>
-                  )}
-
-                  {!latitude && !longitude && (
-                    <div className="flex flex-col items-center justify-center p-12 border-2 border-dashed rounded-xl">
-                      <MapPin className="w-16 h-16 text-muted-foreground mb-4" />
-                      <h3 className="text-xl font-semibold mb-2">
-                        {isRequestingLocation ? 'Obtendo localização...' : 'Localização necessária'}
-                      </h3>
-                      <p className="text-muted-foreground mb-6 text-center max-w-md">
-                        {isRequestingLocation
-                          ? 'Por favor, permita o acesso à sua localização para encontrar locais próximos.'
-                          : 'Precisamos da sua localização para mostrar os melhores locais perto de você.'}
-                      </p>
-                      {!isRequestingLocation && (
-                        <Button onClick={() => requestLocation(true)} size="lg" className="shadow-hard">
-                          <MapPin className="w-4 h-4 mr-2" />
-                          {locationError ? 'Tentar Novamente' : 'Permitir Localização'}
-                        </Button>
-                      )}
-                      {isRequestingLocation && (
-                        <div className="flex flex-col items-center gap-2">
-                          <Loader2 className="w-8 h-8 animate-spin text-primary" />
-                          <p className="text-sm text-muted-foreground">Aguardando permissão...</p>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
-          </div>
-        )}
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          className="w-16 h-16 rounded-full bg-primary text-primary-foreground shadow-hard hover:scale-105 transition-all duration-200 border-2 border-primary-foreground/20 hover:border-primary-foreground/40"
+          onClick={() => handleSwipe('right')}
+        >
+          <span className="text-2xl">♥</span>
+        </motion.button>
       </div>
     </div>
-  )
+  );
 }
-

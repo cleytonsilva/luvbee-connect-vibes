@@ -102,7 +102,8 @@ export class UserService {
       
       try {
         // Tentar obter sessão atual (mais rápido)
-        const { data: { session } } = await supabase.auth.getSession()
+        const sessionRes = await supabase.auth.getSession?.()
+        const session = sessionRes?.data?.session
         if (session?.user) {
           authenticatedUserId = session.user.id
           hasValidSession = true
@@ -110,7 +111,8 @@ export class UserService {
       } catch (sessionError) {
         // Se getSession() falhar, tentar getUser() como fallback
         try {
-          const { data: { user } } = await supabase.auth.getUser()
+          const userRes = await supabase.auth.getUser?.()
+          const user = userRes?.data?.user
           if (user) {
             authenticatedUserId = user.id
             hasValidSession = true
@@ -150,7 +152,8 @@ export class UserService {
         await new Promise(resolve => setTimeout(resolve, 1000))
         
         try {
-          const { data: { session: retrySession } } = await supabase.auth.getSession()
+          const retryRes = await supabase.auth.getSession?.()
+          const retrySession = retryRes?.data?.session
           if (retrySession?.user) {
             authenticatedUserId = retrySession.user.id
             hasValidSession = true
@@ -170,7 +173,7 @@ export class UserService {
       // Upsert para evitar select prévio e reduzir fricção com RLS
       // NOTA: Se não houver sessão válida, o RLS pode bloquear esta operação
       // Nesse caso, o erro será retornado e o usuário precisará confirmar o email primeiro
-      const { data: upserted, error: upsertError } = await supabase
+      const upsertRes = await supabase
         .from('user_preferences')
         .upsert({
           user_id: userId,
@@ -178,18 +181,47 @@ export class UserService {
         }, { onConflict: 'user_id' })
         .select()
         .single()
+      const upserted = upsertRes?.data
+      const upsertError = upsertRes?.error
 
       if (upsertError) {
         // Se o erro for de RLS (permissão negada), pode ser porque não há sessão válida
-        if (upsertError.code === '42501' || upsertError.message?.includes('permission denied') || upsertError.message?.includes('row-level security')) {
+        const isRLSError = upsertError.code === '42501' || 
+                          upsertError.code === 'PGRST301' ||
+                          upsertError.status === 403 ||
+                          upsertError.message?.includes('permission denied') || 
+                          upsertError.message?.includes('row-level security') ||
+                          upsertError.message?.includes('new row violates row-level security policy')
+        
+        if (isRLSError) {
           console.error('[UserService] Erro de RLS ao salvar preferências:', {
             error: upsertError,
+            errorCode: upsertError.code,
+            errorStatus: upsertError.status,
+            errorMessage: upsertError.message,
             userId,
+            authenticatedUserId,
             hasValidSession,
             note: 'Isso pode acontecer se o email precisa ser confirmado antes de completar o onboarding'
           })
+          
+          // Verificar se o email foi confirmado
+          let emailConfirmed = false
+          try {
+            const userRes = await supabase.auth.getUser()
+            emailConfirmed = !!userRes.data?.user?.email_confirmed_at
+          } catch (e) {
+            console.warn('[UserService] Não foi possível verificar confirmação de email:', e)
+          }
+          
+          if (!emailConfirmed) {
+            return { 
+              error: 'Não foi possível salvar preferências. Por favor, confirme seu email e tente novamente.' 
+            }
+          }
+          
           return { 
-            error: 'Não foi possível salvar preferências. Por favor, confirme seu email e tente novamente.' 
+            error: 'Não foi possível salvar preferências. Por favor, verifique sua conexão e tente novamente.' 
           }
         }
         throw upsertError
@@ -258,21 +290,35 @@ export class UserService {
     try {
       const fileExt = file.name.split('.').pop()
       const fileName = `${userId}-${Date.now()}.${fileExt}`
-      const filePath = `${fileName}`
+      const filePath = `${userId}/${fileName}`
 
-      // Upload para bucket avatars
-      const { error: uploadError } = await supabase.storage
+      let bucketUsed = 'avatars'
+      let uploadError: any = null
+      const res1 = await supabase.storage
         .from('avatars')
         .upload(filePath, file, {
           cacheControl: '3600',
           upsert: false
         })
+      uploadError = res1.error
+      if (uploadError) {
+        const msg = String(uploadError.message || uploadError)
+        if (msg.includes('row-level security') || msg.includes('permission') || msg.includes('bucket')) {
+          const res2 = await supabase.storage
+            .from('profile-photos')
+            .upload(filePath, file, {
+              cacheControl: '3600',
+              upsert: false
+            })
+          uploadError = res2.error
+          if (!uploadError) bucketUsed = 'profile-photos'
+        }
+      }
 
       if (uploadError) throw uploadError
 
-      // Obter URL pública
       const { data: { publicUrl } } = supabase.storage
-        .from('avatars')
+        .from(bucketUsed)
         .getPublicUrl(filePath)
 
       // Atualizar perfil do usuário
@@ -285,9 +331,8 @@ export class UserService {
 
       return { data: publicUrl }
     } catch (error) {
-      return { 
-        error: error instanceof Error ? error.message : 'Failed to upload avatar' 
-      }
+      const msg = error instanceof Error ? error.message : String(error)
+      return { error: msg }
     }
   }
 }

@@ -164,6 +164,18 @@ npm run lint             # Verificar código
 - Configuração em `test/setup.ts`
 - Cobertura mínima: 80%
 
+### Logs e Monitoramento
+- Usar `src/lib/safe-log.ts` para logs saneados (`safeLog`) em serviços e hooks críticos
+- Registrar eventos de cache expirado, falhas de RPC e erros de geolocalização
+- Integrar com `monitor.service.ts` para visão de saúde do sistema
+
+### Estilos Responsivos
+- Classes utilitárias para Vibe Local: `prevent-mobile-overflow`, `location-status-badge` (com `z-index`), `touch-target-enhanced`
+- Evitar sobreposição com controle de empilhamento (z-index) e truncamento de texto
+
+### Segurança Supabase
+- RLS obrigatório em tabelas consultadas por RPCs de locais (`get_places_nearby`, `get_places_by_city_state`)
+
 ## 🔗 Links Úteis
 
 - **Spec-Kit**: `specs/001-luvbee-core-platform/`

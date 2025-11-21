@@ -8,6 +8,7 @@
 import { supabase } from '@/integrations/supabase'
 import { GooglePlacesService } from './google-places.service'
 import { ImageStorageService } from './image-storage.service'
+import { invokeCachePlacePhoto } from '@/lib/cache-place-photo-helper'
 import type { ApiResponse } from '@/types/app.types'
 import type { Location } from '@/types/location.types'
 import type { NearbySearchParams } from './google-places.service'
@@ -327,9 +328,12 @@ export class LocationImageScraper {
       const batch = places.data.slice(0, Math.min(places.data.length, 100))
       for (const p of batch) {
         try {
-          const { data, error } = await supabase.functions.invoke('cache-place-photo', { body: { place_id: p.place_id, maxWidth: 800 } })
-          if (error) { errors++; continue }
-          if (data?.imageUrl) processed++
+          const result = await invokeCachePlacePhoto(p.place_id, { maxWidth: 800 })
+          if (!result.success || !result.imageUrl) {
+            errors++
+            continue
+          }
+          processed++
         } catch {
           errors++
         }

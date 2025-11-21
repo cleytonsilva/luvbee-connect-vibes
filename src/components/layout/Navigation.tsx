@@ -2,6 +2,7 @@ import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { NotificationBell } from '@/components/notifications/NotificationBell'
 import { 
   Home, 
   MapPin, 
@@ -45,12 +46,12 @@ export function Navigation({ className = '' }: NavigationProps) {
           <div className="flex items-center">
             <Link to="/" className="flex items-center gap-2">
               <img 
-                src="/iconwhite.png" 
+                src="/abaicon.png" 
                 alt="Luvbee Logo" 
                 className="w-8 h-8 dark:hidden object-contain"
               />
               <img 
-                src="/iconblack.png" 
+                src="/abaicon.png" 
                 alt="Luvbee Logo" 
                 className="w-8 h-8 hidden dark:block object-contain"
               />
@@ -84,9 +85,11 @@ export function Navigation({ className = '' }: NavigationProps) {
           <div className="flex items-center space-x-4">
             {user ? (
               <div className="flex items-center space-x-3">
+                <NotificationBell />
+                
                 <div className="hidden md:flex items-center space-x-2">
                   <Avatar className="h-8 w-8">
-                    <AvatarImage src={profile?.avatar_url} />
+                    <AvatarImage src={profile?.avatar_url || (profile?.photos && profile.photos.length > 0 ? profile.photos[0] : undefined)} />
                     <AvatarFallback className="bg-primary/20 text-primary dark:bg-primary/30">
                       {profile?.name?.charAt(0).toUpperCase() || user.email?.charAt(0).toUpperCase()}
                     </AvatarFallback>

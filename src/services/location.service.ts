@@ -1,6 +1,8 @@
 import { supabase } from '../integrations/supabase'
+import { safeLog } from '@/lib/safe-log'
 import type { LocationData, LocationFilter, ApiResponse, PaginationOptions } from '../types/app.types'
 import { ImageStorageService } from './image-storage.service'
+import { useGeoCache, makeRadiusKey } from '@/hooks/useGeoCache'
 
 export class LocationService {
   static async getLocations(filter?: LocationFilter, pagination?: PaginationOptions): Promise<ApiResponse<LocationData[]>> {
@@ -17,10 +19,10 @@ export class LocationService {
         if (filter.search) {
           query = query.or(`name.ilike.%${filter.search}%,description.ilike.%${filter.search}%`)
         }
-        // Remover filtro is_active se a coluna não existir
-        // if (filter.isActive !== undefined) {
-        //   query = query.eq('is_active', filter.isActive)
-        // }
+        // Agora a coluna is_active existe após a migração
+        if (filter.isActive !== undefined) {
+          query = query.eq('is_active', filter.isActive)
+        }
       }
 
       if (pagination) {
@@ -118,16 +120,14 @@ export class LocationService {
         .insert({
           name: locationData.name,
           address: locationData.address,
-          category: locationData.category,
+          type: locationData.category || locationData.type || 'outro',
           description: locationData.description,
-          images: locationData.images,
+          image_url: locationData.images?.[0] || locationData.image_url,
           rating: locationData.rating || 0,
-          phone: locationData.phone,
-          website: locationData.website,
+          lat: locationData.location?.lat || locationData.lat,
+          lng: locationData.location?.lng || locationData.lng,
+          place_id: locationData.place_id,
           opening_hours: locationData.opening_hours,
-          location: locationData.location,
-          owner_id: locationData.owner_id,
-          is_verified: locationData.is_verified || false,
           is_active: locationData.is_active !== undefined ? locationData.is_active : true,
         } as any)
         .select('*')
@@ -175,6 +175,11 @@ export class LocationService {
 
   static async getNearbyLocations(lat: number, lng: number, radius: number = 5000): Promise<ApiResponse<LocationData[]>> {
     try {
+      const key = makeRadiusKey(lat, lng, radius)
+      const cached = useGeoCache.getState().getRadius(key)
+      if (cached) {
+        return { data: cached }
+      }
       const { data, error } = await (supabase as any)
         .rpc('get_nearby_locations', {
           user_lat: lat,
@@ -224,7 +229,7 @@ export class LocationService {
       // Processamento de imagens temporariamente desabilitado devido a problemas com Edge Function
       // TODO: Reabilitar após corrigir problema de 404 na Edge Function
       // this.processLocationImagesInBackground(locations)
-
+      useGeoCache.getState().setRadius(key, locations)
       return { data: locations }
     } catch (error) {
       console.error('[LocationService] getNearbyLocations exception:', error)
@@ -666,7 +671,11 @@ export class LocationService {
    */
   static async removeLocationMatch(userId: string, locationId: string): Promise<ApiResponse<void>> {
     try {
-      // Tentar atualizar status primeiro
+      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(locationId)
+
+      safeLog('info', '[LocationService] removeLocationMatch:start', { userId, locationId, isUUID })
+
+      // Tentar atualizar status primeiro (registro ativo → inativo)
       const { error: updateError } = await supabase
         .from('location_matches' as any)
         .update({ status: 'inactive' } as any) // Usar 'inactive' para marcar como rejeitado
@@ -675,6 +684,7 @@ export class LocationService {
 
       // Se erro por coluna status não existir, deletar o registro
       if (updateError && (updateError.message?.includes('status') || updateError.code === '42703')) {
+        safeLog('warn', '[LocationService] removeLocationMatch:updateErrorStatusMissing → delete', { updateError })
         const { error: deleteError } = await supabase
           .from('location_matches' as any)
           .delete()
@@ -682,11 +692,100 @@ export class LocationService {
           .eq('location_id', locationId)
 
         if (deleteError) throw deleteError
+        safeLog('info', '[LocationService] removeLocationMatch:deletedByProvidedId', { userId, locationId })
+        const stillActiveAfterDelete = await this.hasLocationMatch(userId, locationId)
+        if (!stillActiveAfterDelete) {
+          return { data: undefined }
+        }
+        // Se ainda ativo após delete, continuar para tentativa alternativa
+      }
+
+      if (updateError) {
+        safeLog('warn', '[LocationService] removeLocationMatch:updateError', { updateError })
+      }
+
+      // Verificar se realmente foi removido/inativado
+      const stillActive = await this.hasLocationMatch(userId, locationId)
+      if (!updateError && !stillActive) {
+        safeLog('info', '[LocationService] removeLocationMatch:inactiveByProvidedId', { userId, locationId })
         return { data: undefined }
       }
 
-      if (updateError) throw updateError
+      // Tentar alternativa: mapear place_id ↔ UUID e tentar novamente
+      if (!isUUID) {
+        // Dado é place_id → obter UUID e tentar com UUID
+        const loc = await this.getLocationByPlaceId(locationId)
+        const uuid = loc.data?.id
+        if (uuid && uuid !== locationId) {
+          safeLog('info', '[LocationService] removeLocationMatch:retryWithUUID', { uuid })
+          const { error: updateUUIDError } = await supabase
+            .from('location_matches' as any)
+            .update({ status: 'inactive' } as any)
+            .eq('user_id', userId)
+            .eq('location_id', uuid)
 
+          if (updateUUIDError && (updateUUIDError.message?.includes('status') || updateUUIDError.code === '42703')) {
+            const { error: deleteUUIDError } = await supabase
+              .from('location_matches' as any)
+              .delete()
+              .eq('user_id', userId)
+              .eq('location_id', uuid)
+            if (deleteUUIDError) throw deleteUUIDError
+            safeLog('info', '[LocationService] removeLocationMatch:deletedByUUID', { userId, uuid })
+            return { data: undefined }
+          }
+
+          if (updateUUIDError) {
+            safeLog('warn', '[LocationService] removeLocationMatch:updateUUIDError', { updateUUIDError })
+          }
+
+          const stillActiveUUID = await this.hasLocationMatch(userId, uuid)
+          if (!updateUUIDError && !stillActiveUUID) {
+            safeLog('info', '[LocationService] removeLocationMatch:inactiveByUUID', { userId, uuid })
+            return { data: undefined }
+          }
+        }
+      } else {
+        // Dado é UUID → tentar por place_id se existir
+        const loc = await this.getLocationById(locationId)
+        const placeId = (loc.data as any)?.place_id
+        if (placeId && placeId !== locationId) {
+          safeLog('info', '[LocationService] removeLocationMatch:retryWithPlaceId', { placeId })
+          const { error: updatePlaceError } = await supabase
+            .from('location_matches' as any)
+            .update({ status: 'inactive' } as any)
+            .eq('user_id', userId)
+            .eq('location_id', placeId)
+
+          if (updatePlaceError && (updatePlaceError.message?.includes('status') || updatePlaceError.code === '42703')) {
+            const { error: deletePlaceError } = await supabase
+              .from('location_matches' as any)
+              .delete()
+              .eq('user_id', userId)
+              .eq('location_id', placeId)
+            if (deletePlaceError) throw deletePlaceError
+            safeLog('info', '[LocationService] removeLocationMatch:deletedByPlaceId', { userId, placeId })
+            return { data: undefined }
+          }
+
+          if (updatePlaceError) {
+            safeLog('warn', '[LocationService] removeLocationMatch:updatePlaceError', { updatePlaceError })
+          }
+
+          const stillActivePlace = await this.hasLocationMatch(userId, placeId)
+          if (!updatePlaceError && !stillActivePlace) {
+            safeLog('info', '[LocationService] removeLocationMatch:inactiveByPlaceId', { userId, placeId })
+            return { data: undefined }
+          }
+        }
+      }
+
+      // Se ainda está ativo, retornar erro explícito para o fluxo de UI
+      const stillActiveFinal = await this.hasLocationMatch(userId, locationId)
+      if (stillActiveFinal) {
+        safeLog('error', '[LocationService] removeLocationMatch:failedToRemove', { userId, locationId })
+        return { error: 'Falha ao desfazer match (registro ainda ativo)' }
+      }
       return { data: undefined }
     } catch (error) {
       return { error: error instanceof Error ? error.message : 'Failed to remove location match' }
@@ -726,6 +825,56 @@ export class LocationService {
   /**
    * Busca todos os matches ativos do usuário com locais
    */
+  /**
+   * Busca locais por IDs (array de UUIDs)
+   */
+  static async getLocationsByIds(locationIds: string[]): Promise<ApiResponse<LocationData[]>> {
+    try {
+      if (!locationIds || locationIds.length === 0) {
+        return { data: [] }
+      }
+
+      const { data, error } = await supabase
+        .from('locations')
+        .select('id,name,address,type,lat,lng,rating,price_level,image_url,description,place_id,google_rating,google_place_data,created_at,updated_at')
+        .in('id', locationIds)
+
+      if (error) {
+        console.error('[LocationService] getLocationsByIds error:', error)
+        throw error
+      }
+
+      // Mapear dados do banco para LocationData
+      const mappedData: LocationData[] = (data || []).map((loc: any) => ({
+        id: loc.id,
+        name: loc.name,
+        address: loc.address,
+        category: loc.type || 'outro',
+        type: loc.type,
+        description: loc.description || undefined,
+        images: loc.image_url ? [loc.image_url] : undefined,
+        image_url: loc.image_url,
+        rating: Number(loc.rating) || Number(loc.google_rating) || 0,
+        price_level: loc.price_level || undefined,
+        place_id: loc.place_id || undefined,
+        lat: Number(loc.lat),
+        lng: Number(loc.lng),
+        location: {
+          lat: Number(loc.lat),
+          lng: Number(loc.lng),
+        },
+        is_verified: false,
+        is_active: true,
+        created_at: loc.created_at,
+        updated_at: loc.updated_at,
+      }))
+
+      return { data: mappedData }
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : 'Failed to get locations by IDs' }
+    }
+  }
+
   static async getUserLocationMatches(userId: string): Promise<ApiResponse<any[]>> {
     try {
       // Buscar location_matches primeiro (sem join porque location_id é TEXT e não há foreign key)
@@ -766,40 +915,9 @@ export class LocationService {
         return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
       })
 
-      let locationsMap: Map<string, any> = new Map()
-
-      if (uuidIds.length > 0) {
-        // Buscar locations em lotes se necessário (Supabase tem limite de 100 itens no .in())
-        const batchSize = 100
-        for (let i = 0; i < uuidIds.length; i += batchSize) {
-          const batch = uuidIds.slice(i, i + batchSize)
-          const { data: locations, error: locationsError } = await supabase
-            .from('locations')
-            .select('id,name,address,type,place_id,lat,lng,rating,price_level,image_url,peak_hours,google_rating,google_place_data,created_at,updated_at')
-            .in('id', batch)
-
-          if (locationsError) {
-            console.warn('[LocationService] Error fetching locations batch:', locationsError)
-            continue
-          }
-
-          if (locations) {
-            locations.forEach((loc: any) => {
-              locationsMap.set(loc.id, loc)
-            })
-          }
-        }
-      }
-
-      // Combinar matches com locations
-      const result = activeMatches.map((match: any) => {
-        const location = locationsMap.get(match.location_id) || null
-        return {
-          ...match,
-          location
-        }
-      })
-
+      // Não buscar locations aqui para evitar requisições duplicadas
+      // A UI pode decidir se precisa dos detalhes e buscar separadamente
+      const result = activeMatches.map((match: any) => ({ ...match, location: null }))
       return { data: result }
     } catch (error) {
       console.error('[LocationService] getUserLocationMatches exception:', error)

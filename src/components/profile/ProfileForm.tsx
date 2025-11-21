@@ -9,7 +9,9 @@ import { Camera, MapPin, X } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { UserProfile } from '@/types/app.types'
 import { UserService } from '@/services/user.service'
-import { DRINK_OPTIONS, FOOD_OPTIONS, MUSIC_OPTIONS } from '@/lib/validations'
+import { DRINK_OPTIONS, FOOD_OPTIONS, MUSIC_OPTIONS, IDENTITY_OPTIONS, WHO_TO_SEE_OPTIONS } from '@/lib/validations'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+import { Checkbox } from '@/components/ui/checkbox'
 import { sanitizeText } from '@/lib/sanitize'
 import { toast } from 'sonner'
 import { usePlacesAutocomplete } from '@/hooks/usePlacesAutocomplete'
@@ -17,6 +19,7 @@ import { supabase } from '@/integrations/supabase'
 
 export function ProfileForm() {
   const { user, profile, updateProfile, loadUserProfile } = useAuth()
+  console.log('🖼️ ProfileForm - user:', user?.id, 'profile:', profile?.id) // Debug
   const [isLoading, setIsLoading] = useState(false)
   const [isLoadingPreferences, setIsLoadingPreferences] = useState(false)
   const hasLoadedRef = useRef(false)
@@ -24,6 +27,12 @@ export function ProfileForm() {
   // Estado para 3 fotos
   const [photos, setPhotos] = useState<string[]>([])
   
+  // Estado para preferências de descoberta
+  const [discoveryPreferences, setDiscoveryPreferences] = useState({
+    identity: '' as '' | 'woman_cis' | 'man_cis' | 'non_binary' | 'other',
+    who_to_see: [] as string[],
+  })
+
   // Estado para preferências clicáveis
   const [preferences, setPreferences] = useState({
     drink_preferences: [] as string[],
@@ -63,6 +72,10 @@ export function ProfileForm() {
           food_preferences: result.data.food_preferences || [],
           music_preferences: result.data.music_preferences || [],
         })
+        setDiscoveryPreferences({
+          identity: (result.data.identity as any) || '',
+          who_to_see: result.data.who_to_see || [],
+        })
       }
     } catch (error) {
       console.warn('Erro ao carregar preferências:', error)
@@ -73,7 +86,13 @@ export function ProfileForm() {
 
   // Carregar fotos do perfil
   useEffect(() => {
+    if (!user?.id) {
+      console.log('Usuário não autenticado, não carregando fotos') // Debug
+      return
+    }
+    
     if (profile) {
+      console.log('Profile encontrado:', profile) // Debug
       // Converter location de JSONB para string se necessário
       let locationString = ''
       if (profile.location) {
@@ -88,24 +107,27 @@ export function ProfileForm() {
 
       // Carregar fotos do campo photos (array) - buscar diretamente do banco
       const loadPhotos = async () => {
-        if (!user) return
+        if (!user?.id) return
+        // Usar primeiro as fotos já presentes no perfil
+        const existingPhotos = Array.isArray(profile.photos) ? profile.photos : []
+        if (existingPhotos.length > 0) {
+          setPhotos(existingPhotos.slice(0, 3))
+          return
+        }
         try {
           const { data: userData } = await supabase
             .from('users')
             .select('photos')
             .eq('id', user.id)
             .single()
-          
           const profilePhotos = userData?.photos || []
           if (profilePhotos.length > 0) {
-            setPhotos(profilePhotos.slice(0, 3)) // Máximo 3 fotos
+            setPhotos(profilePhotos.slice(0, 3))
           } else if (profile.avatar_url) {
-            // Fallback: usar avatar_url como primeira foto
             setPhotos([profile.avatar_url])
           }
         } catch (error) {
           console.warn('Erro ao carregar fotos:', error)
-          // Fallback: usar avatar_url se disponível
           if (profile.avatar_url) {
             setPhotos([profile.avatar_url])
           }
@@ -404,13 +426,19 @@ export function ProfileForm() {
               ? { address: sanitizedFormData.location } 
               : sanitizedFormData.location)
           : null,
+        // Incluir fotos atuais para não perdê-las ao salvar
+        photos: photos,
       }
 
       // Atualizar perfil básico
       await updateProfile(updateData)
       
       // Atualizar preferências na tabela user_preferences
-      await UserService.saveUserPreferences(user.id, preferences)
+      await UserService.saveUserPreferences(user.id, {
+        ...preferences,
+        identity: discoveryPreferences.identity || null,
+        who_to_see: discoveryPreferences.who_to_see,
+      })
       
       toast.success('Perfil atualizado com sucesso!')
     } catch (error) {
@@ -422,13 +450,16 @@ export function ProfileForm() {
     }
   }
 
+  console.log('🖼️ Estado atual das fotos antes do render:', photos)
+  console.log('👤 Usuário atual:', user?.id)
+  console.log('📋 Profile atual:', profile?.id, 'photos:', profile?.photos)
   return (
     <Card className="p-6">
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Seção de Fotos - 3 fotos */}
         <div className="space-y-4">
           <Label>Fotos do Perfil (máximo 3)</Label>
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {[0, 1, 2].map((index) => (
               <div key={index} className="relative aspect-square border-2 border-dashed border-gray-300 rounded-lg overflow-hidden group">
                 {photos[index] ? (
@@ -437,6 +468,9 @@ export function ProfileForm() {
                       src={photos[index]} 
                       alt={`Foto ${index + 1}`}
                       className="w-full h-full object-cover"
+                      loading="lazy"
+                      decoding="async"
+                      fetchpriority="low"
                       onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/placeholder.svg' }}
                     />
                     <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
@@ -530,6 +564,81 @@ export function ProfileForm() {
             placeholder="Conte um pouco sobre você..."
             rows={4}
           />
+        </div>
+
+        {/* Preferências de Descoberta */}
+        <div className="space-y-6">
+          <h3 className="text-lg font-semibold text-gray-900">Preferências de Descoberta</h3>
+          
+          <div className="space-y-6">
+            <div>
+              <Label className="text-base font-semibold mb-3 block">
+                Como você se identifica?
+              </Label>
+              <RadioGroup
+                value={discoveryPreferences.identity}
+                onValueChange={(value) => setDiscoveryPreferences(prev => ({ ...prev, identity: value as any }))}
+                className="space-y-3"
+              >
+                {IDENTITY_OPTIONS.map(option => {
+                  const labels: Record<string, string> = {
+                    'woman_cis': 'Mulher Cis',
+                    'man_cis': 'Homem Cis',
+                    'non_binary': 'Pessoa Não-Binária',
+                    'other': 'Outro'
+                  }
+                  return (
+                    <div key={option} className="flex items-center space-x-2">
+                      <RadioGroupItem value={option} id={`identity-${option}`} />
+                      <Label htmlFor={`identity-${option}`} className="cursor-pointer font-normal">
+                        {labels[option]}
+                      </Label>
+                    </div>
+                  )
+                })}
+              </RadioGroup>
+            </div>
+
+            <div>
+              <Label className="text-base font-semibold mb-3 block">
+                Quem você quer ver? (Selecione uma ou mais opções)
+              </Label>
+              <div className="space-y-3">
+                {WHO_TO_SEE_OPTIONS.map(option => {
+                  const labels: Record<string, string> = {
+                    'women_cis': 'Mulheres Cis',
+                    'men_cis': 'Homens Cis',
+                    'lgbtqiapn+': 'Público LGBTQIAPN+',
+                    'all': 'Todos'
+                  }
+                  return (
+                    <div key={option} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={`who-to-see-${option}`}
+                        checked={discoveryPreferences.who_to_see.includes(option)}
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            setDiscoveryPreferences(prev => ({
+                              ...prev,
+                              who_to_see: [...prev.who_to_see, option]
+                            }))
+                          } else {
+                            setDiscoveryPreferences(prev => ({
+                              ...prev,
+                              who_to_see: prev.who_to_see.filter(v => v !== option)
+                            }))
+                          }
+                        }}
+                      />
+                      <Label htmlFor={`who-to-see-${option}`} className="cursor-pointer font-normal">
+                        {labels[option]}
+                      </Label>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Preferências Clicáveis */}

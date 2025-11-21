@@ -9,17 +9,20 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { LocationService } from '@/services/location.service'
+import { useGeoCache, makeRadiusKey } from '@/hooks/useGeoCache'
 import { GooglePlacesService } from '@/services/google-places.service'
 import { useAuth } from '@/hooks/useAuth'
 import type { Location } from '@/types/location.types'
 import type { GooglePlace } from '@/services/google-places.service'
 import { toast } from 'sonner'
+import { isSoloPlace } from '@/store/useVibeMode'
 
 interface UseLocationsOptions {
   latitude?: number
   longitude?: number
   radius?: number
   enabled?: boolean
+  soloFilter?: 'include' | 'exclude' | 'none'
 }
 
 /**
@@ -148,7 +151,7 @@ function convertGooglePlaceToLocation(place: GooglePlace, userLat?: number, user
 export function useLocations(options: UseLocationsOptions = {}) {
   const { user } = useAuth()
   const queryClient = useQueryClient()
-  const { latitude, longitude, radius = 5000, enabled = true } = options
+  const { latitude, longitude, radius = 5000, enabled = true, soloFilter = 'none' } = options
 
   const [currentIndex, setCurrentIndex] = useState(0)
   const [rejectedPlaceIds, setRejectedPlaceIds] = useState<Set<string>>(new Set())
@@ -163,7 +166,23 @@ export function useLocations(options: UseLocationsOptions = {}) {
       if (!latitude || !longitude) {
         return []
       }
-
+      const key = makeRadiusKey(latitude, longitude, radius)
+      const cached = useGeoCache.getState().getRadius(key)
+      if (cached) {
+        return cached.map(loc => ({
+          place_id: (loc as any).place_id || (loc as any).id,
+          name: loc.name,
+          formatted_address: loc.address,
+          geometry: { location: { lat: (loc as any).lat || (loc as any).latitude || 0, lng: (loc as any).lng || (loc as any).longitude || 0 } },
+          rating: loc.rating || 0,
+          price_level: loc.price_level || undefined,
+          photos: (loc.images || []).map(img => ({ photo_reference: img })),
+          types: loc.type ? [loc.type] : (loc.category ? [loc.category] : []),
+          phone_number: loc.phone,
+          website: loc.website,
+          opening_hours: loc.opening_hours,
+        }))
+      }
       // Buscar locais do banco próximos à localização do usuário
       const result = await LocationService.getNearbyLocations(latitude, longitude, radius)
       if (result.error || !result.data) {
@@ -221,20 +240,7 @@ export function useLocations(options: UseLocationsOptions = {}) {
       )
 
       const results = await Promise.all(searchPromises)
-
-      // Validar respostas e propagar erros do Google Places para o React Query
-      const errorMessages = results
-        .map((result, index) =>
-          result.error ? `Erro ao buscar locais do tipo ${types[index]}: ${result.error}` : null
-        )
-        .filter((message): message is string => Boolean(message))
-
-      if (errorMessages.length) {
-        const combinedMessage = errorMessages.join(' | ')
-        console.error('Falha ao buscar locais no Google Places:', combinedMessage)
-        throw new Error(combinedMessage)
-      }
-
+      
       // Combinar todos os resultados e remover duplicatas por place_id
       const allPlaces: GooglePlace[] = []
       const seenPlaceIds = new Set<string>()
@@ -323,22 +329,12 @@ export function useLocations(options: UseLocationsOptions = {}) {
     return uniqueLocations
   }, [allGooglePlaces, latitude, longitude])
 
-  // Estabilizar place_ids para evitar recálculos desnecessários da queryKey
-  const placeIdsString = useMemo(() => {
-    if (!allLocations.length) return ''
-    const placeIds = allLocations
-      .map(loc => loc.place_id)
-      .filter(Boolean)
-      .sort() // Ordenar para garantir consistência
-    return placeIds.join(',')
-  }, [allLocations])
-
   // Filtrar locais já curtidos usando função RPC no backend
   const {
     data: unmatchedPlaceIds,
     isLoading: isLoadingFilter,
   } = useQuery({
-    queryKey: ['filter-unmatched-locations', user?.id, placeIdsString],
+    queryKey: ['filter-unmatched-locations', user?.id, allLocations.map(l => l.place_id).join(',')],
     queryFn: async () => {
       if (!user || !allLocations.length) return []
       
@@ -360,22 +356,27 @@ export function useLocations(options: UseLocationsOptions = {}) {
 
   // Filtrar locais baseado no resultado da função RPC e rejeições locais
   const unmatchedLocations = useMemo(() => {
-    // Primeiro, remover locais rejeitados localmente (feedback imediato)
     const withoutRejected = allLocations.filter(loc => 
       !loc.place_id || !rejectedPlaceIds.has(loc.place_id)
     )
-    
     if (!unmatchedPlaceIds || unmatchedPlaceIds.length === 0) {
-      // Se ainda não carregou, mostrar todos (será filtrado quando carregar)
-      // Mas se já carregou e está vazio, não mostrar nada
       if (isLoadingFilter) {
         return withoutRejected
       }
-      // Se não está carregando e não há place_ids, significa que todos foram filtrados
       return []
     }
-    return withoutRejected.filter(loc => loc.place_id && unmatchedPlaceIds.includes(loc.place_id))
-  }, [allLocations, unmatchedPlaceIds, isLoadingFilter, rejectedPlaceIds])
+    let base = withoutRejected.filter(loc => loc.place_id && unmatchedPlaceIds.includes(loc.place_id))
+    if (soloFilter !== 'none') {
+      base = base.filter((loc) => {
+        const types = (loc as any).types || (loc as any).google_place_data?.types || []
+        const type = (loc as any).type || ''
+        const name = loc.name || ''
+        const solo = isSoloPlace(name, types, type)
+        return soloFilter === 'include' ? solo : !solo
+      })
+    }
+    return base
+  }, [allLocations, unmatchedPlaceIds, isLoadingFilter, rejectedPlaceIds, soloFilter])
 
   // Mutation para criar match com local
   const createMatchMutation = useMutation({
@@ -580,4 +581,3 @@ export function useLocations(options: UseLocationsOptions = {}) {
     isDisliking: removeMatchMutation.isPending,
   }
 }
-

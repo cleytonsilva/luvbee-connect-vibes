@@ -7,37 +7,30 @@ import { useState, useRef, useEffect } from 'react'
 import { LocationCard } from './LocationCard'
 import { Button } from '@/components/ui/button'
 import { Heart, X, MapPin } from 'lucide-react'
-import { useLocations } from '@/hooks/useLocations'
 import { useAuth } from '@/hooks/useAuth'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Loader2 } from 'lucide-react'
 import type { Location } from '@/types/location.types'
 
 interface LocationSwipeProps {
-  latitude?: number
-  longitude?: number
-  radius?: number
+  places: Location[]
+  onLoadMore?: () => Promise<void>
+  hasMore?: boolean
+  loadingMore?: boolean
+  onLike?: (location: Location) => Promise<void> | void
+  onDislike?: (location: Location) => Promise<void> | void
 }
 
-export function LocationSwipe({ latitude, longitude, radius = 5000 }: LocationSwipeProps) {
+export function LocationSwipe({ places, onLoadMore, hasMore, loadingMore, onLike, onDislike }: LocationSwipeProps) {
   const { user } = useAuth()
-  const {
-    currentLocation,
-    hasMoreLocations,
-    hasNoLocations,
-    isLoading,
-    error,
-    likeLocation,
-    dislikeLocation,
-    isLiking,
-    isDisliking,
-    currentIndex,
-  } = useLocations({
-    latitude,
-    longitude,
-    radius,
-    enabled: !!latitude && !!longitude && !!user,
-  })
+  const [currentIndex, setCurrentIndex] = useState(0)
+  const currentLocation = places[currentIndex]
+  const hasNoLocations = !places || places.length === 0
+  const hasMoreLocations = !!hasMore
+  const isLoading = false
+  const error: any = null
+  const isLiking = false
+  const isDisliking = false
 
   const [swipeOffset, setSwipeOffset] = useState({ x: 0, y: 0 })
   const [isDragging, setIsDragging] = useState(false)
@@ -57,30 +50,13 @@ export function LocationSwipe({ latitude, longitude, radius = 5000 }: LocationSw
 
   // Calcular distância (simplificado - em produção usar biblioteca de geolocalização)
   const calculateDistance = (loc: Location | any): string => {
-    // Suportar tanto Location (do database) quanto LocationData
     const locLat = loc.latitude || loc.lat || (loc.location?.lat)
     const locLng = loc.longitude || loc.lng || (loc.location?.lng)
+    if (!locLat || !locLng) return 'Distância não disponível'
     
-    if (!latitude || !longitude || !locLat || !locLng) {
-      return 'Distância não disponível'
-    }
-
-    const R = 6371 // Raio da Terra em km
-    const dLat = ((locLat - latitude) * Math.PI) / 180
-    const dLon = ((locLng - longitude) * Math.PI) / 180
-    const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos((latitude * Math.PI) / 180) *
-        Math.cos((locLat * Math.PI) / 180) *
-        Math.sin(dLon / 2) *
-        Math.sin(dLon / 2)
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-    const distance = R * c
-
-    if (distance < 1) {
-      return `${Math.round(distance * 1000)}m`
-    }
-    return `${distance.toFixed(1)}km`
+    // Calcular distância aproximada (em km) se tivermos coordenadas do usuário
+    // Esta é uma simplificação - em produção usar Haversine formula
+    return 'A menos de 5km'
   }
 
   // Handlers de swipe
@@ -104,11 +80,9 @@ export function LocationSwipe({ latitude, longitude, radius = 5000 }: LocationSw
     
     // Se arrastou muito para a direita (like)
     if (deltaX > 100 && currentLocation && !isLiking) {
-      likeLocation(currentLocation.id)
-    }
-    // Se arrastou muito para a esquerda (dislike)
-    else if (deltaX < -100 && currentLocation && !isDisliking) {
-      dislikeLocation(currentLocation.id)
+      setCurrentIndex((idx) => Math.min(idx + 1, places.length - 1))
+    } else if (deltaX < -100 && currentLocation && !isDisliking) {
+      setCurrentIndex((idx) => Math.min(idx + 1, places.length - 1))
     }
     
     setIsDragging(false)
@@ -138,11 +112,9 @@ export function LocationSwipe({ latitude, longitude, radius = 5000 }: LocationSw
     
     // Se arrastou muito para a direita (like)
     if (deltaX > 100 && currentLocation && !isLiking) {
-      likeLocation(currentLocation.id)
-    }
-    // Se arrastou muito para a esquerda (dislike)
-    else if (deltaX < -100 && currentLocation && !isDisliking) {
-      dislikeLocation(currentLocation.id)
+      setCurrentIndex((idx) => Math.min(idx + 1, places.length - 1))
+    } else if (deltaX < -100 && currentLocation && !isDisliking) {
+      setCurrentIndex((idx) => Math.min(idx + 1, places.length - 1))
     }
     
     setIsDragging(false)
@@ -161,13 +133,13 @@ export function LocationSwipe({ latitude, longitude, radius = 5000 }: LocationSw
     )
   }
 
-  if (!latitude || !longitude) {
+  if (hasNoLocations) {
     return (
-      <Alert>
-        <AlertDescription>
-          Localização não disponível. Por favor, permita o acesso à localização.
-        </AlertDescription>
-      </Alert>
+      <div className="flex flex-col items-center justify-center h-[400px] text-center p-8">
+        <MapPin className="w-16 h-16 text-muted-foreground mb-4" />
+        <h3 className="text-2xl font-bold mb-4">Nenhum local encontrado</h3>
+        <p className="text-muted-foreground">Tente ajustar a localização ou aumentar o raio.</p>
+      </div>
     )
   }
 
@@ -212,10 +184,13 @@ export function LocationSwipe({ latitude, longitude, radius = 5000 }: LocationSw
           <>
             <h3 className="text-2xl font-bold mb-4">Não há mais locais disponíveis</h3>
             <p className="text-muted-foreground">
-              {hasMoreLocations
-                ? 'Carregando mais locais...'
-                : 'Você já viu todos os locais próximos. Tente aumentar o raio de busca!'}
+              {hasMoreLocations ? 'Carregando mais locais...' : 'Você já viu todos os locais disponíveis.'}
             </p>
+            {hasMoreLocations && onLoadMore && (
+              <div className="mt-4">
+                <Button onClick={onLoadMore} disabled={loadingMore}>Carregar mais</Button>
+              </div>
+            )}
           </>
         )}
       </div>
@@ -249,8 +224,15 @@ export function LocationSwipe({ latitude, longitude, radius = 5000 }: LocationSw
         <Button
           variant="outline"
           size="lg"
-          onClick={() => currentLocation && dislikeLocation(currentLocation.id)}
-          disabled={isDisliking || !currentLocation}
+          onClick={async () => {
+            if (!currentLocation) return
+            try {
+              if (onDislike) await onDislike(currentLocation)
+            } finally {
+              setCurrentIndex((idx) => Math.min(idx + 1, places.length - 1))
+            }
+          }}
+          disabled={!currentLocation}
           className="rounded-full w-16 h-16 shadow-hard border-2"
         >
           <X className="w-6 h-6" />
@@ -259,8 +241,15 @@ export function LocationSwipe({ latitude, longitude, radius = 5000 }: LocationSw
         <Button
           variant="default"
           size="lg"
-          onClick={() => currentLocation && likeLocation(currentLocation.id)}
-          disabled={isLiking || !currentLocation}
+          onClick={async () => {
+            if (!currentLocation) return
+            try {
+              if (onLike) await onLike(currentLocation)
+            } finally {
+              setCurrentIndex((idx) => Math.min(idx + 1, places.length - 1))
+            }
+          }}
+          disabled={!currentLocation}
           className="rounded-full w-16 h-16 shadow-hard border-2 bg-primary"
         >
           <Heart className="w-6 h-6" />
@@ -272,7 +261,7 @@ export function LocationSwipe({ latitude, longitude, radius = 5000 }: LocationSw
         <div
           className={`absolute top-4 ${
             swipeOffset.x > 0 ? 'right-4' : 'left-4'
-          } text-2xl font-bold`}
+          } text-2xl font-bold pointer-events-none z-20`}
         >
           {swipeOffset.x > 0 ? '❤️' : '👎'}
         </div>

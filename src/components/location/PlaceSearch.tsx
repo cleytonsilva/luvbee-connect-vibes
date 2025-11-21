@@ -5,7 +5,7 @@
  */
 
 import { useEffect, useState } from 'react'
-import { GoogleMapsLoader } from '@/services/google-maps-loader.service'
+import { GoogleMapsLoaderCompat } from '@/services/google-maps-loader-compat.service'
 import { GooglePlacesService } from '@/services/google-places.service'
 import { Card } from '@/components/ui/card'
 import { Search, MapPin, Loader2 } from 'lucide-react'
@@ -36,7 +36,7 @@ export function PlaceSearch({ latitude, longitude, radius = 5000, onPlaceSelect 
   useEffect(() => {
     const initialize = async () => {
       try {
-        await GoogleMapsLoader.load()
+        await GoogleMapsLoaderCompat.load()
         setIsLoaded(true)
       } catch (error) {
         console.error('[PlaceSearch] Erro ao carregar Google Maps:', error)

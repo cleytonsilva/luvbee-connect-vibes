@@ -1,12 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
-import { useAuth } from '../useAuth'
+import type { useAuth as useAuthType } from '../useAuth'
 
 // Mock the auth service
 vi.mock('../services/auth.service', () => ({
   AuthService: {
-    getCurrentUser: vi.fn(),
-    onAuthStateChange: vi.fn(),
+    getCurrentUser: vi.fn(async () => ({ data: null, error: null })),
+    onAuthStateChange: vi.fn(() => ({ data: { subscription: { unsubscribe: vi.fn() } } })),
     signIn: vi.fn(),
     signUp: vi.fn(),
     signOut: vi.fn(),
@@ -14,9 +14,9 @@ vi.mock('../services/auth.service', () => ({
   },
 }))
 
-// Mock zustand store
-vi.mock('zustand', () => ({
-  create: () => () => ({
+// Mock zustand store com setState disponível (compatível com Zustand v5)
+vi.mock('zustand', () => {
+  const initialState = {
     user: null,
     profile: null,
     isLoading: false,
@@ -30,12 +30,23 @@ vi.mock('zustand', () => ({
     signOut: vi.fn(),
     loadUserProfile: vi.fn(),
     updateProfile: vi.fn(),
-  })
-}))
+  }
+
+  const useStore: any = () => initialState
+  useStore.setState = vi.fn()
+  useStore.getState = vi.fn(() => initialState)
+
+  return {
+    create: () => useStore,
+  }
+})
 
 describe('useAuth', () => {
-  beforeEach(() => {
+  let useAuth: typeof useAuthType
+  beforeEach(async () => {
     vi.clearAllMocks()
+    const mod = await import('../useAuth')
+    useAuth = mod.useAuth
   })
 
   it('should return auth state and methods', () => {

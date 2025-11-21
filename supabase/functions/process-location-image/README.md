@@ -24,7 +24,7 @@ supabase/functions/process-location-image/
 Configure no Supabase Dashboard > Edge Functions > Settings:
 
 ```env
-GOOGLE_MAPS_API_KEY=<NOVA_GOOGLE_MAPS_BACKEND_KEY>
+GOOGLE_MAPS_API_KEY=AIzaSyBu-Xerf1F_Q-yXaEMGM17hMpuKaNa8jXw
 ```
 
 As seguintes variáveis já estão disponíveis automaticamente:
@@ -39,7 +39,7 @@ As seguintes variáveis já estão disponíveis automaticamente:
 2. Clique em **"Create a new function"**
 3. Nome: `process-location-image`
 4. Cole o conteúdo de `supabase/functions/process-location-image/index.ts`
-5. Configure a variável de ambiente `GOOGLE_MAPS_API_KEY` com a nova credencial gerada (não utilize chaves antigas expostas)
+5. Configure variável de ambiente `GOOGLE_MAPS_API_KEY`
 6. Clique em **"Deploy"**
 
 ### Opção 2: Via Supabase CLI
@@ -58,7 +58,7 @@ supabase link --project-ref zgxtcawgllsnnernlgim
 supabase functions deploy process-location-image
 
 # Configurar variável de ambiente
-supabase secrets set GOOGLE_MAPS_API_KEY=<NOVA_GOOGLE_MAPS_BACKEND_KEY>
+supabase secrets set GOOGLE_MAPS_API_KEY=AIzaSyBu-Xerf1F_Q-yXaEMGM17hMpuKaNa8jXw
 ```
 
 ## Uso no Frontend

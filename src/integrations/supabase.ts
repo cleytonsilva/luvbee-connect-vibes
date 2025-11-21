@@ -56,6 +56,33 @@ export const supabase = createClient<Database>(
   }
 )
 
+const storageKey = 'luvbee-auth-token'
+const sanitizePersistedSession = () => {
+  if (typeof window === 'undefined') return
+  try {
+    const raw = window.localStorage.getItem(storageKey)
+    if (!raw) return
+    const parsed = JSON.parse(raw)
+    const refreshToken = parsed?.currentSession?.refresh_token || parsed?.refresh_token
+    const accessToken = parsed?.currentSession?.access_token || parsed?.access_token
+    if (!refreshToken || !accessToken) {
+      window.localStorage.removeItem(storageKey)
+      supabase.auth.signOut()
+    }
+  } catch {
+    try { window.localStorage.removeItem(storageKey) } catch {}
+  }
+}
+
+sanitizePersistedSession()
+
+supabase.auth.onAuthStateChange((_event, session) => {
+  if (typeof window === 'undefined') return
+  if (!session) {
+    try { window.localStorage.removeItem(storageKey) } catch {}
+  }
+})
+
 // Helper para verificar se o Supabase está configurado
 export const isSupabaseConfigured = (): boolean => {
   return !!(supabaseUrl && supabaseAnonKey && 
@@ -65,15 +92,18 @@ export const isSupabaseConfigured = (): boolean => {
 
 // Helper para obter informações de debug (apenas em desenvolvimento)
 if (import.meta.env.DEV) {
-  const configInfo = {
-    url: supabaseUrl ? `${supabaseUrl.substring(0, 30)}...` : '❌ Não configurado',
-    hasKey: !!supabaseAnonKey,
-    configured: isSupabaseConfigured()
+  const alreadyLogged = typeof window !== 'undefined' && (window as any).__supabaseLogged
+  if (!alreadyLogged) {
+    const configInfo = {
+      url: supabaseUrl ? `${supabaseUrl.substring(0, 30)}...` : '❌ Não configurado',
+      hasKey: !!supabaseAnonKey,
+      configured: isSupabaseConfigured()
+    }
+    console.debug('🔌 Supabase:', configInfo)
+    if (typeof window !== 'undefined') {
+      ;(window as any).__supabaseLogged = true
+    }
   }
-  console.log('🔌 Supabase Client Configurado:', configInfo)
-  console.log('   URL:', configInfo.url)
-  console.log('   Chave configurada:', configInfo.hasKey)
-  console.log('   Cliente configurado:', configInfo.configured)
 }
 
 export default supabase

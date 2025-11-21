@@ -77,8 +77,8 @@ describe('Supabase Cache Integration', () => {
         .from('div')
         .list();
 
-      // The bucket should exist (error should be null or not "not found")
-      expect(error?.message).not.toContain('not found');
+      // The bucket should exist (error should be empty or not "not found")
+      expect(error?.message ?? '').not.toContain('not found');
     });
   });
 

@@ -22,6 +22,11 @@ import { supabase } from '@/integrations/supabase'
 import { LocationData } from '@/types/app.types'
 import { formatDistanceToNow } from 'date-fns'
 import { toast } from 'sonner'
+import { usePlacePhoto } from '@/hooks/usePlacePhoto'
+import { normalizeImageUrl } from '@/lib/image-url-utils'
+import { AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from '@/components/ui/alert-dialog'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
+import { PeopleForLocation } from '@/components/people/PeopleForLocation'
 
 interface ReviewData {
   id: string
@@ -50,6 +55,21 @@ export function LocationDetail({ locationId }: LocationDetailProps) {
   const [isFavorited, setIsFavorited] = useState(false)
   const [newReview, setNewReview] = useState('')
   const [newRating, setNewRating] = useState(5)
+
+  // Hook calls must be at the top level, before any conditional returns
+  // Usar o mesmo hook que LocationCard usa para buscar imagem
+  // Priorizar imagem salva no Supabase Storage
+  const rawImageUrl = location ? 
+    (location.image_url ||
+    location.photo_url || 
+    (Array.isArray(location.images) && location.images.length > 0 ? location.images[0] : null) ||
+    null) : null
+  
+  // Normalizar URL para converter URLs antigas do Google Maps para Edge Function
+  const normalizedUrl = location ? normalizeImageUrl(rawImageUrl, location.place_id) : null
+  
+  // Usar hook usePlacePhoto que busca do cache ou chama Edge Function
+  const imageUrl = usePlacePhoto(location?.place_id || null, normalizedUrl)
 
   const targetLocationId = locationId || id
 
@@ -146,6 +166,17 @@ export function LocationDetail({ locationId }: LocationDetailProps) {
     }
   }
 
+  const handleUndoMatch = async () => {
+    if (!user || !location) return
+    const result = await LocationService.removeLocationMatch(user.id, location.id)
+    if (result.error) {
+      toast.error(result.error)
+      return
+    }
+    toast.success('Match removido')
+    loadLocation()
+  }
+
   const handleAddReview = async () => {
     if (!user || !location || !newReview.trim()) return
 
@@ -184,19 +215,12 @@ export function LocationDetail({ locationId }: LocationDetailProps) {
     )
   }
 
-  // Priorizar imagem salva no Supabase Storage
-  const hasSupabaseImage = location.image_url && location.image_url.includes('supabase.co/storage')
-  const imageUrl = 
-    (hasSupabaseImage ? location.image_url : null) ||
-    location.photo_url || 
-    (Array.isArray(location.images) && location.images.length > 0 ? location.images[0] : null) ||
-    location.image_url ||
-    '/placeholder-location.jpg'
+  // imageUrl is already computed at the top level to avoid hook order issues
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <div className="relative">
-        <div className="h-64 rounded-lg overflow-hidden shadow-hard border-2 border-foreground">
+        <div className="relative h-64 rounded-lg overflow-hidden shadow-hard border-2 border-foreground">
           <img
             src={imageUrl}
             alt={location.name}
@@ -206,7 +230,7 @@ export function LocationDetail({ locationId }: LocationDetailProps) {
             }}
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-          <div className="absolute inset-0 flex items-center justify-center">
+          <div className="absolute inset-0 flex items-center justify-center z-10">
             <div className="text-white text-center">
               <h2 className="text-3xl font-bold">{location.name}</h2>
             </div>
@@ -261,7 +285,14 @@ export function LocationDetail({ locationId }: LocationDetailProps) {
           </Card>
 
           <Card className="p-6">
-            <h3 className="text-xl font-semibold text-gray-900 mb-4">Reviews</h3>
+            <Tabs defaultValue="reviews" className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="reviews">Reviews</TabsTrigger>
+                <TabsTrigger value="people">Pessoas</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="reviews" className="mt-4">
+                <h3 className="text-xl font-semibold text-gray-900 mb-4">Reviews</h3>
             
             {user && (
               <div className="mb-6 p-4 bg-gray-50 rounded-lg">
@@ -330,7 +361,13 @@ export function LocationDetail({ locationId }: LocationDetailProps) {
                   <p className="text-gray-600">No reviews yet. Be the first to review!</p>
                 </div>
               )}
-            </div>
+              </div>
+              </TabsContent>
+              
+              <TabsContent value="people" className="mt-4">
+                <PeopleForLocation locationId={location.id} />
+              </TabsContent>
+            </Tabs>
           </Card>
         </div>
 
@@ -350,6 +387,21 @@ export function LocationDetail({ locationId }: LocationDetailProps) {
                 <Globe className="h-4 w-4 mr-2" />
                 Website
               </Button>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="outline" className="w-full">Desfazer Match</Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Confirmar desfazer</AlertDialogTitle>
+                    <AlertDialogDescription>Esta ação remove o match deste local.</AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleUndoMatch}>Desfazer</AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </div>
           </Card>
 

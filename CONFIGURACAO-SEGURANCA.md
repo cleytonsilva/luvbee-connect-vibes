@@ -62,8 +62,6 @@ Já implementado via `staleTime` e `cacheTime` nos hooks:
 supabase secrets set GOOGLE_MAPS_API_KEY=sua-chave-aqui
 ```
 
-> 🔐 **Gere sempre uma nova credencial no Google Cloud Console e revogue imediatamente qualquer chave anterior que tenha vazado (por exemplo, iniciada por `AIza`). Nunca versionar chaves em arquivos do repositório.**
-
 ---
 
 ## 4. Configuração de Storage (Supabase)
@@ -170,20 +168,6 @@ Antes de fazer deploy, verifique:
    - Erros de XSS bloqueados
    - Tentativas de acesso não autorizado
    - Erros de validação
-
----
-
-## 9. Prevenção de Vazamento de Segredos no Git
-
-1. Instale o pre-commit (requer Python):
-   ```bash
-   pip install pre-commit
-   ```
-2. Instale os hooks localmente após clonar o repositório:
-   ```bash
-   pre-commit install
-   ```
-3. Antes de commitar, os hooks verificam se existe algum padrão de chave do Google Maps (ex.: `AIza...`). O commit é bloqueado caso seja detectado, evitando novos vazamentos.
 
 ---
 

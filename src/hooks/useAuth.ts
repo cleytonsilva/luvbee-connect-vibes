@@ -1,4 +1,6 @@
 import { create } from 'zustand'
+
+
 import { useEffect, useRef } from 'react'
 import type { User } from '@supabase/supabase-js'
 import type { UserProfile } from '../types/app.types'
@@ -118,7 +120,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     // Prevenir múltiplas chamadas simultâneas
     const currentProfile = get().profile
     if (currentProfile?.id === user.id) {
-      // Já tem perfil carregado para este usuário, não recarregar
       return
     }
 
@@ -132,6 +133,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         return
       }
       
+      console.log('✅ Perfil carregado com sucesso:', result.data?.id, 'photos:', result.data?.photos)
       set({ profile: result.data })
     } catch (error) {
       console.warn('Erro ao carregar perfil:', error)
@@ -141,6 +143,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   updateProfile: async (data: Partial<UserProfile>) => {
     const { user } = get()
     if (!user) throw new Error('Usuário não autenticado')
+
+    console.log('🔄 Atualizando perfil com dados:', data)
+    console.log('👤 User ID:', user.id)
 
     set({ isLoading: true, error: null })
     try {
@@ -167,6 +172,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   }
 }))
+
+// Singleflight para loadUserProfile
+let loadProfilePromise: Promise<void> | null = null
+let lastRequestedUserId: string | null = null
 
 export const useAuth = () => {
   const { 
@@ -201,8 +210,11 @@ export const useAuth = () => {
         
         if (result.data) {
           setUser(result.data)
-          // Carregar perfil sem await para não bloquear
-          loadUserProfile().catch(err => console.warn('Erro ao carregar perfil inicial:', err))
+          if (!loadProfilePromise || lastRequestedUserId !== result.data.id) {
+            lastRequestedUserId = result.data.id
+            loadProfilePromise = loadUserProfile()
+          }
+          loadProfilePromise.catch(err => console.warn('Erro ao carregar perfil inicial:', err))
         }
         // Always set loading to false after check
         useAuthStore.setState({ isLoading: false })
@@ -215,13 +227,17 @@ export const useAuth = () => {
 
     checkUser()
 
-    const { data: { subscription } } = AuthService.onAuthStateChange((event, session) => {
+    const onChangeRes: any = AuthService.onAuthStateChange((event, session) => {
       if (!mounted) return
       
       if (event === 'SIGNED_IN' && session?.user) {
         setUser(session.user)
         // Carregar perfil sem alterar isLoading para evitar loops
-        loadUserProfile().catch(err => console.warn('Erro ao carregar perfil após sign in:', err))
+        if (!loadProfilePromise || lastRequestedUserId !== session.user.id) {
+          lastRequestedUserId = session.user.id
+          loadProfilePromise = loadUserProfile()
+        }
+        loadProfilePromise.catch(err => console.warn('Erro ao carregar perfil após sign in:', err))
         useAuthStore.setState({ isLoading: false })
       } else if (event === 'SIGNED_OUT') {
         setUser(null)
@@ -232,10 +248,11 @@ export const useAuth = () => {
         useAuthStore.setState({ isLoading: false })
       }
     })
+    const subscription = onChangeRes?.data?.subscription
 
     return () => {
       mounted = false
-      subscription.unsubscribe()
+      subscription?.unsubscribe()
       hasInitialized.current = false
     }
   }, [setUser, setProfile]) // Removido loadUserProfile das dependências
@@ -244,7 +261,12 @@ export const useAuth = () => {
     const result = await AuthService.getCurrentUser()
     if (result.data) {
       setUser(result.data)
-      await loadUserProfile()
+      // Singleflight: evitar múltiplos carregamentos concorrentes
+      if (!loadProfilePromise || lastRequestedUserId !== result.data.id) {
+        lastRequestedUserId = result.data.id
+        loadProfilePromise = loadUserProfile()
+      }
+      await loadProfilePromise
     }
   }
 

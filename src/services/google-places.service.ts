@@ -52,6 +52,9 @@ export interface PlaceDetailsParams {
 export class GooglePlacesService {
   private static readonly API_BASE = 'https://maps.googleapis.com/maps/api'
   private static apiKey: string | null = null
+  private static pendingSearches: Map<string, Promise<ApiResponse<GooglePlace[]>>> = new Map()
+  private static cache: Map<string, { data: GooglePlace[]; expiresAt: number }> = new Map()
+  private static readonly CACHE_TTL_MS = 30 * 60 * 1000
 
   /**
    * Inicializa a API key do Google Places
@@ -75,56 +78,87 @@ export class GooglePlacesService {
 
   /**
    * Busca locais próximos usando Edge Function (evita CORS e usa nova arquitetura)
-   * Fallback para REST API quando Edge Function não está disponível
    * Migrado de PlacesService para evitar deprecação
    */
   static async searchNearby(params: NearbySearchParams): Promise<ApiResponse<GooglePlace[]>> {
     try {
       const { latitude, longitude, radius = GOOGLE_PLACES_CONFIG.radius, type, keyword } = params
 
-      // Tentar usar Edge Function primeiro (evita CORS e protege chave da API)
-      try {
-        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-        
-        // Se não há URL do Supabase configurada, usar fallback REST diretamente
-        if (!supabaseUrl) {
-          console.warn('[GooglePlacesService] VITE_SUPABASE_URL não configurada, usando fallback REST')
-          return await this.searchNearbyRest(params)
-        }
-
-        const supabaseModule = await import('@/integrations/supabase')
-        const { data: { session } } = await supabaseModule.supabase.auth.getSession()
-        
-        const response = await fetch(`${supabaseUrl}/functions/v1/search-nearby`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(import.meta.env.VITE_SUPABASE_ANON_KEY && { 'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY }),
-            ...(session?.access_token && { 'Authorization': `Bearer ${session.access_token}` }),
-          },
-          body: JSON.stringify({ latitude, longitude, radius, type, keyword }),
-        })
-
-        if (!response.ok) {
-          // Se Edge Function retornou erro, tentar fallback REST
-          const errorData = await response.json().catch(() => ({ error: 'Erro desconhecido' }))
-          console.warn('[GooglePlacesService] Edge Function falhou, usando fallback REST:', errorData.error || response.statusText)
-          return await this.searchNearbyRest(params)
-        }
-
-        const result = await response.json()
-        if (result.error) {
-          // Se resposta contém erro, tentar fallback REST
-          console.warn('[GooglePlacesService] Edge Function retornou erro, usando fallback REST:', result.error)
-          return await this.searchNearbyRest(params)
-        }
-
-        return { data: result.data || [] }
-      } catch (error) {
-        // Se Edge Function não está disponível ou falhou, usar fallback REST
-        console.warn('[GooglePlacesService] Edge Function não disponível, usando fallback REST:', error instanceof Error ? error.message : 'Unknown error')
-        return await this.searchNearbyRest(params)
+      if (typeof latitude !== 'number' || typeof longitude !== 'number' || isNaN(latitude) || isNaN(longitude)) {
+        return { error: 'Parâmetros inválidos para busca de locais' }
       }
+
+      const key = `${latitude}|${longitude}|${radius}|${type || ''}|${keyword || ''}`
+      const now = Date.now()
+
+      const cached = this.cache.get(key)
+      if (cached && cached.expiresAt > now) {
+        return { data: cached.data }
+      }
+
+      const stored = typeof window !== 'undefined' ? window.localStorage.getItem(`gplaces:${key}`) : null
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored)
+          if (parsed && parsed.expiresAt > now && Array.isArray(parsed.data)) {
+            this.cache.set(key, parsed)
+            return { data: parsed.data }
+          }
+        } catch {}
+      }
+
+      if (this.pendingSearches.has(key)) {
+        return await this.pendingSearches.get(key)!
+      }
+
+      const promise = (async (): Promise<ApiResponse<GooglePlace[]>> => {
+        try {
+          const supabaseModule = await import('@/integrations/supabase')
+          const { data: { session } } = await supabaseModule.supabase.auth.getSession()
+
+          const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/search-nearby`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(import.meta.env.VITE_SUPABASE_ANON_KEY && { 'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY }),
+              ...(session?.access_token && { 'Authorization': `Bearer ${session.access_token}` }),
+            },
+            body: JSON.stringify({ latitude, longitude, radius, type, keyword }),
+          })
+
+          if (!response.ok) {
+            let message = response.statusText
+            try {
+              const errorData = await response.json()
+              message = errorData?.error || message
+            } catch {}
+            if (response.status === 400) {
+              return { error: message || 'Requisição inválida' }
+            }
+            return { error: message || 'Erro ao buscar locais' }
+          }
+
+          const result = await response.json()
+          const data = result.data || []
+          const expiresAt = Date.now() + this.CACHE_TTL_MS
+          this.cache.set(key, { data, expiresAt })
+          if (typeof window !== 'undefined') {
+            try {
+              window.localStorage.setItem(`gplaces:${key}`, JSON.stringify({ data, expiresAt }))
+            } catch {}
+          }
+          return { data }
+        } catch (error) {
+          return {
+            error: error instanceof Error ? error.message : 'Failed to search nearby places - Edge Function não disponível'
+          }
+        } finally {
+          this.pendingSearches.delete(key)
+        }
+      })()
+
+      this.pendingSearches.set(key, promise)
+      return await promise
     } catch (error) {
       return {
         error: error instanceof Error ? error.message : 'Failed to search nearby places'

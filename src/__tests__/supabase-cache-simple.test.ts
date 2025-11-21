@@ -1,5 +1,11 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeAll } from 'vitest';
 import { supabase, isSupabaseConfigured } from '../integrations/supabase';
+
+// Mock das variáveis de ambiente para testes
+beforeAll(() => {
+  vi.stubEnv('VITE_SUPABASE_URL', 'https://test.supabase.co');
+  vi.stubEnv('VITE_SUPABASE_ANON_KEY', 'test-key');
+});
 
 describe('Supabase Cache Integration', () => {
   
@@ -14,7 +20,7 @@ describe('Supabase Cache Integration', () => {
       .limit(1);
 
     // Should either return data or have a specific error
-    expect(error?.message).not.toContain('not found');
+    expect(error?.message ?? '').not.toContain('not found');
   });
 
   it('should have bucket "div" available', async () => {

@@ -1,245 +1,223 @@
-import { supabase } from '../integrations/supabase';
+/**
+ * Sistema de Monitoramento de Cache do Supabase
+ * 
+ * Monitora o consumo de saída em cache e alerta quando próximo ao limite
+ */
 
-export interface CacheMetrics {
-  totalCachedPhotos: number;
-  cacheHitRate: number;
-  averageResponseTime: number;
-  storageUsed: number;
-  lastCleanup: Date;
-}
+import { safeLog } from './safe-log'
 
-export interface CacheLogEntry {
-  timestamp: Date;
-  placeId: string;
-  action: 'cache_hit' | 'cache_miss' | 'cache_store' | 'cache_error';
-  photoReference?: string;
-  responseTime?: number;
-  error?: string;
+export interface CacheUsageData {
+  currentUsageGB: number
+  limitGB: number
+  percentage: number
+  dailyUsage: Array<{
+    date: string
+    usageGB: number
+  }>
+  lastUpdated: string
 }
 
 export class CacheMonitor {
-  private static instance: CacheMonitor;
-  private logs: CacheLogEntry[] = [];
-  private maxLogs = 1000;
-
-  private constructor() {}
-
-  static getInstance(): CacheMonitor {
-    if (!CacheMonitor.instance) {
-      CacheMonitor.instance = new CacheMonitor();
-    }
-    return CacheMonitor.instance;
-  }
-
+  private static readonly CACHE_KEY = 'supabase-cache-usage'
+  private static readonly ALERT_THRESHOLD = 0.8 // 80% do limite
+  private static readonly LIMIT_GB = 5 // Plano gratuito
+  
   /**
-   * Log a cache event
+   * Obtém dados de uso de cache (simulado - em produção viria da API do Supabase)
    */
-  log(entry: Omit<CacheLogEntry, 'timestamp'>) {
-    const logEntry: CacheLogEntry = {
-      ...entry,
-      timestamp: new Date()
-    };
-
-    this.logs.push(logEntry);
-    
-    // Keep only recent logs
-    if (this.logs.length > this.maxLogs) {
-      this.logs = this.logs.slice(-this.maxLogs);
-    }
-
-    // Log to console in development
-    if (import.meta.env.DEV) {
-      console.log(`📊 Cache ${entry.action}:`, {
-        placeId: entry.placeId,
-        photoReference: entry.photoReference,
-        responseTime: entry.responseTime,
-        error: entry.error
-      });
-    }
-  }
-
-  /**
-   * Get cache metrics
-   */
-  async getMetrics(): Promise<CacheMetrics> {
+  static async getCacheUsage(): Promise<CacheUsageData> {
     try {
-      // Get total cached photos
-      const { count: totalCachedPhotos } = await supabase
-        .from('cached_place_photos')
-        .select('*', { count: 'exact', head: true });
-
-      // Get storage usage from bucket
-      const { data: files } = await supabase
-        .storage
-        .from('div')
-        .list('', { limit: 1000 });
-
-      const storageUsed = files?.reduce((total, file) => {
-        return total + (file.metadata?.size || 0);
-      }, 0) || 0;
-
-      // Calculate metrics from logs
-      const recentLogs = this.getRecentLogs(100);
-      const cacheHits = recentLogs.filter(log => log.action === 'cache_hit').length;
-      const cacheMisses = recentLogs.filter(log => log.action === 'cache_miss').length;
-      const totalRequests = cacheHits + cacheMisses;
+      // Em produção, isso viria da API do Supabase:
+      // const response = await fetch(`${SUPABASE_URL}/rest/v1/usage/cache`, {
+      //   headers: { Authorization: `Bearer ${SERVICE_ROLE_KEY}` }
+      // })
       
-      const cacheHitRate = totalRequests > 0 ? (cacheHits / totalRequests) * 100 : 0;
+      // Por enquanto, simulamos com base no histórico armazenado
+      const stored = localStorage.getItem(this.CACHE_KEY)
+      const defaultData: CacheUsageData = {
+        currentUsageGB: 0.07, // Excedente atual
+        limitGB: this.LIMIT_GB,
+        percentage: (0.07 / this.LIMIT_GB) * 100,
+        dailyUsage: [
+          { date: '2025-11-18', usageGB: 4.8 },
+          { date: '2025-11-17', usageGB: 4.2 },
+          { date: '2025-11-16', usageGB: 3.9 },
+        ],
+        lastUpdated: new Date().toISOString()
+      }
       
-      const responseTimes = recentLogs
-        .filter(log => log.responseTime)
-        .map(log => log.responseTime!);
-      
-      const averageResponseTime = responseTimes.length > 0 
-        ? responseTimes.reduce((a, b) => a + b, 0) / responseTimes.length 
-        : 0;
-
-      return {
-        totalCachedPhotos: totalCachedPhotos || 0,
-        cacheHitRate,
-        averageResponseTime,
-        storageUsed,
-        lastCleanup: new Date() // TODO: Implement actual cleanup tracking
-      };
+      return stored ? JSON.parse(stored) : defaultData
     } catch (error) {
-      console.error('Error getting cache metrics:', error);
-      return {
-        totalCachedPhotos: 0,
-        cacheHitRate: 0,
-        averageResponseTime: 0,
-        storageUsed: 0,
-        lastCleanup: new Date()
-      };
+      safeLog('error', '[CacheMonitor] Erro ao obter uso de cache', { error })
+      throw error
     }
   }
-
+  
   /**
-   * Get recent logs
+   * Atualiza dados de uso de cache
    */
-  getRecentLogs(limit = 50): CacheLogEntry[] {
-    return this.logs.slice(-limit);
-  }
-
-  /**
-   * Get logs for a specific place
-   */
-  getLogsForPlace(placeId: string, limit = 20): CacheLogEntry[] {
-    return this.logs
-      .filter(log => log.placeId === placeId)
-      .slice(-limit);
-  }
-
-  /**
-   * Export logs for analysis
-   */
-  exportLogs(format: 'json' | 'csv' = 'json'): string {
-    const logs = this.getRecentLogs();
-    
-    if (format === 'csv') {
-      const headers = 'timestamp,placeId,action,photoReference,responseTime,error';
-      const rows = logs.map(log => 
-        `${log.timestamp.toISOString()},${log.placeId},${log.action},${log.photoReference || ''},${log.responseTime || ''},${log.error || ''}`
-      );
-      return [headers, ...rows].join('\n');
-    }
-    
-    return JSON.stringify(logs, null, 2);
-  }
-
-  /**
-   * Clean up old cache entries
-   */
-  async cleanup(olderThanDays = 30): Promise<number> {
-    const cutoffDate = new Date();
-    cutoffDate.setDate(cutoffDate.getDate() - olderThanDays);
-
+  static async updateCacheUsage(usageGB: number): Promise<void> {
     try {
-      // Get old entries
-      const { data: oldEntries } = await supabase
-        .from('cached_place_photos')
-        .select('id, storage_path, created_at')
-        .lt('created_at', cutoffDate.toISOString());
-
-      if (!oldEntries || oldEntries.length === 0) {
-        console.log('No old cache entries to clean up');
-        return 0;
-      }
-
-      console.log(`Found ${oldEntries.length} old cache entries to clean up`);
-
-      // Delete from storage first
-      const storageDeletePromises = oldEntries.map(entry => 
-        supabase.storage.from('div').remove([entry.storage_path])
-      );
-
-      const storageResults = await Promise.allSettled(storageDeletePromises);
-      const successfulStorageDeletes = storageResults.filter(r => r.status === 'fulfilled').length;
-
-      // Delete from database
-      const { error: dbError } = await supabase
-        .from('cached_place_photos')
-        .delete()
-        .in('id', oldEntries.map(e => e.id));
-
-      if (dbError) {
-        console.error('Error deleting from database:', dbError);
-        return 0;
-      }
-
-      console.log(`Cleaned up ${oldEntries.length} cache entries (${successfulStorageDeletes} from storage)`);
+      const currentData = await this.getCacheUsage()
+      const today = new Date().toISOString().split('T')[0]
       
-      this.log({
-        placeId: 'system',
-        action: 'cache_cleanup',
-        responseTime: oldEntries.length
-      });
-
-      return oldEntries.length;
+      // Atualiza ou adiciona uso de hoje
+      const todayIndex = currentData.dailyUsage.findIndex(item => item.date === today)
+      if (todayIndex >= 0) {
+        currentData.dailyUsage[todayIndex].usageGB = usageGB
+      } else {
+        currentData.dailyUsage.unshift({ date: today, usageGB })
+        // Mantém apenas últimos 30 dias
+        if (currentData.dailyUsage.length > 30) {
+          currentData.dailyUsage = currentData.dailyUsage.slice(0, 30)
+        }
+      }
+      
+      currentData.currentUsageGB = usageGB
+      currentData.percentage = (usageGB / this.LIMIT_GB) * 100
+      currentData.lastUpdated = new Date().toISOString()
+      
+      localStorage.setItem(this.CACHE_KEY, JSON.stringify(currentData))
+      
+      // Verifica se precisa alertar
+      if (currentData.percentage >= this.ALERT_THRESHOLD * 100) {
+        this.sendAlert(currentData)
+      }
     } catch (error) {
-      console.error('Error during cleanup:', error);
-      return 0;
+      safeLog('error', '[CacheMonitor] Erro ao atualizar uso de cache', { error })
     }
   }
-
+  
   /**
-   * Get cache health status
+   * Envia alerta quando próximo ao limite
    */
-  async getHealthStatus(): Promise<{
-    status: 'healthy' | 'degraded' | 'unhealthy';
-    metrics: CacheMetrics;
-    issues: string[];
-  }> {
-    const metrics = await this.getMetrics();
-    const issues: string[] = [];
-
-    // Check for potential issues
-    if (metrics.cacheHitRate < 50) {
-      issues.push(`Low cache hit rate: ${metrics.cacheHitRate.toFixed(1)}%`);
+  private static sendAlert(data: CacheUsageData): void {
+    const message = `⚠️ Alerta de Cache: ${data.percentage.toFixed(1)}% do limite utilizado (${data.currentUsageGB.toFixed(2)}GB / ${data.limitGB}GB)`
+    
+    // Log para monitoramento
+    safeLog('warn', '[CacheMonitor] Alerta de uso de cache', {
+      percentage: data.percentage,
+      currentUsageGB: data.currentUsageGB,
+      limitGB: data.limitGB
+    })
+    
+    // Notificação visual (se disponível)
+    if (typeof window !== 'undefined' && window.Notification && Notification.permission === 'granted') {
+      new Notification('Alerta de Cache Supabase', {
+        body: message,
+        icon: '/warning-icon.png'
+      })
     }
-
-    if (metrics.averageResponseTime > 2000) {
-      issues.push(`High average response time: ${metrics.averageResponseTime.toFixed(0)}ms`);
+    
+    // Toast notification (se disponível)
+    try {
+      // @ts-ignore - Import dinâmico para evitar dependência circular
+      import('sonner').then(({ toast }) => {
+        toast.warning(message, {
+          duration: 10000,
+          position: 'top-center'
+        })
+      })
+    } catch {
+      // Fallback para console
+      console.warn(message)
     }
-
-    if (metrics.storageUsed > 100 * 1024 * 1024) { // 100MB
-      issues.push(`High storage usage: ${(metrics.storageUsed / 1024 / 1024).toFixed(1)}MB`);
+  }
+  
+  /**
+   * Verifica se está próximo ao limite
+   */
+  static isNearLimit(usageGB?: number): boolean {
+    const current = usageGB ?? this.getStoredUsage()
+    return current >= (this.LIMIT_GB * this.ALERT_THRESHOLD)
+  }
+  
+  /**
+   * Obtém uso armazenado localmente
+   */
+  private static getStoredUsage(): number {
+    try {
+      const stored = localStorage.getItem(this.CACHE_KEY)
+      if (stored) {
+        const data = JSON.parse(stored)
+        return data.currentUsageGB || 0
+      }
+    } catch {
+      // Ignora erro
     }
-
-    // Determine status
-    let status: 'healthy' | 'degraded' | 'unhealthy' = 'healthy';
-    if (issues.length > 2) {
-      status = 'unhealthy';
-    } else if (issues.length > 0) {
-      status = 'degraded';
+    return 0
+  }
+  
+  /**
+   * Calcula projeção de uso baseado na tendência
+   */
+  static calculateProjectedUsage(daysAhead: number = 7): number {
+    try {
+      const data = this.getCacheUsage()
+      if (data.dailyUsage.length < 2) return data.currentUsageGB
+      
+      // Calcula tendência linear simples
+      const recent = data.dailyUsage.slice(0, 7)
+      const avgDailyIncrease = recent.reduce((acc, item, index) => {
+        if (index === 0) return acc
+        return acc + (item.usageGB - recent[index - 1].usageGB)
+      }, 0) / Math.max(1, recent.length - 1)
+      
+      return Math.max(0, data.currentUsageGB + (avgDailyIncrease * daysAhead))
+    } catch {
+      return 0
     }
+  }
+  
+  /**
+   * Gera relatório de otimização
+   */
+  static generateOptimizationReport(): string {
+    const data = this.getCacheUsage()
+    const projected = this.calculateProjectedUsage()
+    
+    return `
+📊 RELATÓRIO DE OTIMIZAÇÃO DE CACHE
 
-    return {
-      status,
-      metrics,
-      issues
-    };
+📈 Uso Atual: ${data.currentUsageGB.toFixed(2)}GB / ${data.limitGB}GB (${data.percentage.toFixed(1)}%)
+🔮 Projeção 7 dias: ${projected.toFixed(2)}GB
+⚠️  Status: ${data.percentage >= 80 ? 'CRÍTICO' : data.percentage >= 60 ? 'ALERTA' : 'NORMAL'}
+
+💡 Recomendações:
+${data.percentage >= 80 ? '- Implementar medidas emergenciais imediatamente' : ''}
+${data.percentage >= 60 ? '- Reduzir tamanho de imagens e ativar compressão' : ''}
+- Verificar queries que selecionam muitas colunas
+- Implementar cache client-side para imagens
+- Monitorar Edge Functions com alto volume
+
+📅 Última atualização: ${new Date(data.lastUpdated).toLocaleString('pt-BR')}
+    `.trim()
   }
 }
 
-// Export singleton instance
-export const cacheMonitor = CacheMonitor.getInstance();
+/**
+ * Hook para monitoramento em componentes React
+ */
+export function useCacheMonitor() {
+  const [cacheData, setCacheData] = useState<CacheUsageData | null>(null)
+  const [isNearLimit, setIsNearLimit] = useState(false)
+  
+  useEffect(() => {
+    const updateCacheData = async () => {
+      try {
+        const data = await CacheMonitor.getCacheUsage()
+        setCacheData(data)
+        setIsNearLimit(CacheMonitor.isNearLimit(data.currentUsageGB))
+      } catch (error) {
+        console.error('[useCacheMonitor] Erro ao obter dados de cache', error)
+      }
+    }
+    
+    updateCacheData()
+    const interval = setInterval(updateCacheData, 5 * 60 * 1000) // Atualiza a cada 5 minutos
+    
+    return () => clearInterval(interval)
+  }, [])
+  
+  return { cacheData, isNearLimit }
+}

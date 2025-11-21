@@ -124,7 +124,7 @@ serve(async (req) => {
 
     return new Response(
       JSON.stringify({ data: data.results || [] }),
-      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=300' } }
     )
   } catch (error) {
     return new Response(

@@ -116,7 +116,8 @@ export class AuthService {
             email: data.email.trim().toLowerCase(),
             name: data.name.trim(),
             age: (authData.user.user_metadata?.age ?? null) ?? 18,
-            location: null
+            location: null,
+            role: 'user' // Todos os novos usuários recebem role 'user' por padrão
           })
 
         if (profileError) {
@@ -129,7 +130,8 @@ export class AuthService {
                 email: data.email.trim().toLowerCase(),
                 name: data.name.trim(),
                 age: 18,
-                location: null
+                location: null,
+                role: 'user' // Todos os novos usuários recebem role 'user' por padrão
               })
 
             if (retryError) {
@@ -289,6 +291,7 @@ export class AuthService {
 
   static async updateProfile(userId: string, data: Partial<UserProfile>): Promise<ApiResponse<UserProfile>> {
     try {
+      console.log('🔧 AuthService.updateProfile - UserID:', userId, 'Data:', data)
       // Preparar dados para atualização - mapear campos do UserProfile para estrutura da tabela users
       const updateData: any = {}
       
@@ -319,6 +322,12 @@ export class AuthService {
             updateData.photos = [data.avatar_url]
           }
         }
+      }
+      
+      // Se photos for fornecido diretamente, usar ele (prioridade sobre avatar_url)
+      if (data.photos !== undefined) {
+        console.log('📸 Photos detectado, atualizando:', data.photos)
+        updateData.photos = data.photos
       }
       
       // Mapear interests para dentro de preferences
@@ -357,6 +366,7 @@ export class AuthService {
         return { error: 'Nenhum dado válido para atualizar' }
       }
 
+      console.log('🔄 Enviando para Supabase - updateData:', updateData)
       const { data: profileData, error } = await supabase
         .from('users')
         .update(updateData)
@@ -370,6 +380,7 @@ export class AuthService {
         throw error
       }
 
+      console.log('✅ Perfil atualizado com sucesso:', profileData)
       return { data: profileData as UserProfile }
     } catch (error) {
       // ✅ Log sanitizado
@@ -383,7 +394,7 @@ export class AuthService {
       // Buscar dados do usuário primeiro
       const { data: userData, error: userError } = await supabase
         .from('users')
-        .select('id,email,name,age,location,photos,preferences')
+        .select('id,email,name,age,bio,location,photos,preferences')
         .eq('id', userId)
         .single()
 
@@ -468,6 +479,7 @@ export class AuthService {
       // Converter location JSONB para formato esperado pelo frontend
       const profileData = {
         ...userData,
+        bio: (userData as any).bio || '',
         // Mapear photos[0] para avatar_url
         avatar_url: Array.isArray(userData.photos) && userData.photos.length > 0 
           ? userData.photos[0] 

@@ -48,6 +48,35 @@
     --success: 140 70% 50%;
   }
 
+  /* Custom utility classes for responsive design */
+  .location-status-badge {
+    @apply text-xs px-2 py-1 rounded border max-w-[200px] truncate z-10;
+  }
+  
+  @media (max-width: 640px) {
+    .location-status-badge {
+      @apply max-w-[150px];
+    }
+  }
+  
+  @media (max-width: 390px) {
+    .location-status-badge {
+      @apply max-w-[120px] text-[10px];
+    }
+  }
+  
+  /* Prevent horizontal overflow on mobile */
+  .prevent-mobile-overflow {
+    @apply overflow-x-hidden;
+  }
+  
+  /* Enhanced touch targets for mobile */
+  @media (max-width: 768px) {
+    .touch-target-enhanced {
+      @apply min-h-[44px] min-w-[44px];
+    }
+  }
+
   .dark {
     --background: 0 0% 0%; /* Preto total */
     --foreground: 0 0% 100%;
@@ -106,8 +135,25 @@
     box-shadow: var(--shadow-hard);
   }
 
+  .shadow-hard-sm {
+    box-shadow: 2px 2px 0px 0px #000;
+  }
+
   .transition-smooth {
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* Neo-Brutalist styles */
+  .neo-brutalist {
+    border-width: 4px;
+    border-color: hsl(var(--foreground));
+    box-shadow: var(--shadow-hard);
+  }
+
+  .neo-brutalist-sm {
+    border-width: 2px;
+    border-color: hsl(var(--foreground));
+    box-shadow: 2px 2px 0px 0px #000;
   }
 }
 

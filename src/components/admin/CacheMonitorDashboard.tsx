@@ -1,263 +1,202 @@
-import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { 
-  BarChart3, 
-  Database, 
-  Clock, 
-  HardDrive, 
-  RefreshCw, 
-  Download,
-  AlertTriangle,
-  CheckCircle 
-} from 'lucide-react';
-import { cacheMonitor, type CacheMetrics, type CacheHealthStatus } from '@/lib/cache-monitor';
+import React from 'react'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Progress } from '@/components/ui/progress'
+import { AlertTriangle, TrendingUp, Database, AlertCircle } from 'lucide-react'
+import { useCacheMonitor } from '@/lib/cache-monitor'
+import { format } from 'date-fns'
+import { ptBR } from 'date-fns/locale'
 
 export function CacheMonitorDashboard() {
-  const [metrics, setMetrics] = useState<CacheMetrics | null>(null);
-  const [health, setHealth] = useState<CacheHealthStatus | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
-
-  const loadData = async () => {
-    try {
-      setLoading(true);
-      const [metricsData, healthData] = await Promise.all([
-        cacheMonitor.getMetrics(),
-        cacheMonitor.getHealthStatus()
-      ]);
-      setMetrics(metricsData);
-      setHealth(healthData);
-      setLastUpdate(new Date());
-    } catch (error) {
-      console.error('Error loading cache metrics:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    loadData();
-    const interval = setInterval(loadData, 30000); // Refresh every 30 seconds
-    return () => clearInterval(interval);
-  }, []);
-
-  const handleCleanup = async () => {
-    try {
-      const cleanedCount = await cacheMonitor.cleanup(30);
-      alert(`Limpeza concluída! ${cleanedCount} entradas antigas removidas.`);
-      loadData(); // Reload metrics
-    } catch (error) {
-      console.error('Error during cleanup:', error);
-      alert('Erro durante a limpeza. Verifique o console para detalhes.');
-    }
-  };
-
-  const handleExport = () => {
-    const logs = cacheMonitor.exportLogs('csv');
-    const blob = new Blob([logs], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `cache-logs-${new Date().toISOString().split('T')[0]}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  };
-
-  const getStatusColor = (status?: string) => {
-    switch (status) {
-      case 'healthy': return 'bg-green-500';
-      case 'degraded': return 'bg-yellow-500';
-      case 'unhealthy': return 'bg-red-500';
-      default: return 'bg-gray-500';
-    }
-  };
-
-  const getStatusBadge = (status?: string) => {
-    switch (status) {
-      case 'healthy': return <Badge className="bg-green-100 text-green-800">Saudável</Badge>;
-      case 'degraded': return <Badge className="bg-yellow-100 text-yellow-800">Degradado</Badge>;
-      case 'unhealthy': return <Badge className="bg-red-100 text-red-800">Não Saudável</Badge>;
-      default: return <Badge variant="outline">Desconhecido</Badge>;
-    }
-  };
-
-  if (loading) {
+  const { cacheData, isNearLimit } = useCacheMonitor()
+  
+  if (!cacheData) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="flex items-center space-x-2">
-          <RefreshCw className="h-4 w-4 animate-spin" />
-          <span>Carregando métricas...</span>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-6">
-      {/* Health Status */}
-      <Card>
+      <Card className="w-full">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <div className={`h-3 w-3 rounded-full ${getStatusColor(health?.status)}`} />
-            Status do Cache
+            <Database className="h-5 w-5" />
+            Monitoramento de Cache
+          </CardTitle>
+          <CardDescription>Carregando dados...</CardDescription>
+        </CardHeader>
+      </Card>
+    )
+  }
+  
+  const usagePercentage = Math.min(100, cacheData.percentage)
+  const isCritical = usagePercentage >= 80
+  const isWarning = usagePercentage >= 60 && usagePercentage < 80
+  
+  const getProgressColor = () => {
+    if (isCritical) return 'bg-red-500'
+    if (isWarning) return 'bg-yellow-500'
+    return 'bg-green-500'
+  }
+  
+  const getStatusIcon = () => {
+    if (isCritical) return <AlertTriangle className="h-5 w-5 text-red-500" />
+    if (isWarning) return <AlertCircle className="h-5 w-5 text-yellow-500" />
+    return <TrendingUp className="h-5 w-5 text-green-500" />
+  }
+  
+  const getStatusText = () => {
+    if (isCritical) return 'CRÍTICO - Ação imediata necessária'
+    if (isWarning) return 'ALERTA - Monitore de perto'
+    return 'NORMAL - Dentro dos limites'
+  }
+  
+  return (
+    <div className="space-y-6">
+      <Card className="w-full">
+        <CardHeader>
+          <CardTitle className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Database className="h-5 w-5" />
+              Uso de Cache Supabase
+            </div>
+            {getStatusIcon()}
           </CardTitle>
           <CardDescription>
-            {lastUpdate && `Última atualização: ${lastUpdate.toLocaleTimeString('pt-BR')}`}
+            {getStatusText()} • Atualizado {format(new Date(cacheData.lastUpdated), 'HH:mm', { locale: ptBR })}
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-between">
-            {getStatusBadge(health?.status)}
-            <Button onClick={loadData} size="sm" variant="outline">
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Atualizar
-            </Button>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <div className="flex justify-between text-sm">
+              <span>Uso Atual</span>
+              <span className="font-medium">
+                {cacheData.currentUsageGB.toFixed(2)}GB / {cacheData.limitGB}GB
+              </span>
+            </div>
+            <Progress 
+              value={usagePercentage} 
+              className="h-3"
+            />
+            <div className="text-xs text-muted-foreground">
+              {usagePercentage.toFixed(1)}% do limite utilizado
+            </div>
           </div>
           
-          {health?.issues && health.issues.length > 0 && (
-            <Alert className="mt-4">
-              <AlertTriangle className="h-4 w-4" />
-              <AlertDescription>
-                <ul className="list-disc pl-4 space-y-1">
-                  {health.issues.map((issue, index) => (
-                    <li key={index}>{issue}</li>
-                  ))}
-                </ul>
-              </AlertDescription>
-            </Alert>
+          {isNearLimit && (
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+              <div className="flex items-center gap-2 text-yellow-800">
+                <AlertTriangle className="h-4 w-4" />
+                <span className="font-medium">Atenção!</span>
+              </div>
+              <p className="text-sm text-yellow-700 mt-1">
+                Você está usando {usagePercentage.toFixed(1)}% do limite de cache. 
+                Considere implementar otimizações para reduzir o consumo.
+              </p>
+            </div>
+          )}
+          
+          {isCritical && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+              <div className="flex items-center gap-2 text-red-800">
+                <AlertTriangle className="h-4 w-4" />
+                <span className="font-medium">Crítico!</span>
+              </div>
+              <p className="text-sm text-red-700 mt-1">
+                Você excedeu 80% do limite de cache. Implemente medidas emergenciais:
+                <br />• Reduza tamanho de imagens para 400px máximo
+                <br />• Ative compressão em Edge Functions
+                <br />• Implemente cache client-side agressivo
+              </p>
+            </div>
           )}
         </CardContent>
       </Card>
-
-      {/* Metrics Grid */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Fotos em Cache</CardTitle>
-            <Database className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{metrics?.totalCachedPhotos || 0}</div>
-            <p className="text-xs text-muted-foreground">
-              Total de imagens armazenadas
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Taxa de Acerto</CardTitle>
-            <BarChart3 className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{metrics?.cacheHitRate.toFixed(1) || 0}%</div>
-            <Progress value={metrics?.cacheHitRate || 0} className="mt-2" />
-            <p className="text-xs text-muted-foreground mt-1">
-              {metrics?.cacheHitRate >= 80 ? 'Excelente' : metrics?.cacheHitRate >= 50 ? 'Boa' : 'Precisa melhorar'}
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Tempo Médio</CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{metrics?.averageResponseTime.toFixed(0) || 0}ms</div>
-            <p className="text-xs text-muted-foreground">
-              Tempo de resposta médio
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Armazenamento</CardTitle>
-            <HardDrive className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {(metrics?.storageUsed / 1024 / 1024 || 0).toFixed(1)}MB
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Espaço utilizado
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Actions */}
+      
       <Card>
         <CardHeader>
-          <CardTitle>Ações de Manutenção</CardTitle>
-          <CardDescription>
-            Ferramentas para gerenciar e manter o cache de imagens
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex gap-2">
-          <Button onClick={handleCleanup} variant="outline">
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Limpar Cache Antigo
-          </Button>
-          <Button onClick={handleExport} variant="outline">
-            <Download className="h-4 w-4 mr-2" />
-            Exportar Logs
-          </Button>
-        </CardContent>
-      </Card>
-
-      {/* Performance Tips */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Dicas de Performance</CardTitle>
+          <CardTitle className="text-lg">Histórico Diário</CardTitle>
+          <CardDescription>Consumo de cache nos últimos dias</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="space-y-2">
-            {metrics?.cacheHitRate && metrics.cacheHitRate < 50 && (
-              <div className="flex items-start gap-2">
-                <AlertTriangle className="h-4 w-4 text-yellow-500 mt-0.5" />
-                <p className="text-sm text-yellow-700">
-                  A taxa de acerto está baixa. Considere pré-carregar imagens populares.
+          <div className="space-y-3">
+            {cacheData.dailyUsage.slice(0, 7).map((day, index) => {
+              const dayPercentage = (day.usageGB / cacheData.limitGB) * 100
+              const isHighUsage = dayPercentage >= 60
+              
+              return (
+                <div key={day.date} className="flex items-center justify-between">
+                  <div className="flex items-center gap-3 flex-1">
+                    <span className="text-sm text-muted-foreground w-20">
+                      {format(new Date(day.date), 'dd/MM', { locale: ptBR })}
+                    </span>
+                    <div className="flex-1 bg-gray-200 rounded-full h-2 max-w-32">
+                      <div 
+                        className={`h-2 rounded-full ${
+                          dayPercentage >= 80 ? 'bg-red-500' :
+                          dayPercentage >= 60 ? 'bg-yellow-500' : 'bg-green-500'
+                        }`}
+                        style={{ width: `${Math.min(100, dayPercentage)}%` }}
+                      />
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <span className={`text-sm font-medium ${
+                      isHighUsage ? 'text-orange-600' : 'text-muted-foreground'
+                    }`}>
+                      {day.usageGB.toFixed(1)}GB
+                    </span>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </CardContent>
+      </Card>
+      
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Recomendações de Otimização</CardTitle>
+          <CardDescription>Ações para reduzir o consumo de cache</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-3">
+            <div className="flex items-start gap-3">
+              <div className="w-2 h-2 bg-blue-500 rounded-full mt-2" />
+              <div>
+                <p className="text-sm font-medium">Reduzir tamanho de imagens</p>
+                <p className="text-xs text-muted-foreground">
+                  Use maxWidth=400px em todas as chamadas de foto para reduzir até 60% do tráfego
                 </p>
               </div>
-            )}
+            </div>
             
-            {metrics?.averageResponseTime && metrics.averageResponseTime > 2000 && (
-              <div className="flex items-start gap-2">
-                <AlertTriangle className="h-4 w-4 text-yellow-500 mt-0.5" />
-                <p className="text-sm text-yellow-700">
-                  O tempo de resposta está alto. Verifique a conectividade com o Supabase.
+            <div className="flex items-start gap-3">
+              <div className="w-2 h-2 bg-blue-500 rounded-full mt-2" />
+              <div>
+                <p className="text-sm font-medium">Implementar cache client-side</p>
+                <p className="text-xs text-muted-foreground">
+                  Use sessionStorage para fotos e dados de locais com TTL de 24h
                 </p>
               </div>
-            )}
+            </div>
             
-            {metrics?.storageUsed && metrics.storageUsed > 50 * 1024 * 1024 && (
-              <div className="flex items-start gap-2">
-                <AlertTriangle className="h-4 w-4 text-blue-500 mt-0.5" />
-                <p className="text-sm text-blue-700">
-                  Armazenamento acima de 50MB. Execute limpeza regularmente.
+            <div className="flex items-start gap-3">
+              <div className="w-2 h-2 bg-blue-500 rounded-full mt-2" />
+              <div>
+                <p className="text-sm font-medium">Otimizar queries do banco</p>
+                <p className="text-xs text-muted-foreground">
+                  Selecione apenas colunas necessárias, evite SELECT *
                 </p>
               </div>
-            )}
+            </div>
             
-            {(!metrics || (metrics.cacheHitRate >= 50 && metrics.averageResponseTime <= 2000 && metrics.storageUsed <= 50 * 1024 * 1024)) && (
-              <div className="flex items-start gap-2">
-                <CheckCircle className="h-4 w-4 text-green-500 mt-0.5" />
-                <p className="text-sm text-green-700">
-                  O sistema de cache está funcionando corretamente!
+            <div className="flex items-start gap-3">
+              <div className="w-2 h-2 bg-blue-500 rounded-full mt-2" />
+              <div>
+                <p className="text-sm font-medium">Configurar cache em Edge Functions</p>
+                <p className="text-xs text-muted-foreground">
+                  Adicione Cache-Control headers para reduzir requisições repetidas
                 </p>
               </div>
-            )}
+            </div>
           </div>
         </CardContent>
       </Card>
     </div>
-  );
+  )
 }

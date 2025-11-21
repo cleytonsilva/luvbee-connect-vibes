@@ -4,9 +4,7 @@
 
 ### ✅ Chave Backend Configurada Corretamente
 
-> ⚠️ **Importante:** Revogue qualquer chave Google Maps anterior (ex.: `AIza...`) no Google Cloud Console e gere uma nova credencial antes de seguir.
-
-**Chave:** `<NOVA_GOOGLE_MAPS_BACKEND_KEY>`
+**Chave:** `AIzaSyC95_3c8Sxs6nuXeNuLabGAI7VHW5-HqnQ`  
 **Localização:** Supabase Dashboard > Project Settings > Edge Functions > Secrets  
 **Nome da Variável:** `GOOGLE_MAPS_BACKEND_KEY`  
 **Status:** ✅ Configurada
@@ -29,14 +27,14 @@
 
 ### Frontend (`.env` / `.env.local`)
 ```env
-VITE_GOOGLE_MAPS_API_KEY=<SUA_GOOGLE_MAPS_FRONTEND_KEY_RESTRITA>
+VITE_GOOGLE_MAPS_API_KEY=AIzaSyBu-Xerf1F_Q-yXaEMGM17hMpuKaNa8jXw
 ```
 - **Uso:** Componentes React, Google Maps JavaScript API
 - **Restrições:** Pode ter restrições de "Aplicativos da web"
 
 ### Backend (Supabase Dashboard)
 ```
-GOOGLE_MAPS_BACKEND_KEY=<NOVA_GOOGLE_MAPS_BACKEND_KEY>
+GOOGLE_MAPS_BACKEND_KEY=AIzaSyC95_3c8Sxs6nuXeNuLabGAI7VHW5-HqnQ
 ```
 - **Uso:** Edge Functions do Supabase
 - **Restrições:** Nenhuma restrição de aplicativo (apenas API)
@@ -106,7 +104,7 @@ GOOGLE_MAPS_BACKEND_KEY=<NOVA_GOOGLE_MAPS_BACKEND_KEY>
 
 1. **Verifique se aguardou tempo suficiente** (2-5 minutos)
 2. **Verifique os logs da Edge Function** para ver a mensagem exata
-3. **Confirme que a chave no Supabase é a nova credencial gerada e armazenada com segurança**
+3. **Confirme que a chave no Supabase é exatamente:** `AIzaSyC95_3c8Sxs6nuXeNuLabGAI7VHW5-HqnQ`
 4. **Verifique se não há espaços extras** na chave no Supabase
 
 ---

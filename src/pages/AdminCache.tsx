@@ -1,8 +1,10 @@
 import React from 'react';
 import { CacheMonitorDashboard } from '@/components/admin/CacheMonitorDashboard';
+import { VenueInsertionForm } from '@/components/admin/VenueInsertionForm';
+import { SpiderEventsTest } from '@/components/admin/SpiderEventsTest';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { Shield, BarChart3 } from 'lucide-react';
+import { Shield, BarChart3, Plus, MapPin, Bug } from 'lucide-react';
 
 export default function AdminCachePage() {
   return (
@@ -16,10 +18,10 @@ export default function AdminCachePage() {
             </div>
             <div>
               <h1 className="text-3xl font-bold tracking-tight">
-                Administração do Cache
+                Administração do Sistema Híbrido
               </h1>
               <p className="text-muted-foreground">
-                Monitoramento e gerenciamento do sistema de cache de imagens
+                Gerenciamento do sistema de busca híbrida com cache inteligente e inserção manual
               </p>
             </div>
           </div>
@@ -32,47 +34,82 @@ export default function AdminCachePage() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Sistema</CardTitle>
+              <MapPin className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">Busca Híbrida</div>
+              <p className="text-xs text-muted-foreground">
+                Local database + Google API com cache inteligente
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Inserção</CardTitle>
+              <Plus className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">Manual</div>
+              <p className="text-xs text-muted-foreground">
+                Adicione locais manualmente ao banco
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Cache</CardTitle>
               <BarChart3 className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">Cache de Imagens</div>
+              <div className="text-2xl font-bold">Inteligente</div>
               <p className="text-xs text-muted-foreground">
-                Armazenamento de fotos do Google Places
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Tecnologia</CardTitle>
-              <div className="h-4 w-4 bg-green-500 rounded-full" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">Supabase</div>
-              <p className="text-xs text-muted-foreground">
-                Storage + PostgreSQL + Edge Functions
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Status</CardTitle>
-              <div className="h-4 w-4 bg-blue-500 rounded-full animate-pulse" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">Ativo</div>
-              <p className="text-xs text-muted-foreground">
-                Monitoramento em tempo real
+                Evita chamadas redundantes à API
               </p>
             </CardContent>
           </Card>
         </div>
 
+        {/* Venue Insertion Form */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Plus className="h-5 w-5 text-primary" />
+              <CardTitle>Inserção Manual de Locais</CardTitle>
+            </div>
+            <CardDescription>
+              Adicione novos locais ao banco de dados para expandir a cobertura do sistema híbrido
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <VenueInsertionForm />
+          </CardContent>
+        </Card>
+
+        {/* Spider Events Test */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Bug className="h-5 w-5 text-primary" />
+              <CardTitle>Teste do Sistema de Eventos</CardTitle>
+            </div>
+            <CardDescription>
+              Teste e monitoramento do robô de scraping de eventos (Sympla, Eventbrite, Ingresse, Shotgun)
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <SpiderEventsTest />
+          </CardContent>
+        </Card>
+
         {/* Cache Monitor Dashboard */}
         <Card>
           <CardHeader>
-            <CardTitle>Monitoramento do Cache</CardTitle>
+            <div className="flex items-center gap-2">
+              <BarChart3 className="h-5 w-5 text-primary" />
+              <CardTitle>Monitoramento do Cache</CardTitle>
+            </div>
             <CardDescription>
               Visualização em tempo real das métricas e performance do sistema de cache
             </CardDescription>
@@ -93,12 +130,12 @@ export default function AdminCachePage() {
           <CardContent className="space-y-4">
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <h4 className="font-semibold">Como funciona:</h4>
+                <h4 className="font-semibold">Sistema Híbrido de Busca:</h4>
                 <ul className="text-sm text-muted-foreground space-y-1">
-                  <li>• Imagens são baixadas do Google Places API</li>
-                  <li>• Armazenadas no bucket "div" do Supabase</li>
-                  <li>• Referências salvas na tabela cached_place_photos</li>
-                  <li>• Próximas requisições usam o cache local</li>
+                  <li>• Busca local prioritária (tabela locations)</li>
+                  <li>• Cache inteligente com Google Places API</li>
+                  <li>• Fallback manual por cidade/estado</li>
+                  <li>• Modos Normal e Solo (Adulto)</li>
                 </ul>
               </div>
               
@@ -106,9 +143,9 @@ export default function AdminCachePage() {
                 <h4 className="font-semibold">Benefícios:</h4>
                 <ul className="text-sm text-muted-foreground space-y-1">
                   <li>• Reduz custos com Google Places API</li>
-                  <li>• Melhora performance de carregamento</li>
-                  <li>• Menos dependência de APIs externas</li>
-                  <li>• Maior disponibilidade das imagens</li>
+                  <li>• Funciona offline/GPS desativado</li>
+                  <li>• Performance superior com cache local</li>
+                  <li>• Conteúdo adulto filtrado por modo</li>
                 </ul>
               </div>
             </div>
@@ -118,19 +155,23 @@ export default function AdminCachePage() {
               <div className="grid gap-2 text-sm">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Edge Function:</span>
-                  <span className="font-mono text-xs">cache-place-photo</span>
+                  <span className="font-mono text-xs">fetch-and-cache-places</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Storage Bucket:</span>
-                  <span className="font-mono text-xs">div</span>
+                  <span className="text-muted-foreground">Tabela Principal:</span>
+                  <span className="font-mono text-xs">locations</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Tabela:</span>
-                  <span className="font-mono text-xs">cached_place_photos</span>
+                  <span className="text-muted-foreground">Tabela de Cache:</span>
+                  <span className="font-mono text-xs">search_cache_logs</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Função SQL:</span>
-                  <span className="font-mono text-xs">get_cached_photo_url</span>
+                  <span className="text-muted-foreground">Função RPC:</span>
+                  <span className="font-mono text-xs">get_places_nearby</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Hook Frontend:</span>
+                  <span className="font-mono text-xs">useVibePlaces</span>
                 </div>
               </div>
             </div>
