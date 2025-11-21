@@ -85,7 +85,7 @@ export function ConfirmEmail() {
         toast.success('Email reenviado!', {
           description: 'Verifique sua caixa de entrada'
         })
-        
+
         // Resetar após 5 segundos
         setTimeout(() => setEmailSent(false), 5000)
       }
@@ -96,6 +96,19 @@ export function ConfirmEmail() {
       })
     } finally {
       setIsResending(false)
+    }
+  }
+
+  const handleBackToLogin = async () => {
+    try {
+      await supabase.auth.signOut()
+    } catch (error) {
+      console.error('[ConfirmEmail] Erro ao sair para login:', error)
+      toast.error('Não foi possível sair da conta', {
+        description: 'Redirecionando mesmo assim'
+      })
+    } finally {
+      navigate('/auth', { replace: true })
     }
   }
 
@@ -171,7 +184,7 @@ export function ConfirmEmail() {
             </Button>
 
             <Button
-              onClick={() => navigate('/auth')}
+              onClick={handleBackToLogin}
               variant="ghost"
               className="w-full"
             >
