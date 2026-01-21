@@ -35,6 +35,8 @@ export class ChatService {
    */
   static async getUserChats(userId: string): Promise<ApiResponse<ChatListItem[]>> {
     try {
+      if (!userId) return { error: 'User ID is required' }
+
       const { data, error } = await supabase
         .from('chats')
         .select(`
@@ -205,6 +207,8 @@ export class ChatService {
    */
   static async getUnreadCount(userId: string): Promise<ApiResponse<number>> {
     try {
+      if (!userId) return { data: 0 }
+
       const { data, error } = await supabase
         .from('chats')
         .select('user1_unread_count, user2_unread_count')

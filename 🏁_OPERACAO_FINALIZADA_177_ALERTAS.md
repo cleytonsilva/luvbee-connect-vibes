@@ -109,7 +109,8 @@ LIMIT 30;
 
 ## 📁 Documentação Completa
 
-- `FINAL_STATUS_ALL_ALERTS_FIXED.md` - Status 170+
+- `docs/PROJECT_MEMORY_CONSOLIDATED.md` - Memória consolidada do projeto
+- `🏆_FINAL_CONSOLIDATED_REPORT.md` - Relatório final consolidado das otimizações
 - `✅_TODOS_OS_ALERTAS_CORRIGIDOS.txt` - Sumário visual
 - `🏁_OPERACAO_FINALIZADA_177_ALERTAS.md` - Este arquivo
 
@@ -167,4 +168,3 @@ supabase db push --linked
 ---
 
 *Nenhum alerta restante. Sistema otimizado e production-ready.*
-

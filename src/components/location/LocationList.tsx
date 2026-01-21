@@ -14,9 +14,10 @@ import { supabase } from '@/integrations/supabase'
 interface LocationListProps {
   className?: string
   onLocationSelect?: (locationId: string) => void
+  highlightLocationId?: string | null
 }
 
-export function LocationList({ className = '', onLocationSelect }: LocationListProps) {
+export function LocationList({ className = '', onLocationSelect, highlightLocationId }: LocationListProps) {
   const [locations, setLocations] = useState<LocationData[]>([])
   const [mutualLikesMap, setMutualLikesMap] = useState<Map<string, number>>(new Map())
   const [isLoading, setIsLoading] = useState(true)
@@ -42,7 +43,7 @@ export function LocationList({ className = '', onLocationSelect }: LocationListP
 
     setIsLoading(true)
     setError(null)
-    
+
     try {
       // Buscar matches do usuário
       const matchesResult = await LocationService.getUserLocationMatches(user.id)
@@ -68,7 +69,7 @@ export function LocationList({ className = '', onLocationSelect }: LocationListP
         setError(locationsResult.error)
       } else {
         setLocations(locationsResult.data || [])
-        
+
         // Buscar mutual likes para cada local
         if (user?.id) {
           try {
@@ -76,7 +77,7 @@ export function LocationList({ className = '', onLocationSelect }: LocationListP
               .rpc('get_locations_with_mutual_likes', {
                 p_user_id: user.id
               })
-            
+
             if (!mutualError && mutualLikes) {
               const map = new Map<string, number>()
               mutualLikes.forEach((item: any) => {
@@ -151,6 +152,7 @@ export function LocationList({ className = '', onLocationSelect }: LocationListP
           location={location}
           onLocationClick={onLocationSelect}
           mutualLikesCount={mutualLikesMap.get(location.id)}
+          isHighlighted={highlightLocationId === location.id}
           onDislike={async () => {
             if (!user) return
             try {

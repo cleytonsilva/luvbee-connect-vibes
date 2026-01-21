@@ -13,12 +13,14 @@ interface PersonCardProps {
   user: PotentialMatch
   onLike?: (userId: string) => void
   onDislike?: (userId: string) => void
+  onClick?: () => void
 }
 
 export const PersonCard = ({
   user,
   onLike,
   onDislike,
+  onClick,
 }: PersonCardProps) => {
   if (!user) {
     return (
@@ -43,7 +45,10 @@ export const PersonCard = ({
   ].slice(0, 6) // Limitar a 6 para não sobrecarregar
 
   return (
-    <div className="relative w-full h-[600px] rounded-xl overflow-hidden shadow-hard border-2 border-foreground bg-card">
+    <div
+      className="relative w-full h-[600px] rounded-xl overflow-hidden shadow-hard border-2 border-foreground bg-card cursor-pointer hover:scale-[1.02] transition-transform"
+      onClick={onClick}
+    >
       {/* Image */}
       <div className="absolute inset-0">
         <img

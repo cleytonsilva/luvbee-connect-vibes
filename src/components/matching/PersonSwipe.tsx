@@ -5,6 +5,7 @@
 
 import { useState, useRef } from 'react'
 import { PersonCard } from './PersonCard'
+import { PersonProfileModal } from './PersonProfileModal'
 import { Button } from '@/components/ui/button'
 import { Heart, X, AlertCircle } from 'lucide-react'
 import { usePotentialMatches, useCreateMatch, useHasLocationMatches } from '@/hooks/useMatches'
@@ -29,6 +30,7 @@ export function PersonSwipe({ limit = 10 }: PersonSwipeProps) {
   const [swipeOffset, setSwipeOffset] = useState({ x: 0, y: 0 })
   const [isDragging, setIsDragging] = useState(false)
   const [startPos, setStartPos] = useState({ x: 0, y: 0 })
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false)
   const cardRef = useRef<HTMLDivElement>(null)
 
   // Verificar se usuário tem matches com locais (pré-requisito)
@@ -205,7 +207,10 @@ export function PersonSwipe({ limit = 10 }: PersonSwipeProps) {
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
       >
-        <PersonCard user={currentPerson} />
+        <PersonCard
+          user={currentPerson}
+          onClick={() => setIsProfileModalOpen(true)}
+        />
       </div>
 
       {/* Botões de ação */}
@@ -234,9 +239,8 @@ export function PersonSwipe({ limit = 10 }: PersonSwipeProps) {
       {/* Indicador de swipe */}
       {Math.abs(swipeOffset.x) > 50 && (
         <div
-          className={`absolute top-4 z-20 ${
-            swipeOffset.x > 0 ? 'right-4' : 'left-4'
-          } text-2xl font-bold`}
+          className={`absolute top-4 z-20 ${swipeOffset.x > 0 ? 'right-4' : 'left-4'
+            } text-2xl font-bold`}
         >
           {swipeOffset.x > 0 ? '❤️' : '👎'}
         </div>
@@ -246,6 +250,15 @@ export function PersonSwipe({ limit = 10 }: PersonSwipeProps) {
       <div className="text-center mt-4 text-sm text-muted-foreground">
         {currentIndex + 1} de {potentialMatches.length}
       </div>
+
+      {/* Modal de Perfil */}
+      <PersonProfileModal
+        user={currentPerson}
+        open={isProfileModalOpen}
+        onOpenChange={setIsProfileModalOpen}
+        onLike={handleLike}
+        onDislike={handleDislike}
+      />
     </div>
   )
 }

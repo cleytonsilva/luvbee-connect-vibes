@@ -27,8 +27,11 @@ export function usePlacePhoto(placeId: string | null | undefined, fallbackUrl?: 
 
     // Se já tem fallback URL válida, usar ela
     if (fallbackUrl && fallbackUrl !== '/placeholder-location.jpg' && !fallbackUrl.includes('placeholder')) {
-      const isEdgePhotoUrl = fallbackUrl.includes('/functions/v1/get-place-photo')
-      if (!isEdgePhotoUrl) {
+      const isEdgePhotoUrl = fallbackUrl.includes('/functions/v1/get-place-photo') || fallbackUrl.includes('/functions/v1/cache-place-photo')
+      // Se for URL direta do Google (que expira) ou da API antiga, ignorar para forçar cache via Edge Function
+      const isGoogleUrl = fallbackUrl.includes('googleusercontent.com') || fallbackUrl.includes('maps.googleapis.com')
+
+      if (!isEdgePhotoUrl && !isGoogleUrl) {
         updatePhotoUrl(fallbackUrl)
         return () => { cancelled = true }
       }
@@ -55,7 +58,7 @@ export function usePlacePhoto(placeId: string | null | undefined, fallbackUrl?: 
           window.sessionStorage.removeItem(sessionKey)
         }
       }
-    } catch {}
+    } catch { }
 
     // Verificar cache
     if (photoCache.has(placeId)) {
@@ -81,8 +84,23 @@ export function usePlacePhoto(placeId: string | null | undefined, fallbackUrl?: 
               return
             }
           }
-        } catch {}
-        // Primeiro, verificar se já existe no storage
+        } catch { }
+        // Primeiro, verificar se já existe no storage (bucket 'places' - novo padrão)
+        const listPlaces = await supabase.storage.from('places').list(placeId)
+        if (!cancelled && listPlaces.data && listPlaces.data.length > 0) {
+           const filePath = `${placeId}/${listPlaces.data[0].name}`
+           const { data: { publicUrl } } = supabase.storage.from('places').getPublicUrl(filePath)
+           photoCache.set(placeId, publicUrl)
+           try {
+             if (typeof window !== 'undefined') {
+               window.sessionStorage.setItem(sessionKey, JSON.stringify({ imageUrl: publicUrl, ts: Date.now() }))
+             }
+           } catch { }
+           updatePhotoUrl(publicUrl)
+           return
+        }
+
+        // Fallback: verificar bucket antigo 'div'
         const list = await supabase.storage.from('div').list(`places/${placeId}`)
         if (!cancelled && list.data && list.data.length > 0) {
           const filePath = `places/${placeId}/${list.data[0].name}`
@@ -92,42 +110,50 @@ export function usePlacePhoto(placeId: string | null | undefined, fallbackUrl?: 
             if (typeof window !== 'undefined') {
               window.sessionStorage.setItem(sessionKey, JSON.stringify({ imageUrl: publicUrl, ts: Date.now() }))
             }
-          } catch {}
+          } catch { }
           updatePhotoUrl(publicUrl)
           return
         }
 
-        // Se não encontrou no storage, chamar Edge Function usando helper
+        // Se não encontrou no storage, usar Edge Function como Proxy direto
         if (import.meta.env.DEV) {
           console.debug('[usePlacePhoto] Edge cache-place-photo →', placeId)
+          console.log(`[usePlacePhoto] Using Edge Function Proxy for ${placeId}`)
         }
 
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+        const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+        
+        // Construir URL do Proxy
+        // Nota: Adicionamos timestamp para evitar cache agressivo do navegador se a URL falhar antes
+        // Mas a Edge Function retorna headers de cache corretos para sucesso
+        // Usamos um timestamp arredondado (a cada 5 min) para permitir cache de curto prazo mas renovar falhas eventualmente
+        // Ou melhor: usamos timestamp atual se não tiver cache, para forçar tentativa.
+        const cacheBuster = Date.now();
+        const proxyUrl = `${supabaseUrl}/functions/v1/cache-place-photo?place_id=${placeId}&maxwidth=400&apikey=${supabaseAnonKey}&t=${cacheBuster}`
+
+        if (cancelled) return
+
+        // Salvar no cache de memória para navegação rápida
+        photoCache.set(placeId, proxyUrl)
+        try {
+            if (typeof window !== 'undefined') {
+                window.sessionStorage.setItem(sessionKey, JSON.stringify({ imageUrl: proxyUrl, ts: Date.now() }))
+            }
+        } catch { }
+
+        updatePhotoUrl(proxyUrl)
+        return
+
+        /* LÓGICA ANTIGA REMOVIDA: A Edge Function retorna Blob, não JSON, então invoke falhava.
         const result = await invokeCachePlacePhoto(placeId, { maxWidth: 400 })
 
         if (cancelled) return
 
         if (result.success && result.imageUrl) {
-          photoCache.set(placeId, result.imageUrl)
-          try {
-            if (typeof window !== 'undefined') {
-              window.sessionStorage.setItem(sessionKey, JSON.stringify({ imageUrl: result.imageUrl, ts: Date.now() }))
-            }
-          } catch {}
-          updatePhotoUrl(result.imageUrl)
-          if (import.meta.env.DEV) {
-            console.debug('[usePlacePhoto] Foto obtida:', result.imageUrl.substring(0, 50) + '...')
-          }
-          return
+          // ...
         }
-
-        // Se falhou, logar erro e usar fallback
-        if (result.error) {
-          safeLog('warn', '[usePlacePhoto] erro foto', { placeId, error: result.error })
-          if (result.error.includes('404') && typeof window !== 'undefined') {
-            try { window.sessionStorage.setItem('edge-cache-place-photo-unavailable', String(Date.now())) } catch {}
-          }
-        }
-        updatePhotoUrl('/placeholder-location.jpg')
+        */
       } catch (err) {
         if (!cancelled) {
           if (import.meta.env.DEV) {

@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Eye, EyeOff } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { UserService } from "@/services/user.service";
 import { useForm } from "react-hook-form";
@@ -20,7 +20,10 @@ const Auth = () => {
   const navigate = useNavigate();
   const { signIn, signUp, isLoading, error, user, clearError } = useAuth();
   const [activeTab, setActiveTab] = useState<"login" | "signup">("login");
-  
+
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
   // Login form
   const {
     register: registerLogin,
@@ -42,7 +45,10 @@ const Auth = () => {
   } = useForm<UserRegisterInput & { confirmPassword: string; acceptTerms: boolean }>({
     resolver: zodResolver(userRegisterSchema.extend({
       confirmPassword: userRegisterSchema.shape.password
-    }))
+    })),
+    defaultValues: {
+      acceptTerms: false
+    }
   });
 
   const password = watch('password');
@@ -62,7 +68,7 @@ const Auth = () => {
         try {
           // Verificar se o email foi confirmado
           const isEmailConfirmed = user.email_confirmed_at || user.confirmed_at
-          
+
           // Se o email não foi confirmado, redirecionar para página de confirmação
           if (!isEmailConfirmed) {
             toast.info("Confirme seu email", {
@@ -73,7 +79,7 @@ const Auth = () => {
           }
 
           const hasCompleted = await UserService.hasCompletedOnboarding(user.id);
-          
+
           if (hasCompleted) {
             toast.success("Login realizado!", {
               description: "Bem-vindo de volta ao luvbee",
@@ -116,7 +122,7 @@ const Auth = () => {
       // O redirecionamento será feito pelo useEffect quando user for definido
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Erro ao fazer login";
-      
+
       // Log email validation errors in the specific format
       if (errorMessage.includes('email') || errorMessage.includes('Email')) {
         const errorCode = getErrorCode(errorMessage);
@@ -126,7 +132,7 @@ const Auth = () => {
           code: errorCode
         });
       }
-      
+
       toast.error("Erro ao fazer login", {
         description: errorMessage,
       });
@@ -155,7 +161,7 @@ const Auth = () => {
       // O redirecionamento será feito pelo useEffect quando user for definido
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Erro ao criar conta";
-      
+
       // Log email validation errors in the specific format
       if (errorMessage.includes('email') || errorMessage.includes('Email')) {
         const errorCode = getErrorCode(errorMessage);
@@ -165,7 +171,7 @@ const Auth = () => {
           code: errorCode
         });
       }
-      
+
       toast.error("Erro ao criar conta", {
         description: errorMessage,
       });
@@ -188,19 +194,19 @@ const Auth = () => {
           <CardHeader className="text-center">
             <CardTitle className="text-3xl font-bold font-display flex items-center justify-center gap-2">
               luvbee
-              <img 
-                src="/abaicon.png" 
-                alt="Luvbee Logo" 
+              <img
+                src="/abaicon.png"
+                alt="Luvbee Logo"
                 className="w-12 h-12 dark:hidden object-contain"
               />
-              <img 
-                src="/abaicon.png" 
-                alt="Luvbee Logo" 
+              <img
+                src="/abaicon.png"
+                alt="Luvbee Logo"
                 className="w-12 h-12 hidden dark:block object-contain"
               />
             </CardTitle>
             <CardDescription>
-              Sua noite perfeita começa aqui
+              O Amor da sua vida pode estar em qualquer lugar
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -233,13 +239,28 @@ const Auth = () => {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="login-password">Senha</Label>
-                    <Input
-                      id="login-password"
-                      type="password"
-                      placeholder="••••••••"
-                      {...registerLogin('password')}
-                      disabled={isLoading}
-                    />
+                    <div className="relative">
+                      <Input
+                        id="login-password"
+                        type={showPassword ? "text" : "password"}
+                        placeholder="••••••••"
+                        {...registerLogin('password')}
+                        disabled={isLoading}
+                        className={`pr-10 ${errorsLogin.password ? 'border-destructive' : ''}`}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                        tabIndex={-1}
+                      >
+                        {showPassword ? (
+                          <EyeOff className="h-4 w-4" />
+                        ) : (
+                          <Eye className="h-4 w-4" />
+                        )}
+                      </button>
+                    </div>
                     {errorsLogin.password && (
                       <p className="text-sm text-destructive">{errorsLogin.password.message}</p>
                     )}
@@ -285,28 +306,58 @@ const Auth = () => {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="signup-password">Senha</Label>
-                    <Input
-                      id="signup-password"
-                      type="password"
-                      placeholder="••••••••"
-                      {...registerSignup('password')}
-                      disabled={isLoading}
-                    />
+                    <div className="relative">
+                      <Input
+                        id="signup-password"
+                        type={showPassword ? "text" : "password"}
+                        placeholder="••••••••"
+                        {...registerSignup('password')}
+                        disabled={isLoading}
+                        className="pr-10"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                        tabIndex={-1}
+                      >
+                        {showPassword ? (
+                          <EyeOff className="h-4 w-4" />
+                        ) : (
+                          <Eye className="h-4 w-4" />
+                        )}
+                      </button>
+                    </div>
                     {errorsSignup.password && (
                       <p className="text-sm text-destructive">{errorsSignup.password.message}</p>
                     )}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="signup-confirm-password">Confirmar Senha</Label>
-                    <Input
-                      id="signup-confirm-password"
-                      type="password"
-                      placeholder="••••••••"
-                      {...registerSignup('confirmPassword', {
-                        validate: (value) => value === password || 'As senhas não coincidem'
-                      })}
-                      disabled={isLoading}
-                    />
+                    <div className="relative">
+                      <Input
+                        id="signup-confirm-password"
+                        type={showConfirmPassword ? "text" : "password"}
+                        placeholder="••••••••"
+                        {...registerSignup('confirmPassword', {
+                          validate: (value) => value === password || 'As senhas não coincidem'
+                        })}
+                        disabled={isLoading}
+                        className="pr-10"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                        tabIndex={-1}
+                      >
+                        {showConfirmPassword ? (
+                          <EyeOff className="h-4 w-4" />
+                        ) : (
+                          <Eye className="h-4 w-4" />
+                        )}
+                      </button>
+                    </div>
                     {errorsSignup.confirmPassword && (
                       <p className="text-sm text-destructive">{errorsSignup.confirmPassword.message}</p>
                     )}
@@ -325,8 +376,8 @@ const Auth = () => {
                         className="text-sm font-normal leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                       >
                         Aceito os{" "}
-                        <Link 
-                          to="/termos-de-uso" 
+                        <Link
+                          to="/termos-de-uso"
                           target="_blank"
                           className="text-primary underline hover:text-primary/80"
                           onClick={(e) => e.stopPropagation()}

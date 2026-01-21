@@ -1,8 +1,8 @@
 /**
  * Location Image Scraper Service - LuvBee Core Platform
  * 
- * Serviço para fazer scraping de fotos dos locais de múltiplas fontes
- * e salvá-las no Supabase Storage
+ * Serviço para buscar fotos dos locais usando exclusivamente Google Places API
+ * e salvá-las no Supabase Storage.
  */
 
 import { supabase } from '@/integrations/supabase'
@@ -12,18 +12,19 @@ import { invokeCachePlacePhoto } from '@/lib/cache-place-photo-helper'
 import type { ApiResponse } from '@/types/app.types'
 import type { Location } from '@/types/location.types'
 import type { NearbySearchParams } from './google-places.service'
+import { GoogleMapsLoader } from './google-maps-loader.service'
 
 export interface ScrapedImage {
   url: string
-  source: 'google_places' | 'instagram' | 'website' | 'unsplash'
+  source: 'google_places'
   width?: number
   height?: number
-  photo_reference?: string // Para Google Places
+  photo_reference?: string // Para Google Places (REST fallback)
 }
 
 export class LocationImageScraper {
   /**
-   * Busca fotos de um local de múltiplas fontes
+   * Busca fotos de um local usando Google Places API
    */
   static async scrapeLocationImages(location: Location): Promise<ApiResponse<ScrapedImage[]>> {
     const images: ScrapedImage[] = []
@@ -33,19 +34,6 @@ export class LocationImageScraper {
       if (location.place_id) {
         const googleImages = await this.getGooglePlacesPhotos(location.place_id)
         images.push(...googleImages)
-      }
-
-      // 2. Buscar fotos do Instagram (se tiver instagram_handle)
-      if (location.instagram_handle || location.instagram) {
-        const instagramHandle = location.instagram_handle || location.instagram
-        const instagramImages = await this.getInstagramPhotos(instagramHandle, location.name)
-        images.push(...instagramImages)
-      }
-
-      // 3. Buscar fotos do Unsplash (fallback)
-      if (images.length === 0) {
-        const unsplashImages = await this.getUnsplashPhotos(location.name, location.type)
-        images.push(...unsplashImages)
       }
 
       return { data: images }
@@ -58,109 +46,52 @@ export class LocationImageScraper {
 
   /**
    * Busca fotos do Google Places API
+   * Tenta usar o serviço centralizado que gerencia JS SDK (New API) e Fallbacks
    */
   private static async getGooglePlacesPhotos(placeId: string): Promise<ScrapedImage[]> {
     try {
+      // Usar GooglePlacesService para obter detalhes (já lida com New API vs Legacy vs Edge)
       const result = await GooglePlacesService.getPlaceDetails({
         placeId,
         fields: ['photos']
       })
 
-      if (result.error || !result.data) {
+      if (result.error || !result.data || !result.data.photos) {
+        // Se falhar, retornamos array vazio (o scraper tentará fallback depois se necessário)
+        // Mas note que getPlaceDetails já tem fallback interno para Edge Function
         return []
       }
 
-      const photos = result.data.photos || []
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-      
-      return photos.map(photo => {
-        // photo pode ter photo_reference (string) ou url (string completa)
-        const photoRef = typeof photo.photo_reference === 'string' && !photo.photo_reference.startsWith('http')
-          ? photo.photo_reference
-          : null
-        
-        // Se já tem URL completa e não é do Google Maps (pode ser de outro serviço), usar diretamente
-        // Caso contrário, usar Edge Function para proteger a API key
-        let photoUrl: string | null = null
-        if (photo.url && !photo.url.includes('maps.googleapis.com')) {
-          photoUrl = photo.url
-        } else if (photoRef && supabaseUrl) {
-          // Usar Edge Function para proteger a chave da API
-          const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
-          const url = new URL(`${supabaseUrl}/functions/v1/get-place-photo`)
-          url.searchParams.set('photoreference', photoRef)
-          url.searchParams.set('maxwidth', '800')
-          if (supabaseAnonKey) {
-            url.searchParams.set('apikey', supabaseAnonKey)
-          }
-          photoUrl = url.toString()
-        }
-        
+      return result.data.photos.map(photo => {
+        // Se tivermos uma referência válida (ID), usamos ela
+        // Se for uma URL completa (ex: blob: ou https:), ainda tentamos salvar
         return {
-          url: photoUrl || '',
-          source: 'google_places' as const,
+          url: GooglePlacesService.getPhotoUrl(photo.photo_reference, 800),
+          source: 'google_places',
           width: photo.width,
           height: photo.height,
-          photo_reference: photoRef || undefined
+          photo_reference: photo.photo_reference
         }
-      }).filter(img => img.url)
+      })
     } catch (error) {
       console.warn('[LocationImageScraper] Error getting Google Places photos:', error)
       return []
     }
   }
 
-  /**
-   * Busca fotos do Instagram (usando busca por nome do local)
-   * Nota: Instagram não tem API pública, então fazemos busca por hashtag/nome
-   */
-  private static async getInstagramPhotos(handle: string, locationName: string): Promise<ScrapedImage[]> {
-    // Instagram não tem API pública fácil, então vamos usar Unsplash como fallback
-    // Em produção, poderia usar serviços de scraping especializados ou APIs pagas
-    console.log(`[LocationImageScraper] Instagram scraping not implemented for ${handle}`)
-    return []
-  }
+  // Removemos o método getGooglePlacesPhotosFallback antigo pois agora getGooglePlacesPhotos já usa o serviço unificado
+  // Mas mantemos a assinatura se necessário ou removemos se não for usado.
+  // Como era privado, podemos remover ou ignorar. 
+  // Vou comentar o método getGooglePlacesPhotos antigo e o fallback para não quebrar referências se houver, 
+  // mas o código acima substitui o método getGooglePlacesPhotos original.
 
   /**
-   * Busca fotos do Unsplash baseado no nome e tipo do local
+   * Fallback: Busca fotos usando GooglePlacesService (REST/Edge Function)
+   * Útil se o JS SDK falhar por autenticação
+   * @deprecated Agora integrado no getGooglePlacesPhotos via GooglePlacesService
    */
-  private static async getUnsplashPhotos(locationName: string, locationType?: string): Promise<ScrapedImage[]> {
-    try {
-      // Usar Unsplash API para buscar fotos relacionadas
-      const searchQuery = `${locationName} ${locationType || 'bar restaurant'}`.trim()
-      const unsplashAccessKey = import.meta.env.VITE_UNSPLASH_ACCESS_KEY
-
-      if (!unsplashAccessKey) {
-        console.warn('[LocationImageScraper] Unsplash API key not configured')
-        return []
-      }
-
-      const response = await fetch(
-        `https://api.unsplash.com/search/photos?query=${encodeURIComponent(searchQuery)}&per_page=3&client_id=${unsplashAccessKey}`,
-        {
-          headers: {
-            'Accept': 'application/json'
-          }
-        }
-      )
-
-      if (!response.ok) {
-        return []
-      }
-
-      const data = await response.json()
-      const photos = data.results || []
-
-      return photos.map((photo: any) => ({
-        url: photo.urls?.regular || photo.urls?.small || '',
-        source: 'unsplash' as const,
-        width: photo.width,
-        height: photo.height
-      })).filter((img: ScrapedImage) => img.url)
-    } catch (error) {
-      console.warn('[LocationImageScraper] Error getting Unsplash photos:', error)
-      return []
-    }
+  private static async getGooglePlacesPhotosFallback(placeId: string): Promise<ScrapedImage[]> {
+    return this.getGooglePlacesPhotos(placeId);
   }
 
   /**
@@ -185,67 +116,38 @@ export class LocationImageScraper {
         return { data: [existingUrl] }
       }
 
-      // Buscar fotos de múltiplas fontes
+      // Buscar fotos (agora apenas Google Places)
       const scrapedResult = await this.scrapeLocationImages(location as Location)
+
       if (scrapedResult.error || !scrapedResult.data || scrapedResult.data.length === 0) {
+        // Se falhar scraping direto, tentar invokeCachePlacePhoto como último recurso (Edge Function)
+        if (location.place_id) {
+          const edgeResult = await invokeCachePlacePhoto(location.place_id, { maxWidth: 800 })
+          if (edgeResult.success && edgeResult.imageUrl) {
+            return { data: [edgeResult.imageUrl] }
+          }
+        }
         return { error: 'No images found' }
       }
 
-      // Priorizar foto do Google Places
-      const googlePhoto = scrapedResult.data.find(img => img.source === 'google_places')
-      const photoToSave = googlePhoto || scrapedResult.data[0]
+      const photoToSave = scrapedResult.data[0]
 
       if (!photoToSave) {
         return { error: 'No images found to save' }
       }
 
       // Salvar primeira foto no Supabase Storage
-      let photoReference: string | undefined
+      // Se tivermos a URL direta (do JS SDK getUrl), usamos ela.
+      // Se tivermos apenas photo_reference (do fallback REST), ImageStorageService saberá lidar.
 
-      if (photoToSave.source === 'google_places') {
-        // Se já tem photo_reference, usar diretamente
-        if (photoToSave.photo_reference) {
-          photoReference = photoToSave.photo_reference
-        } else if (location.place_id) {
-          // Se não tem, buscar do Google Places
-          const placeDetails = await GooglePlacesService.getPlaceDetails({
-            placeId: location.place_id,
-            fields: ['photos']
-          })
+      if (photoToSave.url || photoToSave.photo_reference) {
+        // O método saveLocationImageFromGoogle sabe lidar tanto com photo_reference quanto com URLs completas
+        // PREFERÊNCIA: Usar photo_reference se disponível para evitar problemas com URLs assinadas/CORS
+        const refOrUrl = photoToSave.photo_reference || photoToSave.url
 
-          if (placeDetails.data?.photos && placeDetails.data.photos.length > 0) {
-            const firstPhoto = placeDetails.data.photos[0]
-            // photo_reference pode ser string ou URL
-            if (typeof firstPhoto.photo_reference === 'string' && !firstPhoto.photo_reference.startsWith('http')) {
-              photoReference = firstPhoto.photo_reference
-            } else if (firstPhoto.url) {
-              // Se for URL, usar diretamente
-              const saveResult = await ImageStorageService.saveLocationImageFromGoogle(
-                locationId,
-                firstPhoto.url
-              )
-              if (saveResult.data) {
-                return { data: [saveResult.data] }
-              }
-            }
-          }
-        }
-      }
-
-      if (photoReference) {
-        // Salvar usando photo_reference
         const saveResult = await ImageStorageService.saveLocationImageFromGoogle(
           locationId,
-          photoReference
-        )
-        if (saveResult.data) {
-          return { data: [saveResult.data] }
-        }
-      } else if (photoToSave.url) {
-        // Salvar usando URL direta
-        const saveResult = await ImageStorageService.saveLocationImageFromGoogle(
-          locationId,
-          photoToSave.url
+          refOrUrl
         )
         if (saveResult.data) {
           return { data: [saveResult.data] }
@@ -286,7 +188,7 @@ export class LocationImageScraper {
       const batchSize = 5
       for (let i = 0; i < locations.length; i += batchSize) {
         const batch = locations.slice(i, i + batchSize)
-        
+
         await Promise.all(
           batch.map(async (location) => {
             try {
@@ -345,4 +247,3 @@ export class LocationImageScraper {
     }
   }
 }
-

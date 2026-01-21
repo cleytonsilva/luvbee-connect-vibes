@@ -21,7 +21,7 @@ if (!supabaseUrl || !supabaseAnonKey) {
          - VITE_SUPABASE_ANON_KEY=[sua-chave-anon]
       5. Faça Redeploy
       
-      Veja: VERCEL_ENV_SETUP.md para guia completo.`
+      Veja: ENV_SETUP.md para guia completo.`
       : `💻 DESENVOLVIMENTO: Configure no arquivo .env.local:
       - VITE_SUPABASE_URL=https://zgxtcawgllsnnernlgim.supabase.co
       - VITE_SUPABASE_ANON_KEY=[sua-chave-anon]`

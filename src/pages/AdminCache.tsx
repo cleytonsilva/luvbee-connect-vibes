@@ -155,7 +155,7 @@ export default function AdminCachePage() {
               <div className="grid gap-2 text-sm">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Edge Function:</span>
-                  <span className="font-mono text-xs">fetch-and-cache-places</span>
+                  <span className="font-mono text-xs">fetch-places-google</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Tabela Principal:</span>

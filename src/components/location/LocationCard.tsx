@@ -1,28 +1,23 @@
-import { MapPin, Star, Calendar, Ticket, Heart, X } from "lucide-react";
-import { useState, useEffect } from 'react'
+import { MapPin, Star, Heart, X, Wine, Beer, Martini, Users, Baby, Music } from "lucide-react";
+import { useState } from 'react';
 import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
-import { useLocation as useRouterLocation, useNavigate } from "react-router-dom";
-import type { Location } from "@/types/location.types";
-import type { LocationData } from "@/types/app.types";
-import { normalizeImageUrl } from "@/lib/image-url-utils";
-import { usePlacePhoto } from "@/hooks/usePlacePhoto";
 import { Button } from "@/components/ui/button";
-import { AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog";
-import { useAuth } from "@/hooks/useAuth";
-import { LocationService } from "@/services/location.service";
-import { safeLog } from "@/lib/safe-log";
-import { toast } from "sonner";
-import { format, parseISO } from "date-fns";
-import { ptBR } from "date-fns/locale";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Location } from "@/types/location.types";
+import { usePlacePhoto } from "@/hooks/usePlacePhoto";
+import { normalizeImageUrl } from "@/lib/image-url-utils";
+import { GooglePlacesService } from "@/services/google-places.service";
+
+import { supabase } from "@/integrations/supabase";
 
 interface LocationCardProps {
-  location: Location | LocationData;
+  location: Location;
   distance?: string;
   onLike?: () => void;
   onDislike?: () => void;
   onLocationClick?: (locationId: string) => void;
   mutualLikesCount?: number;
+  isHighlighted?: boolean;
 }
 
 export const LocationCard = ({
@@ -32,324 +27,280 @@ export const LocationCard = ({
   onDislike,
   onLocationClick,
   mutualLikesCount,
+  isHighlighted = false,
 }: LocationCardProps) => {
-  const navigate = useNavigate()
-  const routerLocation = useRouterLocation()
-  const { user } = useAuth()
-  const [hasMatch, setHasMatch] = useState<boolean>(false)
-  const [matchChecked, setMatchChecked] = useState<boolean>(false)
-  const [imageLoading, setImageLoading] = useState<boolean>(true)
-  
-  // Identificar se é um evento
-  const isEvent = !!location.event_start_date || location.type === 'event' || (location as any).is_event;
-  
-  // Priorizar imagem salva no Supabase Storage
-  const rawImageUrl = 
-    location.image_url ||
-    (location as any).photo_url || 
-    (Array.isArray(location.images) && location.images.length > 0 ? location.images[0] : null) ||
-    (Array.isArray((location as any).images) && (location as any).images.length > 0 ? (location as any).images[0] : null) ||
-    null;
-  
-  // Normalizar URL para converter URLs antigas do Google Maps para Edge Function
-  const normalizedUrl = normalizeImageUrl(rawImageUrl, location.place_id);
-  
-  // Se não tem URL mas tem place_id, buscar foto do Google Places
-  const placeId = location.place_id || (location as any).place_id
-  const imageUrl = usePlacePhoto(placeId, normalizedUrl);
-  
-  // Validação de dados obrigatórios - prevenir crash
-  if (!location?.name) {
-    console.warn('[LocationCard] Local sem dados válidos:', location)
-    return null // Não renderizar card inválido
-  }
-  
-  // Fallback para campos obrigatórios
-  const locationName = location.name || 'Local sem nome'
-  const locationAddress = location.address || 'Endereço não disponível'
-  const locationDescription = location.description || ''
-  
-  const rating = Number(location.rating) || Number((location as any).google_rating) || 0;
-  const priceLevel = (location as any).price_level || 0;
-  const priceSymbols = ['$', '$$', '$$$', '$$$$'];
-  const price = priceSymbols[priceLevel - 1] || 'N/A';
-  // Média de avaliações quando disponível
-  const reviews = Array.isArray((location as any).reviews) ? (location as any).reviews : []
-  const hasReviews = reviews.length > 0
-  const averageRating = hasReviews
-    ? (reviews.reduce((sum: number, r: any) => sum + (Number(r.rating) || 0), 0) / reviews.length)
-    : rating
-  
-  // Suportar tanto Location (type) quanto LocationData (category)
-  const rawType = (location as any).type ?? (location as any).category ?? ''
-  const locationType = typeof rawType === 'object' && rawType !== null ? (rawType as any).name ?? '' : rawType
+  const [imageError, setImageError] = useState(false);
+  const [imageLoading, setImageLoading] = useState(true);
 
-  // Formatar data do evento
-  const formatEventDate = (dateString: string) => {
-    try {
-      const date = parseISO(dateString)
-      return format(date, "dd 'de' MMM • HH:mm", { locale: ptBR })
-    } catch {
-      return 'Data não informada'
-    }
-  }
+  // Fallback para nome e endereço
+  const displayName = location.name || "Local Desconhecido";
+  // 'vicinity' não existe no tipo Location (DB), usamos 'address'
+  const address = location.address || (location as any).vicinity || "";
 
-  // Handler para erro de carregamento de imagem
-  const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
-    const target = e.target as HTMLImageElement;
-    // Se já tentou o placeholder, não fazer nada
-    if (target.src.includes('placeholder-location.jpg') || target.src.includes('hero-nightlife.jpg')) {
-      return;
+  // Dados do Google Places (Novo)
+  // Tenta pegar o editorialSummary, generativeSummary ou description
+  const editorialSummary = (location as any).editorial_summary ||
+    (location as any).editorialSummary?.text ||
+    (location as any).generative_summary ||
+    (location as any).generativeSummary?.overview?.text ||
+    location.description || "";
+
+  const rating = Number(location.google_rating || location.rating || 0);
+
+  // 'user_ratings_total' não existe no tipo Location, usamos 'google_user_ratings_total'
+  const userRatingCount = location.google_user_ratings_total || (location as any).user_ratings_total || (location.google_place_data as any)?.user_ratings_total || 0;
+
+  // Preço ($$)
+  const priceLevel = location.price_level || 0;
+  const priceString = "$".repeat(priceLevel) || "";
+
+  // Tipo (Traduzido ou Original)
+  const typeTranslations: Record<string, string> = {
+    'museum': 'Museu',
+    'gallery': 'Galeria',
+    'theater': 'Teatro',
+    'library': 'Biblioteca',
+    'bar': 'Bar',
+    'club': 'Balada',
+    'restaurant': 'Restaurante',
+    'cafe': 'Café',
+    'bakery': 'Padaria',
+    'education': 'Educação',
+    'attraction': 'Atração',
+    'park': 'Parque',
+    'local': 'Local',
+    'tourist': 'Turismo'
+  };
+  const rawType = (location as any).category || location.type || "Local";
+  const typeName = typeTranslations[rawType] || rawType.charAt(0).toUpperCase() + rawType.slice(1);
+
+  // Features (Icones)
+  const features = location.features || (location as any).google_place_data?.features;
+
+  // Imagem
+  // Lógica de construção de URL conforme requisitos do Google Places New API
+  const getImageUrl = () => {
+    // 0. Imagem Cacheada no Storage (Prioridade Máxima)
+    if (location.image_storage_path) {
+      const { data } = supabase.storage.from('places').getPublicUrl(location.image_storage_path);
+      return data.publicUrl;
     }
-    // Tentar placeholder
-    target.src = '/placeholder-location.jpg';
-    safeLog('warn', '[LocationCard] image error', { url: imageUrl, placeId })
+
+    // 1. Imagem salva no banco (URL externa)
+    if (location.image_url && location.image_url.startsWith('http')) {
+      // Validação extra para evitar URLs malformadas que foram salvas erradas
+      if (!location.image_url.includes('PhotoService.GetPhoto') && !location.image_url.includes('googleusercontent')) {
+        return location.image_url;
+      }
+    }
+
+    // 2. Referência do Google Places (API Nova ou Antiga)
+    // Tenta pegar de google_place_data (cache) ou photos (direto)
+    const photos = (location.google_place_data as any)?.photos || (location as any).photos;
+
+    if (photos && Array.isArray(photos) && photos.length > 0) {
+      // Verifica se é New API (campo 'name') ou Legacy API (campo 'photo_reference')
+      // Em alguns casos pode vir como string direta também
+      const firstPhoto = photos[0];
+      let photoRef = '';
+
+      if (typeof firstPhoto === 'string') {
+        photoRef = firstPhoto;
+      } else if (typeof firstPhoto === 'object') {
+        photoRef = firstPhoto.photo_reference || firstPhoto.name;
+      }
+
+      // ✅ VALIDAÇÃO: Ignorar URLs malformadas do PhotoService ou URLs completas
+      if (photoRef) {
+        if (photoRef.includes('PhotoService.GetPhoto')) {
+          // console.warn('[LocationCard] Ignorando URL malformada:', photoRef.substring(0, 50));
+          photoRef = '';
+        } else if (photoRef.startsWith('http')) {
+          // console.warn('[LocationCard] Ignorando URL completa:', photoRef.substring(0, 50));
+          photoRef = '';
+        }
+      }
+
+      if (photoRef) {
+        // USA A API DO GOOGLE DIRETAMENTE (Conforme solicitado)
+        // Gera URL para: places.googleapis.com/v1/{name}/media
+        return GooglePlacesService.getPhotoUrl(photoRef, 800);
+      }
+    }
+
+    // 3. Fallback final (Evita card cinza)
+    return '/placeholder-location.jpg';
   };
 
-  // Handler para clique no card
+  const directImageUrl = getImageUrl();
+
+  if (import.meta.env.DEV) {
+    console.log(`[LocationCard] Rendering ${displayName} (${location.place_id}) - PhotoRef found? ${!!directImageUrl && directImageUrl !== '/placeholder-location.jpg'}`);
+  }
+
+  // Passamos a URL direta como fallback. O hook é inteligente o suficiente para usar essa URL
+  // se ela for válida, evitando chamadas desnecessárias à Edge Function.
+  // Se for placeholder, o hook tentará buscar uma imagem melhor.
+  const imageUrl = usePlacePhoto(location.place_id || null, directImageUrl);
+
   const handleCardClick = (e: React.MouseEvent) => {
-    // Prevenir propagação se houver botões dentro do card
-    if ((e.target as HTMLElement).closest('button') || (e.target as HTMLElement).closest('a')) {
-      return
-    }
-    
-    if (onLocationClick) {
-      onLocationClick(location.id)
-    } else {
-      // Fallback: navegar diretamente para a página de detalhes
-      navigate(`/dashboard/locations/${location.id}`)
-    }
-  }
-
-  // Handler para comprar ingresso
-  const handleTicketClick = (e: React.MouseEvent) => {
-    e.stopPropagation() // Prevenir navegação do card
-    if (location.ticket_url) {
-      window.open(location.ticket_url, '_blank', 'noopener,noreferrer')
-    }
-  }
-
-  // Controle por rota
-  const isLocationsRoute = routerLocation.pathname.includes('/locations')
-  const isVibeLocalRoute = routerLocation.pathname.includes('/vibe-local')
-
-  // Verificação de match (apenas na rota /locations)
-  const locationIdentifier = (location as any).id || (location as any).place_id
-
-  // Checar match quando usuário e rota são válidos
-  useEffect(() => {
-    let cancelled = false
-    if (user?.id && isLocationsRoute && locationIdentifier && !matchChecked) {
-      setMatchChecked(true)
-      LocationService.hasLocationMatch(user.id, String(locationIdentifier))
-        .then((result) => { if (!cancelled) setHasMatch(result) })
-        .catch(() => { if (!cancelled) setHasMatch(false) })
-    }
-    return () => { cancelled = true }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id, isLocationsRoute, locationIdentifier])
-
-  // CSS para gradiente de fundo do card
-  const cardGradientClass = isEvent 
-    ? "absolute inset-0 bg-gradient-to-t from-purple-900/90 via-purple-900/40 to-transparent"
-    : "absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent"
+    // Evita disparar se clicar em botões
+    if ((e.target as HTMLElement).closest('button')) return;
+    onLocationClick?.(location.id || location.place_id || "");
+  };
 
   return (
-    <div 
-      className="relative w-full h-[600px] rounded-xl overflow-hidden shadow-hard border-2 border-foreground bg-card cursor-pointer hover:shadow-lg transition-shadow group"
+    <div
+      className={`relative w-full min-h-[500px] rounded-2xl overflow-hidden border shadow-lg bg-black group cursor-pointer transition-all duration-300 ${isHighlighted
+          ? 'border-yellow-400 ring-4 ring-yellow-400/50 animate-pulse'
+          : 'border-white/20'
+        }`}
       onClick={handleCardClick}
     >
-      {/* Image */}
-      <div className="absolute inset-0 bg-gray-200">
+      {/* Imagem de Fundo (Full Screen) */}
+      <div className="absolute inset-0 z-0 bg-gray-900">
         <img
           src={imageUrl}
-          alt={locationName}
-          className="w-full h-full object-cover"
-          onError={handleImageError}
-          onLoad={() => setImageLoading(false)}
-          loading="lazy"
+          alt={displayName}
+          className={`w-full h-full object-cover transition-opacity duration-500 ${imageLoading ? 'opacity-0' : 'opacity-100'}`}
+          onLoad={() => {
+            if (import.meta.env.DEV) console.log(`[LocationCard] Image Loaded: ${displayName}`);
+            setImageLoading(false);
+          }}
+          onError={(e) => {
+            console.warn(`[LocationCard] Image Error for ${displayName}:`, e.currentTarget.src);
+            e.currentTarget.src = '/placeholder-location.jpg'; // Fallback local
+            // Remove a classe de opacidade para mostrar o placeholder
+            e.currentTarget.classList.remove('opacity-0');
+            e.currentTarget.classList.add('opacity-100');
+            setImageLoading(false);
+          }}
         />
         {imageLoading && (
-          <div className="absolute inset-0">
-            <Skeleton className="w-full h-full" />
+          <div className="absolute inset-0 flex items-center justify-center bg-gray-900">
+            <Skeleton className="w-full h-full bg-gray-800 animate-pulse" />
           </div>
         )}
-        <div className={cardGradientClass} />
+
+        {/* Gradiente Bottom-Up para Leitura (Requisito: Gradiente preto bottom-up) */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-transparent pointer-events-none" />
       </div>
 
-      {/* Event Badge - Top Right */}
-      {isEvent && (
-        <div className="absolute top-4 right-4 z-20">
-          <Badge className="bg-purple-600 hover:bg-purple-700 text-white font-bold px-3 py-1">
-            <Calendar className="w-3 h-3 mr-1" />
-            EVENTO
+      {/* Conteúdo Overlay */}
+      <div className="absolute inset-x-0 bottom-0 p-6 z-10 flex flex-col gap-4 text-white">
+
+        {/* Badges de Topo (Nota, Preço, Tipo) */}
+        <div className="flex flex-wrap gap-2 mb-1">
+          {rating > 0 && (
+            <Badge className="bg-white text-black border border-gray-200 font-bold text-sm shadow-sm rounded-md">
+              <Star className="w-3 h-3 mr-1 fill-black" />
+              {rating.toFixed(1)} {userRatingCount > 0 && <span className="text-gray-600 font-normal ml-1">({userRatingCount})</span>}
+            </Badge>
+          )}
+
+          {priceString && (
+            <Badge className="bg-green-400 text-black border-transparent font-bold text-sm shadow-sm rounded-md">
+              {priceString}
+            </Badge>
+          )}
+
+          <Badge className="bg-yellow-400 text-black border-transparent font-bold text-sm shadow-sm uppercase rounded-md">
+            {typeName}
           </Badge>
-        </div>
-      )}
 
-      {Boolean((location as any).is_open) && (
-        <div className="absolute top-4 left-4 z-20">
-          <Badge className="bg-green-600 hover:bg-green-700 text-white font-bold px-3 py-1">Open Now</Badge>
+          {distance && (
+            <Badge className="bg-black/50 backdrop-blur-md text-white border border-white/20 font-mono text-xs">
+              <MapPin className="w-3 h-3 mr-1" />
+              {distance}
+            </Badge>
+          )}
         </div>
-      )}
 
-      {/* Content */}
-      <div className="absolute inset-x-0 bottom-0 p-6 text-white z-10">
-        <div className="flex items-start justify-between mb-3">
-          <div className="flex-1">
-            <h2 className="text-3xl font-bold mb-2">{locationName}</h2>
-            
-            {/* Data do Evento */}
-            {isEvent && location.event_start_date && (
-              <div className="flex items-center gap-2 text-sm mb-2 text-purple-200">
-                <Calendar className="w-4 h-4" />
-                <span className="font-semibold">
-                  {formatEventDate(location.event_start_date)}
-                </span>
+        {/* Features Icons */}
+        {features && (
+          <div className="flex gap-3 mb-2 text-white/90">
+            {features.serves_wine && (
+              <div className="flex items-center gap-1 bg-black/40 backdrop-blur-sm px-2 py-1 rounded-md" title="Serve Vinho">
+                <Wine className="w-4 h-4 text-red-400" />
+                <span className="text-xs font-medium">Vinhos</span>
               </div>
             )}
-            
-            <div className="flex items-center gap-4 text-sm mb-2">
-              {distance && (
-                <span className="flex items-center gap-1">
-                  <MapPin className="w-4 h-4" />
-                  {distance}
-                </span>
-              )}
-              {averageRating > 0 && (
-                <span className="flex items-center gap-1">
-                  <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                  {hasReviews ? `${averageRating.toFixed(1)} (${reviews.length})` : averageRating.toFixed(1)}
-                </span>
-              )}
-              {priceLevel > 0 && <span>{price}</span>}
-            </div>
-            
-            {locationAddress && (
-              <p className="text-sm text-white/80 mb-2">{locationAddress}</p>
+            {features.serves_cocktails && (
+              <div className="flex items-center gap-1 bg-black/40 backdrop-blur-sm px-2 py-1 rounded-md" title="Coquetéis">
+                <Martini className="w-4 h-4 text-pink-400" />
+                <span className="text-xs font-medium">Drinks</span>
+              </div>
+            )}
+            {features.serves_beer && !features.serves_cocktails && (
+              <div className="flex items-center gap-1 bg-black/40 backdrop-blur-sm px-2 py-1 rounded-md" title="Cerveja">
+                <Beer className="w-4 h-4 text-yellow-400" />
+                <span className="text-xs font-medium">Cerveja</span>
+              </div>
+            )}
+            {features.live_music && (
+              <div className="flex items-center gap-1 bg-black/40 backdrop-blur-sm px-2 py-1 rounded-md" title="Música ao Vivo">
+                <Music className="w-4 h-4 text-purple-400" />
+                <span className="text-xs font-medium">Ao Vivo</span>
+              </div>
+            )}
+            {features.good_for_groups && (
+              <div className="flex items-center gap-1 bg-black/40 backdrop-blur-sm px-2 py-1 rounded-md" title="Bom para Grupos">
+                <Users className="w-4 h-4 text-blue-400" />
+              </div>
             )}
           </div>
-          
-          <div className="flex items-center gap-2">
-            {user && (
-              <Button
-                variant="outline"
-                className="bg-white/20 text-white border-white/40"
-                aria-label="Adicionar aos favoritos"
-                size="sm"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  try {
-                    // @ts-ignore
-                    if (Array.isArray((location as any).favorites) && (location as any).favorites.includes(user.id)) {
-                      // @ts-ignore
-                      LocationService.removeFromFavorites?.(user.id, location.id)
-                    } else {
-                      // @ts-ignore
-                      LocationService.addToFavorites?.(user.id, location.id)
-                    }
-                  } catch {}
-                }}
-              >
-                <Heart className="w-4 h-4 mr-1" />
-              </Button>
-            )}
-            {isEvent && location.ticket_url && (
-              <Button
-                onClick={handleTicketClick}
-                className="bg-green-500 hover:bg-green-600 text-black font-bold px-4 py-2 rounded-full text-sm transition-colors flex items-center gap-2"
-                size="sm"
-              >
-                <Ticket className="w-4 h-4" />
-                Ingresso
-              </Button>
-            )}
-            
-            {isLocationsRoute && !isVibeLocalRoute && (hasMatch || !!onDislike) && (
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button 
-                    variant="outline" 
-                    className="bg-white/20 text-white border-white/40"
-                    aria-label="Desfazer match deste local"
-                    size="sm"
-                  >
-                    <X className="w-4 h-4 mr-1" />
-                    Desfazer
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Confirmar desfazer</AlertDialogTitle>
-                    <AlertDialogDescription>Esta ação remove o match deste local.</AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                    <AlertDialogAction onClick={async () => {
-                      try {
-                        if (onDislike) {
-                          await onDislike()
-                        } else if (user) {
-                          await LocationService.removeLocationMatch(user.id, String(locationIdentifier))
-                          setHasMatch(false)
-                        }
-                        toast.success('Match removido')
-                      } catch (err: any) {
-                        toast.error('Erro ao desfazer match', { description: err?.message })
-                      }
-                    }}>Desfazer</AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            )}
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2 mb-3 flex-wrap">
-          {mutualLikesCount !== undefined && mutualLikesCount > 0 && (
-            <Badge variant="default" className="bg-primary text-primary-foreground border-2 border-foreground shadow-hard">
-              ⭐ {mutualLikesCount} {mutualLikesCount === 1 ? 'match' : 'matches'} também curtiu
-            </Badge>
-          )}
-          
-          {locationType && (
-            <Badge 
-              variant={isEvent ? "secondary" : "outline"} 
-              className={isEvent 
-                ? "bg-purple-500/20 text-purple-200 border-purple-400/40" 
-                : "bg-white/20 text-white border-white/40"
-              }
-            >
-              {isEvent ? '🎉 ' : ''}{locationType}
-            </Badge>
-          )}
-        </div>
-
-        {locationDescription && (
-          <p className="text-sm text-white/90 mb-3 line-clamp-2">{locationDescription}</p>
         )}
 
-        {user && (
-          <div className="flex items-center gap-2 z-10">
+        {/* Título e Endereço */}
+        <div>
+          {/* Requisito: Título H1, Bold, Branco */}
+          <h1 className="text-4xl font-black font-space-grotesk uppercase leading-none mb-2 drop-shadow-md text-white">
+            {displayName}
+          </h1>
+          {address && (
+            <p className="text-sm text-gray-300 font-mono truncate opacity-90">
+              {address}
+            </p>
+          )}
+        </div>
+
+        {/* The Pitch (Editorial Summary) - Requisito: Exibir editorialSummary */}
+        {editorialSummary && (
+          <div className="bg-black/40 backdrop-blur-sm p-3 rounded-lg border-l-4 border-primary">
+            <p className="text-sm italic text-gray-100 font-medium leading-relaxed">
+              "{editorialSummary}"
+            </p>
+          </div>
+        )}
+
+        {/* Ações (Ver no Mapa / Desfazer Match) */}
+        <div className="flex items-center gap-3 mt-2 pt-4 border-t border-white/20">
+          <Button
+            className="flex-1 bg-black/40 backdrop-blur-sm text-white border border-white/20 hover:bg-white/10 font-bold uppercase tracking-wide h-12 text-lg"
+            onClick={(e) => {
+              e.stopPropagation();
+              // Abrir no Google Maps
+              const query = encodeURIComponent(`${displayName} ${address}`);
+              window.open(`https://www.google.com/maps/search/?api=1&query=${query}`, '_blank');
+            }}
+          >
+            Ver no Mapa
+          </Button>
+
+          {onDislike && (
             <Button
-              variant="default"
-              size="sm"
-              onClick={(e) => e.stopPropagation()}
-            >
-              Check In
-            </Button>
-            <Button
-              variant="secondary"
-              size="sm"
+              variant="destructive"
+              size="icon"
+              className="h-12 w-12 border-0 shadow-lg"
               onClick={(e) => {
-                e.stopPropagation()
-                navigate(`/dashboard/locations/${location.id}`)
+                e.stopPropagation();
+                onDislike();
               }}
             >
-              View Details
+              <X className="w-6 h-6" />
             </Button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );

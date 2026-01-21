@@ -90,7 +90,7 @@
   ──────────
   [ ] Verificar Supabase Dashboard → Advisors (0 warnings)
   [ ] Confirmar 4 migrations aplicadas com sucesso
-  [ ] Revisar FINAL_STATUS_ALL_ALERTS_FIXED.md
+  [ ] Revisar 🏁_OPERACAO_FINALIZADA_177_ALERTAS.md
   
   STAGING (2-4h)
   ──────────────
@@ -151,14 +151,14 @@
 📁 DOCUMENTAÇÃO
 ═══════════════════════════════════════════════════════════════════════════
 
-  ✅ FINAL_STATUS_ALL_ALERTS_FIXED.md
+  ✅ 🏁_OPERACAO_FINALIZADA_177_ALERTAS.md
      └─ Status completo com todas as correções
 
   ✅ ALERTAS_SUPABASE_RESOLVIDOS.md
      └─ Análise técnica detalhada
 
-  ✅ SUPABASE_MIGRATIONS_SUMMARY.md
-     └─ Resumo das 4 migrations
+  ✅ 🏆_FINAL_CONSOLIDATED_REPORT.md
+     └─ Resumo consolidado e checklist final
 
   ✅ README_ALERTAS_CORRIGIDOS.txt
      └─ Visualização executiva

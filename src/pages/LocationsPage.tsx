@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { LocationList } from '../components/location/LocationList'
 import { LocationDetail } from './LocationDetailPage'
 import { MapPin, List, Heart } from 'lucide-react'
@@ -8,6 +9,21 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 export function LocationsPage() {
   const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<'list' | 'detail'>('list')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [highlightLocationId, setHighlightLocationId] = useState<string | null>(null)
+
+  // Ler parâmetro highlight da URL
+  useEffect(() => {
+    const highlight = searchParams.get('highlight')
+    if (highlight) {
+      setHighlightLocationId(highlight)
+      // Remover o parâmetro da URL após ler
+      setTimeout(() => {
+        searchParams.delete('highlight')
+        setSearchParams(searchParams, { replace: true })
+      }, 3000) // Manter highlight por 3 segundos
+    }
+  }, [searchParams, setSearchParams])
 
   const handleLocationSelect = (locationId: string) => {
     setSelectedLocationId(locationId)
@@ -32,7 +48,7 @@ export function LocationsPage() {
             Back to List
           </Button>
         </div>
-        
+
         <LocationDetail locationId={selectedLocationId} />
       </div>
     )
@@ -50,8 +66,9 @@ export function LocationsPage() {
         </p>
       </div>
 
-      <LocationList 
+      <LocationList
         onLocationSelect={handleLocationSelect}
+        highlightLocationId={highlightLocationId}
       />
     </div>
   )

@@ -2,6 +2,9 @@
  * Google Maps Loader - Carrega e gerencia Google Maps JavaScript API
  */
 
+// @ts-ignore
+declare var google: any;
+
 declare global {
   interface Window {
     google: typeof google
@@ -11,12 +14,18 @@ declare global {
 export class GoogleMapsLoader {
   private static loadPromise: Promise<void> | null = null
   private static isLoaded = false
+  private static authFailed = false
 
   /**
    * Carrega o Google Maps JavaScript API dinamicamente com Places UI Kit
    * Usa importLibrary() para carregar as bibliotecas necessárias
    */
   static async load(): Promise<void> {
+    // Se houve falha de autenticação anterior, rejeitar imediatamente
+    if (this.authFailed) {
+        return Promise.reject(new Error('Google Maps Authentication Error (Cached): ApiTargetBlockedMapError'))
+    }
+
     // Se já está carregado, retornar imediatamente
     if (this.isLoaded && window.google?.maps?.places) {
       return Promise.resolve()
@@ -43,9 +52,20 @@ export class GoogleMapsLoader {
 
     // Criar nova promise de carregamento
     this.loadPromise = new Promise((resolve, reject) => {
+      // Callback global para erro de autenticação do Google Maps
+      // @ts-ignore
+      window.gm_authFailure = () => {
+        this.isLoaded = false
+        this.authFailed = true
+        this.loadFailed = true
+        const error = new Error('Google Maps Authentication Error: ApiTargetBlockedMapError or similar')
+        console.error('[GoogleMapsLoader] gm_authFailure detected:', error)
+        reject(error)
+      }
+
       // Criar script element com loading=async
       const script = document.createElement('script')
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&loading=async`
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&loading=async&libraries=places`
       script.async = true
       script.defer = true
       
@@ -65,12 +85,16 @@ export class GoogleMapsLoader {
           this.isLoaded = true
           resolve()
         } catch (error) {
-          reject(new Error(`Erro ao carregar Places UI Kit: ${error instanceof Error ? error.message : 'Erro desconhecido'}`))
+          // Se falhar o importLibrary, mas o script carregou, podemos tentar continuar
+          // ou rejeitar se for crítico.
+          // Se ApiTargetBlockedMapError ocorrer, geralmente gm_authFailure é chamado.
+          console.warn('[GoogleMapsLoader] Erro ao importar biblioteca places:', error)
+          reject(error)
         }
       }
       
       script.onerror = () => {
-        reject(new Error('Erro ao carregar Google Maps JavaScript API'))
+        reject(new Error('Erro ao carregar Google Maps JavaScript API (script error)'))
       }
 
       document.head.appendChild(script)
@@ -131,6 +155,13 @@ export class GoogleMapsLoader {
   }
 
   /**
+   * Verifica se houve falha de autenticação ou carregamento
+   */
+  static hasAuthFailed(): boolean {
+    return this.authFailed || this.loadFailed
+  }
+
+  /**
    * Carrega a biblioteca Places UI Kit e retorna os componentes disponíveis
    */
   static async loadPlacesUIKit(): Promise<{
@@ -151,5 +182,3 @@ export class GoogleMapsLoader {
   }
 
 }
-
-

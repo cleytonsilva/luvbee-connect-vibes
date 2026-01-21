@@ -4,15 +4,18 @@ export interface UserProfile {
   name: string
   age?: number | null
   avatar_url?: string
+  photos?: string[] // Adicionado
   bio?: string
-  location?: Record<string, any> | null
-  preferences?: Record<string, any>
+  location?: Record<string, unknown> | null | string // Adicionado suporte a string
+  preferences?: Record<string, unknown>
   interests?: string[]
   compatibility_score?: number
   distance?: number
   onboarding_completed?: boolean
   is_active: boolean
   role?: 'user' | 'admin'
+  connections_count?: number // Adicionado
+  checkins_count?: number // Adicionado
   created_at: string
   updated_at: string
 }
@@ -29,7 +32,7 @@ export interface LocationData {
   rating: number
   phone?: string
   website?: string
-  opening_hours?: Record<string, any>
+  opening_hours?: Record<string, unknown>
   location?: { lat: number; lng: number }
   lat?: number
   lng?: number
@@ -153,7 +156,7 @@ export interface PaginationOptions {
 export interface RealtimeSubscription {
   channel: string
   event: string
-  callback: (payload: any) => void
+  callback: (payload: unknown) => void
 }
 
 export type NotificationType = 'match' | 'message' | 'check_in' | 'review'
@@ -164,7 +167,7 @@ export interface NotificationData {
   title: string
   message: string
   user_id: string
-  data?: Record<string, any>
+  data?: Record<string, unknown>
   is_read: boolean
   created_at: string
 }

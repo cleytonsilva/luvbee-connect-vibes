@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -7,9 +7,11 @@ import { userRegisterSchema, type UserRegisterInput } from '@/lib/validations'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Checkbox } from "@/components/ui/checkbox"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { toast } from 'sonner'
+import { Eye, EyeOff } from 'lucide-react'
 
 interface RegisterFormProps {
   onSuccess?: () => void
@@ -20,15 +22,21 @@ export function RegisterForm({ onSuccess, onSwitchToLogin }: RegisterFormProps) 
   const navigate = useNavigate()
   const { signUp, isLoading, error, user } = useAuth()
   const [localError, setLocalError] = useState<string | null>(null)
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const {
     register,
     handleSubmit,
     watch,
+    setValue,
     formState: { errors }
-  } = useForm<UserRegisterInput & { confirmPassword: string }>({
+  } = useForm<UserRegisterInput & { confirmPassword: string; acceptTerms: boolean }>({
     resolver: zodResolver(userRegisterSchema.extend({
       confirmPassword: userRegisterSchema.shape.password
-    }))
+    })),
+    defaultValues: {
+      acceptTerms: false
+    }
   })
 
   const password = watch('password')
@@ -126,32 +134,91 @@ export function RegisterForm({ onSuccess, onSwitchToLogin }: RegisterFormProps) 
           </div>
           <div className="space-y-2">
             <Label htmlFor="password">Password</Label>
-            <Input
-              id="password"
-              type="password"
-              placeholder="Create a password"
-              {...register('password')}
-              disabled={isLoading}
-            />
+            <div className="relative">
+              <Input
+                id="password"
+                type={showPassword ? "text" : "password"}
+                placeholder="Create a password"
+                {...register('password')}
+                disabled={isLoading}
+                className="pr-10"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                tabIndex={-1}
+              >
+                {showPassword ? (
+                  <EyeOff className="h-4 w-4" />
+                ) : (
+                  <Eye className="h-4 w-4" />
+                )}
+              </button>
+            </div>
             {errors.password && (
               <p className="text-sm text-destructive">{errors.password.message}</p>
             )}
           </div>
           <div className="space-y-2">
             <Label htmlFor="confirmPassword">Confirm Password</Label>
-            <Input
-              id="confirmPassword"
-              type="password"
-              placeholder="Confirm your password"
-              {...register('confirmPassword', {
-                validate: (value) => value === password || 'Passwords do not match'
-              })}
-              disabled={isLoading}
-            />
+            <div className="relative">
+              <Input
+                id="confirmPassword"
+                type={showConfirmPassword ? "text" : "password"}
+                placeholder="Confirm your password"
+                {...register('confirmPassword', {
+                  validate: (value) => value === password || 'Passwords do not match'
+                })}
+                disabled={isLoading}
+                className="pr-10"
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                tabIndex={-1}
+              >
+                {showConfirmPassword ? (
+                  <EyeOff className="h-4 w-4" />
+                ) : (
+                  <Eye className="h-4 w-4" />
+                )}
+              </button>
+            </div>
             {errors.confirmPassword && (
               <p className="text-sm text-destructive">{errors.confirmPassword.message}</p>
             )}
           </div>
+          
+          <div className="flex items-start space-x-2">
+            <Checkbox
+              id="accept-terms"
+              checked={watch('acceptTerms')}
+              onCheckedChange={(checked) => setValue('acceptTerms', checked === true)}
+              disabled={isLoading}
+            />
+            <div className="grid gap-1.5 leading-none">
+              <Label
+                htmlFor="accept-terms"
+                className="text-sm font-normal leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+              >
+                Aceito os{" "}
+                <Link 
+                  to="/termos-de-uso" 
+                  target="_blank"
+                  className="text-primary underline hover:text-primary/80"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  Termos de Uso
+                </Link>
+                {" "}e confirmo que tenho mais de 18 anos
+              </Label>
+            </div>
+          </div>
+          {errors.acceptTerms && (
+            <p className="text-sm text-destructive">{errors.acceptTerms.message}</p>
+          )}
         </CardContent>
         <CardFooter className="flex flex-col space-y-4">
           <Button 

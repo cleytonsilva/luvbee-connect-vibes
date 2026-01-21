@@ -6,6 +6,7 @@
 import { supabase } from '@/integrations/supabase'
 import { GooglePlacesService } from './google-places.service'
 import type { ApiResponse } from '@/types/app.types'
+import { invokeCachePlacePhoto } from '@/lib/cache-place-photo-helper'
 
 export class ImageStorageService {
   private static readonly BUCKET_NAME = 'locations'
@@ -16,85 +17,34 @@ export class ImageStorageService {
    * Baixa uma imagem de uma URL e retorna como Blob
    */
   private static async downloadImage(url: string): Promise<Blob> {
-    try {
-      // Se for URL completa do Google Places (vinda da biblioteca JavaScript), usar diretamente
-      if (url.includes('maps.googleapis.com/maps/api/place/photo')) {
-        // URL já está completa e válida (vinda da biblioteca JS)
-        // Tentar usar diretamente primeiro
-        try {
-          const response = await fetch(url, {
-            method: 'GET',
-            headers: {
-              'Accept': 'image/*',
-            },
-            mode: 'cors',
-          })
-          
-          if (response.ok) {
-            const blob = await response.blob()
-            if (blob.type.startsWith('image/')) {
-              return blob
-            }
-          }
-        } catch (error) {
-          // Se falhar, tentar extrair photo_reference e usar método específico
-          console.warn('[ImageStorageService] Direct fetch failed, trying photo_reference method:', error)
-        }
-        
-        // Tentar extrair photo_reference da URL como fallback
-        try {
-          const urlObj = new URL(url)
-          const photoReference = urlObj.searchParams.get('photoreference')
-          const maxWidth = urlObj.searchParams.get('maxwidth') || '800'
-          
-          if (photoReference) {
-            const result = await GooglePlacesService.downloadPhoto(photoReference, parseInt(maxWidth))
-            if (result.error) {
-              throw new Error(result.error)
-            }
-            if (result.data) {
-              return result.data
-            }
-          }
-        } catch (error) {
-          console.warn('[ImageStorageService] Photo reference method also failed:', error)
-        }
-      }
+    // Deprecated: Agora usamos Edge Functions para evitar CORS
+    // Mantido apenas para URLs que não são do Google Places
+    if (!url.includes('google') && !url.includes('googleapis')) {
+      try {
+        const response = await fetch(url, {
+          method: 'GET',
+          headers: {
+            'Accept': 'image/*',
+          },
+          mode: 'cors',
+        })
 
-      // Se for photo_reference (string que não é URL), usar GooglePlacesService
-      if (!url.startsWith('http') && url.length > 20) {
-        const result = await GooglePlacesService.downloadPhoto(url, this.MAX_WIDTH)
-        if (result.error) {
-          throw new Error(result.error)
+        if (!response.ok) {
+          throw new Error(`Failed to download image: ${response.status} ${response.statusText}`)
         }
-        if (result.data) {
-          return result.data
-        }
-      }
 
-      // Para outras URLs, usar fetch normal
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'Accept': 'image/*',
-        },
-        mode: 'cors',
-      })
-      
-      if (!response.ok) {
-        throw new Error(`Failed to download image: ${response.status} ${response.statusText}`)
+        const blob = await response.blob()
+
+        if (!blob.type.startsWith('image/')) {
+          throw new Error('Resposta não é uma imagem válida')
+        }
+
+        return blob
+      } catch (e) {
+        throw new Error(`Error downloading image: ${e instanceof Error ? e.message : 'Unknown error'}`)
       }
-      
-      const blob = await response.blob()
-      
-      if (!blob.type.startsWith('image/')) {
-        throw new Error('Resposta não é uma imagem válida')
-      }
-      
-      return blob
-    } catch (error) {
-      throw new Error(`Error downloading image: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
+    throw new Error('Direct Google Image download is not supported client-side due to CORS. Use saveLocationImageFromGoogle instead.')
   }
 
   /**
@@ -158,51 +108,52 @@ export class ImageStorageService {
         return { data: existingUrl }
       }
 
-      // Baixar imagem (photoReference pode ser URL completa ou photo_reference)
-      console.log('[ImageStorageService] Downloading image from Google Places...')
-      const imageBlob = await this.downloadImage(photoReference)
+      // Usar Edge Function para baixar e salvar (CORS-safe)
+      console.log('[ImageStorageService] Calling Edge Function cache-place-photo...')
 
-      // Gerar nome do arquivo
-      const fileName = this.generateFileName(locationId)
-      const filePath = `${locationId}/${fileName}`
-
-      // Converter Blob para File
-      const imageFile = this.blobToFile(imageBlob, fileName)
-
-      // Upload para Supabase Storage
-      console.log('[ImageStorageService] Uploading to Supabase Storage...')
-      const { error: uploadError } = await supabase.storage
-        .from(this.BUCKET_NAME)
-        .upload(filePath, imageFile, {
-          cacheControl: '3600',
-          upsert: false, // Não sobrescrever se já existir
-          contentType: 'image/jpeg'
-        })
-
-      if (uploadError) {
-        // Se arquivo já existe, obter URL existente
-        if (uploadError.message?.includes('already exists') || uploadError.statusCode === '409') {
-          const { data: { publicUrl } } = supabase.storage
-            .from(this.BUCKET_NAME)
-            .getPublicUrl(filePath)
-          
-          // Atualizar banco de dados
-          await this.updateLocationImageUrl(locationId, publicUrl)
-          return { data: publicUrl }
-        }
-        throw uploadError
+      // Se for URL, tentar extrair photo_reference se possível, ou passar URL
+      let cleanPhotoReference = photoReference
+      if (photoReference.includes('google')) {
+        // Tentar extrair photoreference da query string
+        try {
+          const url = new URL(photoReference)
+          const ref = url.searchParams.get('photoreference')
+          if (ref) cleanPhotoReference = ref
+        } catch { }
       }
 
-      // Obter URL pública
-      const { data: { publicUrl } } = supabase.storage
-        .from(this.BUCKET_NAME)
-        .getPublicUrl(filePath)
+      // A Edge Function aceita { place_id, photo_reference } OU { place_id, image_url }
+      // Se tivermos apenas locationId (UUID), precisamos do place_id do Google
+      // Vamos buscar o place_id associado a este locationId
+      const { data: location } = await supabase.from('locations').select('place_id').eq('id', locationId).single()
 
-      // Atualizar campo image_url na tabela locations
-      await this.updateLocationImageUrl(locationId, publicUrl)
+      if (!location?.place_id) {
+        return { error: 'Location has no place_id' }
+      }
 
-      console.log('[ImageStorageService] Image saved successfully:', publicUrl)
-      return { data: publicUrl }
+      // Opções para a Edge Function
+      const options: any = { maxWidth: 800 }
+
+      // Sempre usar cleanPhotoReference se disponível
+      if (cleanPhotoReference && !cleanPhotoReference.startsWith('http')) {
+        options.photoReference = cleanPhotoReference
+      } else {
+        // Se ainda for URL, tentamos passar como fallback, mas a preferência é o photox_reference limpo
+        // Se não conseguimos extrair, deixamos vazio para a Edge Function tentar buscar pelo place_id
+        console.warn('[ImageStorageService] Could not extract photo_reference from URL. Edge function will try fallback lookup.')
+      }
+
+      // Chamar Edge Function via helper
+      const result = await invokeCachePlacePhoto(location.place_id, options)
+
+      if (result.success && result.imageUrl) {
+        // Atualizar campo image_url na tabela locations (a Edge function já faz, mas garantimos aqui)
+        await this.updateLocationImageUrl(locationId, result.imageUrl)
+        return { data: result.imageUrl }
+      }
+
+      return { error: result.error || 'Failed to save image via Edge Function' }
+
     } catch (error) {
       console.error('[ImageStorageService] Error saving location image:', error)
       return {
@@ -240,50 +191,13 @@ export class ImageStorageService {
     googlePlaceId?: string,
     photoReference?: string
   ): Promise<ApiResponse<string>> {
-    try {
-      // Se já existe imagem salva, retornar
-      const existingUrl = await this.getLocationImageUrl(locationId)
-      if (existingUrl && existingUrl.includes('supabase.co/storage')) {
-        return { data: existingUrl }
-      }
-
-      // Se tem URL do Google mas é formato incorreto (PhotoService.GetPhoto), limpar
-      if (existingUrl && existingUrl.includes('PhotoService.GetPhoto')) {
-        console.warn('[ImageStorageService] Invalid Google Places URL format detected, will reprocess')
-        await this.updateLocationImageUrl(locationId, '')
-      }
-
-      // Chamar Edge Function do Supabase para processar imagem server-side
-      const { data, error } = await supabase.functions.invoke('process-location-image', {
-        body: {
-          locationId,
-          googlePlaceId,
-          photoReference,
-        },
-      })
-
-      if (error) {
-        console.error('[ImageStorageService] Edge Function error:', error)
-        return {
-          error: error.message || 'Failed to process location image via Edge Function'
-        }
-      }
-
-      if (data?.error) {
-        return { error: data.error }
-      }
-
-      if (data?.imageUrl) {
-        return { data: data.imageUrl }
-      }
-
-      return { error: 'Resposta inválida da Edge Function' }
-    } catch (error) {
-      console.error('[ImageStorageService] Error processing location image:', error)
-      return {
-        error: error instanceof Error ? error.message : 'Failed to process location image'
-      }
+    // Redirecionar para saveLocationImageFromGoogle que agora usa Edge Function
+    if (googlePlaceId) {
+      // Se temos googlePlaceId, podemos tentar a rota principal
+      // Mas aqui os parâmetros são diferentes. Vamos adaptar.
+      return this.saveLocationImageFromGoogle(locationId, photoReference || '')
     }
+    return { error: 'Missing googlePlaceId' }
   }
 
   /**
@@ -326,4 +240,3 @@ export class ImageStorageService {
     }
   }
 }
-

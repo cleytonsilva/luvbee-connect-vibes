@@ -31,7 +31,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
-  
+
   // Dados do perfil
   const [profileData, setProfileData] = useState({
     photos: [] as string[],
@@ -41,7 +41,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
     state: '',
     city: '',
   })
-  
+
   // Preferências de Descoberta
   const [discoveryPreferences, setDiscoveryPreferences] = useState({
     identity: '' as '' | 'woman_cis' | 'man_cis' | 'non_binary' | 'other',
@@ -82,7 +82,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
 
     try {
       setIsLoading(true)
-      
+
       // Criar preview local
       const reader = new FileReader()
       reader.onloadend = () => {
@@ -179,7 +179,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
     setPreferences(prev => {
       const key = `${category}_preferences` as keyof typeof prev
       const current = prev[key] as string[]
-      
+
       if (current.includes(value)) {
         return {
           ...prev,
@@ -303,7 +303,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
         const countryName = LATAM_COUNTRIES.find(c => c.code === profileData.country)?.name || profileData.country
         location = `${location}, ${countryName}`
       }
-      
+
       const updateResult = await UserService.updateUser(user.id, {
         photos: profileData.photos,
         bio: profileData.bio.trim(),
@@ -341,7 +341,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
       }
 
       toast.success('Perfil criado com sucesso!')
-      
+
       // Redirecionar
       if (onComplete) {
         onComplete()
@@ -373,7 +373,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
         <p className="text-xs md:text-sm text-muted-foreground mb-4">
           Escolha uma foto para seu perfil (máximo 5MB)
         </p>
-        
+
         <div className="flex flex-col items-center gap-4">
           {profileData.photos.length > 0 ? (
             <div className="relative">
@@ -397,7 +397,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
               <Camera className="h-12 w-12 md:h-16 md:w-16 text-muted-foreground/50" />
             </div>
           )}
-          
+
           <input
             ref={fileInputRef}
             type="file"
@@ -428,7 +428,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
         <p className="text-xs md:text-sm text-muted-foreground mb-4">
           Escreva uma bio e informe sua idade e cidade
         </p>
-        
+
         <div className="space-y-4">
           <div>
             <Label htmlFor="bio">Bio</Label>
@@ -517,7 +517,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
           <p className="text-sm text-muted-foreground mb-6">
             Ajude-nos a encontrar as pessoas certas para você
           </p>
-          
+
           <div className="space-y-6">
             <div>
               <Label className="text-base font-semibold mb-3 block">
@@ -565,18 +565,18 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   }
 
   const renderStep4 = () => (
-    <div className="space-y-6">
+    <div className="space-y-6 md:space-y-8">
       <div>
-        <h3 className="text-xl font-bold mb-2">Bebidas Favoritas</h3>
-        <p className="text-sm text-muted-foreground mb-4">
+        <h3 className="text-xl md:text-2xl lg:text-3xl font-bold mb-3">Bebidas Favoritas</h3>
+        <p className="text-sm md:text-base text-muted-foreground mb-6">
           Selecione suas bebidas preferidas (mínimo 1, máximo 10)
         </p>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-3">
           {DRINK_PREFERENCES.map(drink => (
             <Badge
               key={drink}
               variant={preferences.drink_preferences.includes(drink) ? 'default' : 'outline'}
-              className="cursor-pointer px-4 py-2 text-sm"
+              className="cursor-pointer px-5 py-2.5 text-sm md:text-base hover:scale-105 transition-transform"
               onClick={() => togglePreference('drink', drink)}
             >
               {drink}
@@ -588,18 +588,18 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   )
 
   const renderStep5 = () => (
-    <div className="space-y-6">
+    <div className="space-y-6 md:space-y-8">
       <div>
-        <h3 className="text-xl font-bold mb-2">Comidas Favoritas</h3>
-        <p className="text-sm text-muted-foreground mb-4">
+        <h3 className="text-xl md:text-2xl lg:text-3xl font-bold mb-3">Comidas Favoritas</h3>
+        <p className="text-sm md:text-base text-muted-foreground mb-6">
           Selecione seus tipos de comida preferidos (mínimo 1, máximo 10)
         </p>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-3">
           {FOOD_PREFERENCES.map(food => (
             <Badge
               key={food}
               variant={preferences.food_preferences.includes(food) ? 'default' : 'outline'}
-              className="cursor-pointer px-4 py-2 text-sm"
+              className="cursor-pointer px-5 py-2.5 text-sm md:text-base hover:scale-105 transition-transform"
               onClick={() => togglePreference('food', food)}
             >
               {food}
@@ -611,18 +611,18 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   )
 
   const renderStep6 = () => (
-    <div className="space-y-6">
+    <div className="space-y-6 md:space-y-8">
       <div>
-        <h3 className="text-xl font-bold mb-2">Música Favorita</h3>
-        <p className="text-sm text-muted-foreground mb-4">
+        <h3 className="text-xl md:text-2xl lg:text-3xl font-bold mb-3">Música Favorita</h3>
+        <p className="text-sm md:text-base text-muted-foreground mb-6">
           Selecione seus estilos musicais preferidos (mínimo 1, máximo 10)
         </p>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-3">
           {MUSIC_PREFERENCES.map(music => (
             <Badge
               key={music}
               variant={preferences.music_preferences.includes(music) ? 'default' : 'outline'}
-              className="cursor-pointer px-4 py-2 text-sm"
+              className="cursor-pointer px-5 py-2.5 text-sm md:text-base hover:scale-105 transition-transform"
               onClick={() => togglePreference('music', music)}
             >
               {music}
@@ -634,12 +634,12 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   )
 
   return (
-    <Card className="w-full max-w-2xl mx-auto shadow-hard border-2 m-4 md:m-6">
-      <CardHeader className="p-4 md:p-6">
-        <CardTitle className="text-2xl md:text-3xl font-bold text-center">Configure seu Perfil</CardTitle>
-        <CardDescription className="text-center text-sm md:text-base">Vamos conhecer você melhor para personalizar sua experiência</CardDescription>
+    <Card className="w-full max-w-3xl mx-auto shadow-hard border-2 my-6 md:my-8">
+      <CardHeader className="p-6 md:p-8 space-y-3">
+        <CardTitle className="text-2xl md:text-3xl lg:text-4xl font-bold text-center">Configure seu Perfil</CardTitle>
+        <CardDescription className="text-center text-sm md:text-base lg:text-lg">Vamos conhecer você melhor para personalizar sua experiência</CardDescription>
       </CardHeader>
-      <CardContent className="p-4 md:p-6 space-y-6">
+      <CardContent className="p-6 md:p-8 lg:p-10 space-y-8">
         {error && (
           <Alert variant="destructive">
             <AlertDescription>{error}</AlertDescription>
@@ -653,13 +653,13 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
         {step === 5 && renderStep5()}
         {step === 6 && renderStep6()}
 
-        <div className="flex flex-col sm:flex-row justify-between gap-3 pt-4">
+        <div className="flex flex-col sm:flex-row justify-between gap-4 pt-6">
           <Button
             type="button"
             variant="outline"
             onClick={handleBack}
             disabled={step === 1 || isLoading}
-            className="w-full sm:w-auto"
+            className="w-full sm:w-auto px-6 py-3 text-base h-12"
           >
             Voltar
           </Button>
@@ -667,11 +667,11 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
             type="button"
             onClick={handleNext}
             disabled={isLoading}
-            className="w-full sm:w-auto min-w-[120px]"
+            className="w-full sm:w-auto min-w-[140px] px-6 py-3 text-base h-12"
           >
             {isLoading ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                 Salvando...
               </>
             ) : step === 6 ? (

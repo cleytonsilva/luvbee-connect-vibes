@@ -1,7 +1,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
-const GOOGLE_PLACES_API_BASE = 'https://maps.googleapis.com/maps/api/place'
+const GOOGLE_PLACES_API_ENDPOINT = 'https://places.googleapis.com/v1/places:searchNearby'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -9,28 +9,20 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
 }
 
-interface PlaceResult {
-  place_id: string
-  name: string
+interface GooglePlaceV1 {
+  id: string
+  displayName?: { text: string; languageCode: string }
+  formattedAddress?: string
+  priceLevel?: string // "PRICE_LEVEL_UNSPECIFIED", "PRICE_LEVEL_FREE", "PRICE_LEVEL_INEXPENSIVE", "PRICE_LEVEL_MODERATE", "PRICE_LEVEL_EXPENSIVE", "PRICE_LEVEL_VERY_EXPENSIVE"
   rating?: number
-  user_ratings_total?: number
-  vicinity?: string
+  userRatingCount?: number
   photos?: Array<{
-    photo_reference: string
-    width: number
-    height: number
+    name: string
+    widthPx: number
+    heightPx: number
   }>
-  opening_hours?: {
-    open_now?: boolean
-  }
-  business_status?: string
+  editorialSummary?: { text: string; languageCode: string }
   types?: string[]
-  geometry: {
-    location: {
-      lat: number
-      lng: number
-    }
-  }
 }
 
 interface MinimalPlaceCard {
@@ -39,14 +31,17 @@ interface MinimalPlaceCard {
   rating: number
   user_ratings_total: number
   vicinity: string
-  photo_reference?: string
+  photo_reference?: string // Stores the resource name (places/PLACE_ID/photos/PHOTO_ID)
   is_open: boolean
   types: string[]
   lat: number
   lng: number
+  description?: string
+  price_level?: number
 }
 
-serve(async (req) => {
+// @ts-ignore
+serve(async (req: Request) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -54,10 +49,10 @@ serve(async (req) => {
 
   try {
     const body = await req.json()
-    const { lat, lng, radius = 5000, type = 'bar|night_club|restaurant' } = body
+    const { lat, lng, radius = 5000, type } = body
 
-    // Log para debug (sem dados sensíveis)
-    console.log('[fetch-places-google] Request recebido:', {
+    // Log para debug
+    console.log('[fetch-places-google] Request recebido (New API):', {
       hasLat: lat !== undefined,
       hasLng: lng !== undefined,
       radius,
@@ -75,32 +70,11 @@ serve(async (req) => {
     const latNum = Number(lat)
     const lngNum = Number(lng)
 
-    if (isNaN(latNum) || isNaN(lngNum)) {
-      return new Response(
-        JSON.stringify({ error: 'Latitude e longitude devem ser números válidos' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-
-    if (latNum < -90 || latNum > 90) {
-      return new Response(
-        JSON.stringify({ error: 'Latitude deve estar entre -90 e 90' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-
-    if (lngNum < -180 || lngNum > 180) {
-      return new Response(
-        JSON.stringify({ error: 'Longitude deve estar entre -180 e 180' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-
     // Obter chave da API do Google
     const apiKey = Deno.env.get('GOOGLE_MAPS_BACKEND_KEY') || Deno.env.get('GOOGLE_MAPS_API_KEY')
     if (!apiKey) {
       return new Response(
-        JSON.stringify({ error: 'Google Maps API key não configurada', details: 'Configure GOOGLE_MAPS_BACKEND_KEY nas variáveis de ambiente do Supabase' }),
+        JSON.stringify({ error: 'Google Maps API key não configurada' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
@@ -116,49 +90,48 @@ serve(async (req) => {
       }
     )
 
-    // Processar tipos (pode ser combinado com |)
-    const types = type.split('|').filter(t => t.trim())
-    const allPlaces: MinimalPlaceCard[] = []
-    const seenPlaceIds = new Set<string>()
-
-    // Buscar cada tipo com paginação
-    for (const placeType of types) {
-      const typePlaces = await fetchPlacesWithPagination(
-        latNum,
-        lngNum,
-        radius,
-        placeType.trim(),
-        apiKey,
-        seenPlaceIds
-      )
-      allPlaces.push(...typePlaces)
-      
-      // Pequeno delay para não sobrecarregar a API
-      await new Promise(resolve => setTimeout(resolve, 500))
+    // Definir tipos incluídos (Included Types)
+    // Se o usuário passou 'type', tentamos mapear ou usar o padrão "Vibe"
+    let includedTypes: string[] = ['night_club', 'bar', 'restaurant', 'cafe', 'park', 'art_gallery']
+    
+    if (type && type.includes('solo')) {
+        // Exemplo de ajuste para modo solo se necessário, ou manter a lista ampla e filtrar depois
+        // Mas o prompt pede categorias específicas: Wine bars, Speakeasies, etc.
+        // A API aceita tipos genéricos. Vamos manter a lista ampla do prompt.
     }
 
-    console.log(`[fetch-places-google] Total de lugares únicos encontrados: ${allPlaces.length}`)
+    // Buscar lugares
+    const places = await fetchPlacesNewApi(
+      latNum,
+      lngNum,
+      radius,
+      includedTypes,
+      apiKey
+    )
+
+    console.log(`[fetch-places-google] Total de lugares encontrados (filtro >= 4.0): ${places.length}`)
 
     // Persistir em cache híbrido (venues + locations)
     let savedCount = 0
     const errors: string[] = []
 
-    for (const place of allPlaces) {
+    for (const place of places) {
       try {
         // 1. Upsert em venues (tabela principal)
         const venueData = {
           google_place_id: place.place_id,
           name: place.name,
-          description: place.vicinity || '',
+          description: place.description || place.vicinity || '',
           address: place.vicinity || '',
-          city: extractCityFromVicinity(place.vicinity),
-          state: extractStateFromVicinity(place.vicinity),
+          city: extractCityFromAddress(place.vicinity),
+          state: extractStateFromAddress(place.vicinity),
           latitude: place.lat,
           longitude: place.lng,
           category: mapTypesToCategory(place.types),
           is_adult: isAdultCategory(place.types),
           photos: place.photo_reference ? [place.photo_reference] : [],
-          source: 'google',
+          source: 'google_places_v1',
+          google_place_data: place as any,
           updated_at: new Date().toISOString()
         }
 
@@ -174,21 +147,24 @@ serve(async (req) => {
           continue
         }
 
-        // 2. Upsert em locations (para compatibilidade com hook atual)
+        // 2. Upsert em locations (para compatibilidade)
         const locationData = {
           name: place.name,
           address: place.vicinity || '',
           category: mapTypesToCategory(place.types),
-          type: mapTypesToCategory(place.types),
-          description: place.vicinity || '',
-          city: extractCityFromVicinity(place.vicinity),
-          state: extractStateFromVicinity(place.vicinity),
+          type: mapTypesToCategory(place.types), // Legado
+          description: place.description || place.vicinity || '',
+          city: extractCityFromAddress(place.vicinity),
+          state: extractStateFromAddress(place.vicinity),
           lat: place.lat,
           lng: place.lng,
           google_rating: place.rating,
+          google_user_ratings_total: place.user_ratings_total,
           place_id: place.place_id,
           photos: place.photo_reference ? [place.photo_reference] : [],
           is_adult: isAdultCategory(place.types),
+          price_level: place.price_level,
+          google_place_data: place as any,
           last_synced: new Date().toISOString()
         }
 
@@ -206,29 +182,23 @@ serve(async (req) => {
         }
 
       } catch (error) {
-        errors.push(`Erro ao processar ${place.name}: ${error.message}`)
+        errors.push(`Erro ao processar ${place.name}: ${error instanceof Error ? error.message : String(error)}`)
       }
     }
 
     // Registrar cache desta busca
-    const { error: cacheLogError } = await supabaseClient
+    await supabaseClient
       .from('search_cache_logs')
       .insert({
         latitude: latNum,
         longitude: lngNum,
         radius_meters: radius,
-        search_type: types.join('|')
+        search_type: includedTypes.join('|')
       })
-
-    if (cacheLogError) {
-      console.error('Erro ao registrar cache:', cacheLogError)
-    }
-
-    console.log(`[fetch-places-google] Salvos ${savedCount} lugares no banco`)
 
     return new Response(
       JSON.stringify({ 
-        data: allPlaces,
+        data: places,
         saved_count: savedCount,
         errors: errors.length > 0 ? errors : undefined
       }),
@@ -240,7 +210,6 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('[fetch-places-google] Erro na função:', error)
-    
     return new Response(
       JSON.stringify({ 
         error: error instanceof Error ? error.message : 'Erro interno do servidor',
@@ -254,102 +223,130 @@ serve(async (req) => {
   }
 })
 
-async function fetchPlacesWithPagination(
+async function fetchPlacesNewApi(
   lat: number,
   lng: number,
   radius: number,
-  type: string,
-  apiKey: string,
-  seenPlaceIds: Set<string>
+  includedTypes: string[],
+  apiKey: string
 ): Promise<MinimalPlaceCard[]> {
   const places: MinimalPlaceCard[] = []
-  let nextPageToken: string | undefined = undefined
-  let pageCount = 0
-  const maxPages = 3 // Máximo 3 páginas (60 lugares) por tipo
+  const maxPages = 1 // New API returns up to 20 results per page. Let's start with 1 page to save budget.
+  
+  // New API Payload
+  const requestBody = {
+    includedTypes: includedTypes,
+    maxResultCount: 20,
+    locationRestriction: {
+      circle: {
+        center: {
+          latitude: lat,
+          longitude: lng
+        },
+        radius: Math.max(1, Math.min(50000, radius))
+      }
+    },
+    // rankPreference: "POPULARITY" // Optional, depends on what we want. Distance is default? No, usually RELEVANCE.
+    // New API supports 'POPULARITY' or 'DISTANCE'. 
+    // Prompt says: "Ordene, se possível, por popularity ou rating."
+    rankPreference: "POPULARITY" 
+  }
 
-  do {
-    pageCount++
+  console.log('[fetch-places-google] Calling Google Places API (v1)...')
+
+  try {
+    const response = await fetch(GOOGLE_PLACES_API_ENDPOINT, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Goog-Api-Key': apiKey,
+        // Field Masking para otimizar budget
+        'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.priceLevel,places.rating,places.userRatingCount,places.photos,places.editorialSummary,places.types,places.location'
+      },
+      body: JSON.stringify(requestBody)
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error(`[fetch-places-google] Google API error: ${response.status} - ${errorText}`)
+      throw new Error(`Google API error: ${response.statusText}`)
+    }
+
+    const data = await response.json()
     
-    // Construir URL da API
-    const url = new URL(`${GOOGLE_PLACES_API_BASE}/nearbysearch/json`)
-    url.searchParams.set('location', `${lat},${lng}`)
-    url.searchParams.set('radius', Math.max(1, Math.min(50000, radius)).toString())
-    url.searchParams.set('type', type)
-    url.searchParams.set('key', apiKey)
-    url.searchParams.set('language', 'pt-BR')
-
-    if (nextPageToken) {
-      url.searchParams.set('pagetoken', nextPageToken)
-      // Aguardar 2 segundos antes de usar o next_page_token (requisito da Google API)
-      await new Promise(resolve => setTimeout(resolve, 2000))
-    }
-
-    console.log(`[fetch-places-google] Buscando página ${pageCount} para tipo ${type}`)
-
-    try {
-      const response = await fetch(url.toString())
-      const data = await response.json()
-
-      if (data.status === 'ZERO_RESULTS') {
-        console.log(`[fetch-places-google] ZERO_RESULTS para tipo ${type}`)
-        break
-      }
-
-      if (data.status !== 'OK') {
-        console.error(`[fetch-places-google] Google API error: ${data.status} - ${data.error_message || 'Unknown error'}`)
-        break
-      }
-
-      if (data.results && data.results.length > 0) {
-        for (const result of data.results) {
-          if (!seenPlaceIds.has(result.place_id)) {
-            seenPlaceIds.add(result.place_id)
-            
-            const minimalPlace: MinimalPlaceCard = {
-              place_id: result.place_id,
-              name: result.name,
-              rating: result.rating || 0,
-              user_ratings_total: result.user_ratings_total || 0,
-              vicinity: result.vicinity || '',
-              photo_reference: result.photos?.[0]?.photo_reference,
-              is_open: result.opening_hours?.open_now ?? (result.business_status === 'OPERATIONAL'),
-              types: result.types || [],
-              lat: result.geometry.location.lat,
-              lng: result.geometry.location.lng
-            }
-            
-            places.push(minimalPlace)
-          }
+    if (data.places && data.places.length > 0) {
+      for (const place of data.places as GooglePlaceV1[]) {
+        // Curadoria Automática: minRating 4.0
+        if ((place.rating || 0) < 4.0) {
+            continue
         }
-      }
 
-      nextPageToken = data.next_page_token
-      
-      // Parar se não há mais páginas ou atingiu o limite
-      if (!nextPageToken || pageCount >= maxPages) {
-        break
+        const minimalPlace: MinimalPlaceCard = {
+          place_id: place.id,
+          name: place.displayName?.text || 'Desconhecido',
+          rating: place.rating || 0,
+          user_ratings_total: place.userRatingCount || 0,
+          vicinity: place.formattedAddress || '',
+          photo_reference: place.photos?.[0]?.name, // Resource Name (places/.../photos/...)
+          is_open: true, // New API doesn't always return open_now in the basic fields without extra cost/fieldmask, assuming open or relying on other logic
+          types: place.types || [],
+          // @ts-ignore - place.location exists because we requested it in FieldMask
+          lat: place.location?.latitude || 0, 
+          // @ts-ignore
+          lng: place.location?.longitude || 0,
+          description: place.editorialSummary?.text || '',
+          price_level: mapPriceLevel(place.priceLevel)
+        }
+        
+        places.push(minimalPlace)
       }
-
-    } catch (error) {
-      console.error(`[fetch-places-google] Erro ao buscar página ${pageCount}:`, error)
-      break
     }
-  } while (nextPageToken && pageCount < maxPages)
 
-  console.log(`[fetch-places-google] Encontrados ${places.length} lugares únicos para tipo ${type}`)
+  } catch (error) {
+    console.error('[fetch-places-google] Erro ao buscar lugares:', error)
+  }
+
   return places
 }
 
-function extractCityFromVicinity(vicinity?: string): string {
-  if (!vicinity) return 'Desconhecido'
-  const parts = vicinity.split(',')
-  return parts[parts.length - 1]?.trim() || 'Desconhecido'
+function mapPriceLevel(level?: string): number {
+  switch (level) {
+    case 'PRICE_LEVEL_FREE': return 0
+    case 'PRICE_LEVEL_INEXPENSIVE': return 1
+    case 'PRICE_LEVEL_MODERATE': return 2
+    case 'PRICE_LEVEL_EXPENSIVE': return 3
+    case 'PRICE_LEVEL_VERY_EXPENSIVE': return 4
+    default: return 0
+  }
 }
 
-function extractStateFromVicinity(vicinity?: string): string {
-  if (!vicinity) return 'Desconhecido'
-  const parts = vicinity.split(',')
-  return parts[parts.length - 2]?.trim() || 'Desconhecido'
+function extractCityFromAddress(address?: string): string {
+  if (!address) return 'Desconhecido'
+  const parts = address.split(',')
+  // Heuristic: "Rua X, 123 - Bairro, Cidade - Estado"
+  // Usually the second to last part is City, or City - State
+  if (parts.length >= 2) {
+      const cityState = parts[parts.length - 2].trim() // "Cidade - UF" or just "Cidade"
+      // Try to split by hyphen if exists
+      if (cityState.includes('-')) {
+          return cityState.split('-')[0].trim()
+      }
+      return cityState
+  }
+  return 'Desconhecido'
+}
+
+function extractStateFromAddress(address?: string): string {
+    if (!address) return 'Desconhecido'
+    const parts = address.split(',')
+    if (parts.length >= 1) {
+        // Usually the last part contains the state or Country
+        // Ex: "São Paulo - SP, 01000-000, Brasil" -> parts[last] is Brasil
+        // Let's try to find a 2-letter state code in the address
+        const match = address.match(/\b[A-Z]{2}\b/)
+        if (match) return match[0]
+    }
+    return 'Desconhecido'
 }
 
 function mapTypesToCategory(types: string[]): string {
@@ -359,7 +356,8 @@ function mapTypesToCategory(types: string[]): string {
   if (types.includes('bar')) return 'bar'
   if (types.includes('restaurant')) return 'restaurant'
   if (types.includes('cafe')) return 'cafe'
-  if (types.includes('shopping_mall')) return 'shopping'
+  if (types.includes('art_gallery')) return 'culture'
+  if (types.includes('park')) return 'park'
   
   return 'bar'
 }

@@ -32,18 +32,28 @@ export async function invokeCachePlacePhoto(
     })
 
     if (error) {
-      // Se der erro 404, tentar chamar diretamente via fetch como fallback
-      if (error.message?.includes('404') || error.message?.includes('not found')) {
-        if (import.meta.env.DEV) {
-          console.warn('[cache-place-photo-helper] Invoke retornou 404, tentando fallback via fetch...')
-        }
-        return await invokeCachePlacePhotoFallback(placeId, { maxWidth, photoReference })
+      // Se der erro 404, significa que a foto não foi encontrada (não é erro de rede)
+      // Podemos retornar success: false sem tentar fallback, pois o fallback vai dar o mesmo erro
+      if (error.message?.includes('404') || error.message?.includes('not found') || error.message?.includes('Photo not found')) {
+         return {
+            success: false,
+            error: 'Foto não encontrada para este local'
+         }
       }
 
-      return {
-        success: false,
-        error: error.message || 'Erro desconhecido ao chamar Edge Function'
+      // Se der erro 400, também não adianta tentar fallback (parâmetros inválidos)
+      if (error.message?.includes('400') || error.message?.includes('Bad Request')) {
+          return {
+              success: false,
+              error: 'Requisição inválida (400)'
+          }
       }
+
+      // Se for outro erro, tentar fallback
+      if (import.meta.env.DEV) {
+          console.warn('[cache-place-photo-helper] Invoke falhou, tentando fallback via fetch...', error)
+      }
+      return await invokeCachePlacePhotoFallback(placeId, { maxWidth, photoReference })
     }
 
     if (data?.imageUrl) {

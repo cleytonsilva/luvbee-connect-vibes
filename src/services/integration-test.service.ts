@@ -239,10 +239,11 @@ export class IntegrationTestService {
         .insert({
           name: 'Test Location',
           address: '123 Test St',
-          category: 'bar',
+          type: 'bar', // Usando 'type' ao invés de 'category' (nome correto da coluna)
           lat: -23.5505,
           lng: -46.6333,
-          rating: 4.5
+          rating: 4.5,
+          is_active: true // Explicitamente ativando para ser visível no feed
         })
         .select()
         .single()

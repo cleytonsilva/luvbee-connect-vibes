@@ -40,14 +40,14 @@ export function ProfileForm() {
     music_preferences: [] as string[],
   })
   
-  const [formData, setFormData] = useState<Partial<UserProfile>>({
+  const [formData, setFormData] = useState({
     name: '',
     bio: '',
-    age: undefined,
+    age: undefined as number | undefined,
     location: '',
-    interests: [],
+    interests: [] as string[],
     avatar_url: '',
-    preferences: {}
+    preferences: {} as Record<string, any>
   })
 
   // Carregar perfil e preferências
@@ -65,20 +65,29 @@ export function ProfileForm() {
     
     setIsLoadingPreferences(true)
     try {
+      console.log('📥 Carregando preferências do usuário...', user.id)
       const result = await UserService.getUserPreferences(user.id)
+      
       if (result.data) {
+        console.log('✅ Preferências carregadas:', result.data)
+        
+        // Garantir que estamos lendo as colunas corretas
+        // Fallback para arrays vazios se vier null
         setPreferences({
           drink_preferences: result.data.drink_preferences || [],
           food_preferences: result.data.food_preferences || [],
           music_preferences: result.data.music_preferences || [],
         })
+        
         setDiscoveryPreferences({
           identity: (result.data.identity as any) || '',
           who_to_see: result.data.who_to_see || [],
         })
+      } else {
+        console.warn('⚠️ Nenhuma preferência encontrada para o usuário')
       }
     } catch (error) {
-      console.warn('Erro ao carregar preferências:', error)
+      console.error('❌ Erro ao carregar preferências:', error)
     } finally {
       setIsLoadingPreferences(false)
     }
@@ -163,7 +172,7 @@ export function ProfileForm() {
     }
   }, [profile, user])
 
-  const handleInputChange = useCallback((field: keyof UserProfile, value: any) => {
+  const handleInputChange = useCallback((field: string, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }))
   }, [])
 
@@ -433,12 +442,30 @@ export function ProfileForm() {
       // Atualizar perfil básico
       await updateProfile(updateData)
       
+      // Validar who_to_see antes de enviar
+      if (discoveryPreferences.who_to_see.length === 0) {
+        toast.error('Selecione quem você quer ver')
+        setIsLoading(false)
+        return
+      }
+
+      console.log('💾 Salvando preferências:', {
+        ...preferences,
+        identity: discoveryPreferences.identity,
+        who_to_see: discoveryPreferences.who_to_see,
+      })
+
       // Atualizar preferências na tabela user_preferences
-      await UserService.saveUserPreferences(user.id, {
+      const prefResult = await UserService.saveUserPreferences(user.id, {
         ...preferences,
         identity: discoveryPreferences.identity || null,
         who_to_see: discoveryPreferences.who_to_see,
       })
+
+      if (prefResult.error) {
+        console.error('❌ Erro ao salvar preferências:', prefResult.error)
+        throw new Error(prefResult.error)
+      }
       
       toast.success('Perfil atualizado com sucesso!')
     } catch (error) {
@@ -470,7 +497,7 @@ export function ProfileForm() {
                       className="w-full h-full object-cover"
                       loading="lazy"
                       decoding="async"
-                      fetchpriority="low"
+                      fetchPriority="low"
                       onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/placeholder.svg' }}
                     />
                     <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">

@@ -114,12 +114,15 @@ serve(async (req) => {
         place_id: locationData.place_id || null,
         lat: Number(locationData.lat),
         lng: Number(locationData.lng),
+        city: locationData.city || null, // Cidade extraída do endereço
+        state: locationData.state || null, // Estado extraído do endereço
         rating: locationData.rating ? Number(locationData.rating) : 0,
         price_level: locationData.price_level ? Number(locationData.price_level) : 1,
         image_url: locationData.image_url || '',
         peak_hours: locationData.peak_hours || [0, 0, 0, 0, 0],
         google_rating: locationData.google_rating ? Number(locationData.google_rating) : null,
         google_place_data: locationData.google_place_data || null,
+        is_active: true, // IMPORTANTE: Sempre ativar locais recém-criados
       })
       .select('*')
       .single()

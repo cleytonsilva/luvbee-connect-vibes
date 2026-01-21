@@ -7,23 +7,50 @@ import type { UserPreferences } from '../types/user.types'
 
 export class UserService {
   /**
-   * Busca o perfil completo do usuário (users + user_preferences)
+   * Busca o perfil completo do usuário
+   * Nota: user_preferences está relacionado com auth.users, não public.users
+   * Por isso buscamos separadamente se necessário
    */
   static async getUserProfile(userId: string): Promise<ApiResponse<UserWithPreferences>> {
     try {
-      const { data, error } = await supabase
+      // Buscar dados do usuário da tabela users (que já tem location como JSONB)
+      // Usar campos específicos para evitar expansão automática de relacionamentos
+      const { data: userData, error: userError } = await supabase
         .from('users')
-        .select(`
-          *,
-          user_preferences (*)
-        `)
+        .select('id,email,name,age,bio,location,photos,preferences,onboarding_completed,role,created_at,updated_at')
         .eq('id', userId)
         .single()
 
-      if (error) throw error
+      if (userError) {
+        // Se usuário não encontrado, não é erro crítico
+        if (userError.code === 'PGRST116') {
+          console.log('[UserService] Usuário não encontrado:', userId)
+          return { data: null as any }
+        }
+        throw userError
+      }
 
-      return { data: data as UserWithPreferences }
+      // Buscar preferências separadamente (FK é para auth.users)
+      // Usar maybeSingle para não falhar se não existir
+      const { data: prefsData, error: prefsError } = await supabase
+        .from('user_preferences')
+        .select('user_id,drink_preferences,food_preferences,music_preferences,vibe_preferences,interests')
+        .eq('user_id', userId)
+        .maybeSingle()
+
+      if (prefsError && prefsError.code !== 'PGRST116') {
+        console.warn('[UserService] Erro ao buscar preferências (não crítico):', prefsError.message)
+      }
+
+      // Combinar os dados
+      const combinedData = {
+        ...userData,
+        user_preferences: prefsData || null
+      }
+
+      return { data: combinedData as UserWithPreferences }
     } catch (error) {
+      console.error('[UserService] Erro ao buscar perfil:', error)
       return { 
         error: error instanceof Error ? error.message : 'Failed to get user profile' 
       }
@@ -172,15 +199,23 @@ export class UserService {
       
       // Upsert para evitar select prévio e reduzir fricção com RLS
       // NOTA: Se não houver sessão válida, o RLS pode bloquear esta operação
-      // Nesse caso, o erro será retornado e o usuário precisará confirmar o email primeiro
+      console.log('[UserService] Salvando preferências para:', userId, validatedData)
+      
       const upsertRes = await supabase
-        .from('user_preferences')
+        .from('user_preferences' as any)
         .upsert({
           user_id: userId,
           ...validatedData
         }, { onConflict: 'user_id' })
         .select()
         .single()
+      
+      if (upsertRes.error) {
+        console.error('[UserService] Erro ao salvar preferências (upsert):', upsertRes.error);
+      } else {
+        console.log('[UserService] Preferências salvas com sucesso:', upsertRes.data);
+      }
+
       const upserted = upsertRes?.data
       const upsertError = upsertRes?.error
 

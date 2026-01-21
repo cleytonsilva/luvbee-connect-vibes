@@ -102,6 +102,8 @@ export class MatchService {
     status?: 'pending' | 'mutual' | 'unmatched'
   ): Promise<ApiResponse<PeopleMatchWithUsers[]>> {
     try {
+      if (!userId) return { data: [] }
+
       let query = supabase
         .from('people_matches')
         .select(`
@@ -146,6 +148,8 @@ export class MatchService {
     userId2: string
   ): Promise<ApiResponse<PeopleMatchWithUsers | null>> {
     try {
+      if (!userId1 || !userId2) return { error: 'User IDs are required' }
+
       const { data, error } = await supabase
         .from('people_matches')
         .select(`
@@ -236,6 +240,65 @@ export class MatchService {
         error: error instanceof Error
           ? error.message
           : 'Failed to check location matches'
+      }
+    }
+  }
+
+  /**
+   * Busca locais em comum entre dois usuários
+   */
+  static async getCommonLocations(
+    userId1: string,
+    userId2: string
+  ): Promise<ApiResponse<Array<{ id: string; name: string; photo_url?: string }>>> {
+    try {
+      // Buscar IDs dos locais curtidos pelo usuário 1
+      const { data: user1Matches, error: error1 } = await supabase
+        .from('location_matches')
+        .select('location_id')
+        .eq('user_id', userId1)
+        .eq('status', 'active')
+
+      if (error1) throw error1
+
+      // Buscar IDs dos locais curtidos pelo usuário 2
+      const { data: user2Matches, error: error2 } = await supabase
+        .from('location_matches')
+        .select('location_id')
+        .eq('user_id', userId2)
+        .eq('status', 'active')
+
+      if (error2) throw error2
+
+      // Encontrar IDs em comum
+      const user1LocationIds = new Set(user1Matches?.map(m => m.location_id) || [])
+      const user2LocationIds = new Set(user2Matches?.map(m => m.location_id) || [])
+      const commonLocationIds = Array.from(user1LocationIds).filter(id => user2LocationIds.has(id))
+
+      if (commonLocationIds.length === 0) {
+        return { data: [] }
+      }
+
+      // Buscar detalhes dos locais em comum
+      const { data: locations, error: error3 } = await supabase
+        .from('locations')
+        .select('id, name, image_url')
+        .in('id', commonLocationIds)
+
+      if (error3) throw error3
+
+      const commonLocations = (locations || []).map(location => ({
+        id: location.id,
+        name: location.name,
+        photo_url: location.image_url
+      }))
+
+      return { data: commonLocations }
+    } catch (error) {
+      return {
+        error: error instanceof Error
+          ? error.message
+          : 'Failed to get common locations'
       }
     }
   }

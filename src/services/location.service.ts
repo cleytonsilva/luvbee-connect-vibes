@@ -3,13 +3,14 @@ import { safeLog } from '@/lib/safe-log'
 import type { LocationData, LocationFilter, ApiResponse, PaginationOptions } from '../types/app.types'
 import { ImageStorageService } from './image-storage.service'
 import { useGeoCache, makeRadiusKey } from '@/hooks/useGeoCache'
+import { GooglePlace } from './google-places.service'
 
 export class LocationService {
   static async getLocations(filter?: LocationFilter, pagination?: PaginationOptions): Promise<ApiResponse<LocationData[]>> {
     try {
       let query = supabase
         .from('locations')
-        .select('id,name,address,type,lat,lng,rating,price_level,image_url,description,place_id,google_rating,google_place_data,created_at,updated_at')
+        .select('id,name,address,type,lat,lng,rating,price_level,image_url,image_storage_path,description,place_id,google_rating,google_place_data,created_at,updated_at')
 
       if (filter) {
         if (filter.category) {
@@ -52,6 +53,7 @@ export class LocationService {
         description: loc.description || undefined,
         images: loc.image_url ? [loc.image_url] : undefined,
         image_url: loc.image_url,
+        image_storage_path: loc.image_storage_path, // Mapear image_storage_path
         rating: Number(loc.rating) || Number(loc.google_rating) || 0,
         price_level: loc.price_level || undefined,
         place_id: loc.place_id || undefined,
@@ -226,9 +228,8 @@ export class LocationService {
         ...(loc.distance_meters && { distance_meters: Number(loc.distance_meters) }),
       }))
 
-      // Processamento de imagens temporariamente desabilitado devido a problemas com Edge Function
-      // TODO: Reabilitar após corrigir problema de 404 na Edge Function
-      // this.processLocationImagesInBackground(locations)
+      // Processamento de imagens em background
+      this.processLocationImagesInBackground(locations)
       useGeoCache.getState().setRadius(key, locations)
       return { data: locations }
     } catch (error) {
@@ -241,7 +242,7 @@ export class LocationService {
    * Processa imagens de locais em background usando LocationImageScraper
    * Busca fotos de múltiplas fontes (Google Places, Instagram, Unsplash)
    */
-  private static async processLocationImagesInBackground(locations: LocationData[]): Promise<void> {
+  static async processLocationImagesInBackground(locations: LocationData[]): Promise<void> {
     // Importar dinamicamente para evitar dependência circular
     const { LocationImageScraper } = await import('./location-image-scraper.service')
     
@@ -251,14 +252,13 @@ export class LocationService {
     locationsToProcess.forEach(async (location) => {
       try {
         // Verificar se já tem imagem salva no Supabase Storage
-        const existingUrl = await ImageStorageService.getLocationImageUrl(location.id)
-        
-        if (existingUrl && existingUrl.includes('supabase.co/storage')) {
-          // Já tem imagem salva, não precisa processar
+        // Se a URL já contém supabase.co, assumimos que está ok
+        if (location.image_url && location.image_url.includes('supabase.co/storage')) {
           return
         }
 
-        // Processar usando scraper (busca múltiplas fontes)
+        // Se não tem URL ou não é do bucket, tentar processar
+        // O scraper verifica internamente se já existe imagem no bucket para esse ID
         LocationImageScraper.processAndSaveLocationImages(location.id).catch(err => {
           console.warn(`[LocationService] Failed to process image for location ${location.id}:`, err)
         })
@@ -445,184 +445,75 @@ export class LocationService {
    */
   static async createLocationMatch(userId: string, locationId: string): Promise<ApiResponse<void>> {
     try {
-      // Verificar se já existe match antes de tentar inserir (evita erro 409)
-      const existingMatch = await this.hasLocationMatch(userId, locationId)
-      if (existingMatch) {
-        // Se já existe, apenas atualizar matched_at e status para active
-        const updateData: any = {
-          matched_at: new Date().toISOString(),
-          status: 'active'
-        }
+      // Validar se locationId é um UUID. Se for place_id (texto curto ou longo sem hifens padrão), precisamos resolver para UUID
+      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(locationId);
+      
+      let finalLocationId = locationId;
 
-        const { error: updateError } = await supabase
-          .from('location_matches' as any)
-          .update(updateData)
-          .eq('user_id', userId)
-          .eq('location_id', locationId)
-
-        if (updateError) {
-          // Se erro por status não existir, tentar sem status
-          if (updateError.message?.includes('status') || updateError.code === '42703') {
-            const { error: retryUpdateError } = await supabase
-              .from('location_matches' as any)
-              .update({ matched_at: new Date().toISOString() } as any)
-              .eq('user_id', userId)
-              .eq('location_id', locationId)
-
-            if (retryUpdateError) {
-              // Tentar com UUID se location_id for place_id
-              const locationResult = await this.getLocationByPlaceId(locationId)
-              if (locationResult.data?.id && locationResult.data.id !== locationId) {
-                const { error: uuidUpdateError } = await supabase
-                  .from('location_matches' as any)
-                  .update({ matched_at: new Date().toISOString() } as any)
-                  .eq('user_id', userId)
-                  .eq('location_id', locationResult.data.id)
-
-                if (uuidUpdateError) {
-                  // Se ainda erro, tratar como sucesso silencioso (já existe)
-                  return { data: undefined }
-                }
-              } else {
-                // Se ainda erro, tratar como sucesso silencioso (já existe)
-                return { data: undefined }
-              }
-            }
+      if (!isUUID) {
+          console.log(`[LocationService] createLocationMatch recebeu place_id: ${locationId}. Buscando UUID...`);
+          // Tentar buscar o local pelo place_id para pegar o UUID real
+          const { data: location } = await this.getLocationByPlaceId(locationId);
+          
+          if (location && location.id) {
+              finalLocationId = location.id;
           } else {
-            // Se erro de update, tratar como sucesso silencioso (já existe)
-            return { data: undefined }
+              // Se não encontrou o local no banco, não podemos criar match (constraint violation)
+              // Em tese o local deveria existir pois o usuário está vendo o card
+              console.warn(`[LocationService] Local com place_id ${locationId} não encontrado no banco para criar match.`);
+              // Opcional: Tentar criar o local on-the-fly? Pode ser arriscado/lento aqui.
+              // Por enquanto, vamos deixar falhar mas com log claro, ou retornar erro amigável.
+              return { error: 'Local não encontrado no sistema para registrar o like.' };
           }
-        }
-        return { data: undefined }
       }
 
-      const insertData: any = {
-        user_id: userId,
-        location_id: locationId, // location_id é TEXT, pode ser UUID ou place_id
-        matched_at: new Date().toISOString(),
-        status: 'active'
-      }
-
-      // Tentar inserir primeiro (com supressão silenciosa de erro 409)
-      const { error: insertError } = await supabase
+      // Upsert: Cria ou Atualiza o status para active
+      const { error } = await supabase
         .from('location_matches' as any)
-        .insert(insertData)
+        .upsert({
+          user_id: userId,
+          location_id: finalLocationId,
+          status: 'active',
+          matched_at: new Date().toISOString()
+        }, {
+          onConflict: 'user_id,location_id'
+        })
 
-      // Se não houve erro, sucesso
-      if (!insertError) {
-        return { data: undefined }
-      }
-
-      // Verificar se é erro de conflito (409) ou violação de constraint única (23505)
-      const isConflictError = 
-        insertError.code === '23505' || 
-        insertError.code === 'PGRST301' ||
-        insertError.status === 409 ||
-        insertError.message?.includes('409') || 
-        insertError.message?.includes('Conflict') ||
-        insertError.message?.includes('duplicate') ||
-        insertError.message?.includes('unique constraint') ||
-        insertError.message?.includes('already exists')
-
-      if (isConflictError) {
-        // Se já existe, apenas atualizar o registro existente
-        const updateData: any = {
-          matched_at: new Date().toISOString(),
-          status: 'active'
-        }
-
-        const { error: updateError } = await supabase
-          .from('location_matches' as any)
-          .update(updateData)
-          .eq('user_id', userId)
-          .eq('location_id', locationId)
-
-        if (updateError) {
-          // Se erro por coluna status não existir, tentar sem status
-          if (updateError.message?.includes('status') || updateError.code === '42703') {
-            const { error: retryUpdateError } = await supabase
-              .from('location_matches' as any)
-              .update({ matched_at: new Date().toISOString() } as any)
-              .eq('user_id', userId)
-              .eq('location_id', locationId)
-
-            if (retryUpdateError) {
-              // Tentar com UUID se location_id for place_id
-              const locationResult = await this.getLocationByPlaceId(locationId)
-              if (locationResult.data?.id && locationResult.data.id !== locationId) {
-                const { error: uuidUpdateError } = await supabase
-                  .from('location_matches' as any)
-                  .update({ matched_at: new Date().toISOString() } as any)
-                  .eq('user_id', userId)
-                  .eq('location_id', locationResult.data.id)
-
-                if (uuidUpdateError) {
-                  // Se ainda erro, tratar como sucesso silencioso (já existe)
-                  return { data: undefined }
-                }
-              } else {
-                // Se ainda erro, tratar como sucesso silencioso (já existe)
-                return { data: undefined }
-              }
-            }
-          } else {
-            // Se erro de update, tratar como sucesso silencioso (já existe)
+      if (error) {
+        console.error('[LocationService] createLocationMatch error details:', error)
+        
+        // Tratamento para erro de status ausente (se coluna não existir)
+        if (error.message?.includes('status') || error.code === '42703') {
+           const { error: retryError } = await supabase
+            .from('location_matches' as any)
+            .upsert({
+              user_id: userId,
+              location_id: locationId,
+              matched_at: new Date().toISOString()
+            }, {
+              onConflict: 'user_id,location_id'
+            })
+            
+            if (retryError) throw retryError
             return { data: undefined }
-          }
         }
-        return { data: undefined }
+        throw error
       }
-
-      // Se erro por coluna status não existir, tentar inserir sem status
-      if (insertError.message?.includes('status') || insertError.code === '42703') {
-        const { error: retryInsertError } = await supabase
-          .from('location_matches' as any)
-          .insert({
-            user_id: userId,
-            location_id: locationId,
-            matched_at: new Date().toISOString()
-          })
-
-        if (retryInsertError) {
-          // Se ainda erro de conflito, tratar como sucesso
-          const isRetryConflictError = 
-            retryInsertError.code === '23505' || 
-            retryInsertError.code === 'PGRST301' ||
-            retryInsertError.status === 409 ||
-            retryInsertError.message?.includes('409') || 
-            retryInsertError.message?.includes('Conflict') ||
-            retryInsertError.message?.includes('duplicate') ||
-            retryInsertError.message?.includes('unique constraint') ||
-            retryInsertError.message?.includes('already exists')
-
-          if (isRetryConflictError) {
-            return { data: undefined }
-          }
-          throw retryInsertError
-        }
-        return { data: undefined }
-      }
-
-      // Se não é erro de conflito nem de status, lançar o erro
-      throw insertError
+      
+      return { data: undefined }
     } catch (error) {
-      // Capturar qualquer erro de conflito que possa ter escapado
-      const errorMessage = error instanceof Error ? error.message : String(error)
-      const isConflictError = 
-        errorMessage.includes('409') || 
-        errorMessage.includes('Conflict') ||
-        errorMessage.includes('23505') ||
-        errorMessage.includes('duplicate') ||
-        errorMessage.includes('unique constraint') ||
-        errorMessage.includes('already exists') ||
-        errorMessage.includes('PGRST301')
-
-      if (isConflictError) {
-        // Conflito significa que já existe, então é sucesso silencioso
-        return { data: undefined }
+      let errorMessage = 'Unknown error';
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      } else if (typeof error === 'object' && error !== null) {
+        // Tentar extrair mensagem de objetos de erro comuns (Supabase/Postgrest)
+        errorMessage = (error as any).message || (error as any).error_description || (error as any).details || JSON.stringify(error);
+      } else {
+        errorMessage = String(error);
       }
-
-      return { error: errorMessage }
+      
+      console.error('[LocationService] createLocationMatch exception:', errorMessage);
+      return { error: errorMessage };
     }
   }
 
@@ -671,124 +562,45 @@ export class LocationService {
    */
   static async removeLocationMatch(userId: string, locationId: string): Promise<ApiResponse<void>> {
     try {
-      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(locationId)
+      safeLog('info', '[LocationService] removeLocationMatch:start', { userId, locationId })
 
-      safeLog('info', '[LocationService] removeLocationMatch:start', { userId, locationId, isUUID })
-
-      // Tentar atualizar status primeiro (registro ativo → inativo)
-      const { error: updateError } = await supabase
+      // Upsert: Marca como inativo
+      const { error } = await supabase
         .from('location_matches' as any)
-        .update({ status: 'inactive' } as any) // Usar 'inactive' para marcar como rejeitado
-        .eq('user_id', userId)
-        .eq('location_id', locationId)
+        .upsert({
+          user_id: userId,
+          location_id: locationId,
+          status: 'inactive'
+        }, {
+          onConflict: 'user_id,location_id'
+        })
 
-      // Se erro por coluna status não existir, deletar o registro
-      if (updateError && (updateError.message?.includes('status') || updateError.code === '42703')) {
-        safeLog('warn', '[LocationService] removeLocationMatch:updateErrorStatusMissing → delete', { updateError })
-        const { error: deleteError } = await supabase
-          .from('location_matches' as any)
-          .delete()
-          .eq('user_id', userId)
-          .eq('location_id', locationId)
-
-        if (deleteError) throw deleteError
-        safeLog('info', '[LocationService] removeLocationMatch:deletedByProvidedId', { userId, locationId })
-        const stillActiveAfterDelete = await this.hasLocationMatch(userId, locationId)
-        if (!stillActiveAfterDelete) {
-          return { data: undefined }
-        }
-        // Se ainda ativo após delete, continuar para tentativa alternativa
-      }
-
-      if (updateError) {
-        safeLog('warn', '[LocationService] removeLocationMatch:updateError', { updateError })
-      }
-
-      // Verificar se realmente foi removido/inativado
-      const stillActive = await this.hasLocationMatch(userId, locationId)
-      if (!updateError && !stillActive) {
-        safeLog('info', '[LocationService] removeLocationMatch:inactiveByProvidedId', { userId, locationId })
-        return { data: undefined }
-      }
-
-      // Tentar alternativa: mapear place_id ↔ UUID e tentar novamente
-      if (!isUUID) {
-        // Dado é place_id → obter UUID e tentar com UUID
-        const loc = await this.getLocationByPlaceId(locationId)
-        const uuid = loc.data?.id
-        if (uuid && uuid !== locationId) {
-          safeLog('info', '[LocationService] removeLocationMatch:retryWithUUID', { uuid })
-          const { error: updateUUIDError } = await supabase
+      if (error) {
+        // Fallback: se coluna status não existe, tenta deletar
+        if (error.message?.includes('status') || error.code === '42703') {
+           const { error: deleteError } = await supabase
             .from('location_matches' as any)
-            .update({ status: 'inactive' } as any)
+            .delete()
             .eq('user_id', userId)
-            .eq('location_id', uuid)
-
-          if (updateUUIDError && (updateUUIDError.message?.includes('status') || updateUUIDError.code === '42703')) {
-            const { error: deleteUUIDError } = await supabase
-              .from('location_matches' as any)
-              .delete()
-              .eq('user_id', userId)
-              .eq('location_id', uuid)
-            if (deleteUUIDError) throw deleteUUIDError
-            safeLog('info', '[LocationService] removeLocationMatch:deletedByUUID', { userId, uuid })
+            .eq('location_id', locationId)
+            
+            if (deleteError) throw deleteError
             return { data: undefined }
-          }
-
-          if (updateUUIDError) {
-            safeLog('warn', '[LocationService] removeLocationMatch:updateUUIDError', { updateUUIDError })
-          }
-
-          const stillActiveUUID = await this.hasLocationMatch(userId, uuid)
-          if (!updateUUIDError && !stillActiveUUID) {
-            safeLog('info', '[LocationService] removeLocationMatch:inactiveByUUID', { userId, uuid })
-            return { data: undefined }
-          }
         }
-      } else {
-        // Dado é UUID → tentar por place_id se existir
-        const loc = await this.getLocationById(locationId)
-        const placeId = (loc.data as any)?.place_id
-        if (placeId && placeId !== locationId) {
-          safeLog('info', '[LocationService] removeLocationMatch:retryWithPlaceId', { placeId })
-          const { error: updatePlaceError } = await supabase
-            .from('location_matches' as any)
-            .update({ status: 'inactive' } as any)
-            .eq('user_id', userId)
-            .eq('location_id', placeId)
-
-          if (updatePlaceError && (updatePlaceError.message?.includes('status') || updatePlaceError.code === '42703')) {
-            const { error: deletePlaceError } = await supabase
-              .from('location_matches' as any)
-              .delete()
-              .eq('user_id', userId)
-              .eq('location_id', placeId)
-            if (deletePlaceError) throw deletePlaceError
-            safeLog('info', '[LocationService] removeLocationMatch:deletedByPlaceId', { userId, placeId })
-            return { data: undefined }
-          }
-
-          if (updatePlaceError) {
-            safeLog('warn', '[LocationService] removeLocationMatch:updatePlaceError', { updatePlaceError })
-          }
-
-          const stillActivePlace = await this.hasLocationMatch(userId, placeId)
-          if (!updatePlaceError && !stillActivePlace) {
-            safeLog('info', '[LocationService] removeLocationMatch:inactiveByPlaceId', { userId, placeId })
-            return { data: undefined }
-          }
-        }
+        throw error
       }
-
-      // Se ainda está ativo, retornar erro explícito para o fluxo de UI
-      const stillActiveFinal = await this.hasLocationMatch(userId, locationId)
-      if (stillActiveFinal) {
-        safeLog('error', '[LocationService] removeLocationMatch:failedToRemove', { userId, locationId })
-        return { error: 'Falha ao desfazer match (registro ainda ativo)' }
-      }
+      
       return { data: undefined }
     } catch (error) {
-      return { error: error instanceof Error ? error.message : 'Failed to remove location match' }
+      let errorMessage = 'Unknown error';
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      } else if (typeof error === 'object' && error !== null) {
+        errorMessage = (error as any).message || (error as any).error_description || (error as any).details || JSON.stringify(error);
+      } else {
+        errorMessage = String(error);
+      }
+      return { error: errorMessage };
     }
   }
 
@@ -836,7 +648,7 @@ export class LocationService {
 
       const { data, error } = await supabase
         .from('locations')
-        .select('id,name,address,type,lat,lng,rating,price_level,image_url,description,place_id,google_rating,google_place_data,created_at,updated_at')
+        .select('id,name,address,type,lat,lng,rating,price_level,image_url,image_storage_path,description,place_id,google_rating,google_place_data,created_at,updated_at')
         .in('id', locationIds)
 
       if (error) {
@@ -854,6 +666,7 @@ export class LocationService {
         description: loc.description || undefined,
         images: loc.image_url ? [loc.image_url] : undefined,
         image_url: loc.image_url,
+        image_storage_path: loc.image_storage_path, // Mapear image_storage_path
         rating: Number(loc.rating) || Number(loc.google_rating) || 0,
         price_level: loc.price_level || undefined,
         place_id: loc.place_id || undefined,
@@ -1021,6 +834,73 @@ export class LocationService {
   }
 
   /**
+   * Extrai cidade e estado de um endereço formatado brasileiro
+   * Ex: "Rua X, 123 - Bairro, São Paulo - SP, 01234-567, Brasil"
+   */
+  private static extractCityStateFromAddress(address: string): { city: string | null; state: string | null } {
+    try {
+      // Mapeamento de estados brasileiros
+      const brazilianStates: Record<string, string> = {
+        'acre': 'ac', 'alagoas': 'al', 'amapa': 'ap', 'amazonas': 'am',
+        'bahia': 'ba', 'ceara': 'ce', 'distrito federal': 'df', 'espirito santo': 'es',
+        'goias': 'go', 'maranhao': 'ma', 'mato grosso': 'mt', 'mato grosso do sul': 'ms',
+        'minas gerais': 'mg', 'para': 'pa', 'paraiba': 'pb', 'parana': 'pr',
+        'pernambuco': 'pe', 'piaui': 'pi', 'rio de janeiro': 'rj', 'rio grande do norte': 'rn',
+        'rio grande do sul': 'rs', 'rondonia': 'ro', 'roraima': 'rr', 'santa catarina': 'sc',
+        'sao paulo': 'sp', 'sergipe': 'se', 'tocantins': 'to'
+      }
+
+      // Siglas de estados
+      const stateAbbreviations = ['AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 
+                                  'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN',
+                                  'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO']
+
+      // Normalizar o endereço
+      const normalizedAddress = address.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+
+      // Padrão 1: "Cidade - UF" ou "Cidade, UF" ou "Cidade -UF"
+      const cityStatePattern = /([A-Za-z\s]+)\s*[-,]\s*([A-Z]{2})/g
+      const matches = [...normalizedAddress.matchAll(cityStatePattern)]
+      
+      if (matches.length > 0) {
+        // Pegar o último match (geralmente é cidade-estado principal)
+        const lastMatch = matches[matches.length - 1]
+        const potentialCity = lastMatch[1].trim()
+        const potentialState = lastMatch[2].toUpperCase()
+        
+        if (stateAbbreviations.includes(potentialState)) {
+          return {
+            city: potentialCity.toLowerCase().replace(/ /g, '-'),
+            state: potentialState.toLowerCase()
+          }
+        }
+      }
+
+      // Padrão 2: Buscar por nome completo do estado
+      for (const [stateName, stateAbbr] of Object.entries(brazilianStates)) {
+        if (normalizedAddress.toLowerCase().includes(stateName)) {
+          // Tentar extrair a cidade antes do nome do estado
+          const parts = address.split(',').map(p => p.trim())
+          for (let i = 0; i < parts.length; i++) {
+            if (parts[i].toLowerCase().includes(stateName) && i > 0) {
+              const cityPart = parts[i - 1].split('-')[0].trim()
+              return {
+                city: cityPart.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/ /g, '-'),
+                state: stateAbbr
+              }
+            }
+          }
+        }
+      }
+
+      return { city: null, state: null }
+    } catch (error) {
+      console.warn('[LocationService] Erro ao extrair cidade/estado do endereço:', error)
+      return { city: null, state: null }
+    }
+  }
+
+  /**
    * Busca local por place_id do Google Places
    */
   static async getLocationByPlaceId(placeId: string): Promise<ApiResponse<LocationData>> {
@@ -1062,18 +942,50 @@ export class LocationService {
    * Cria um local no banco a partir de um GooglePlace/Location
    * Usa Edge Function para bypass RLS (usuários não podem inserir diretamente)
    */
-  static async createLocationFromGooglePlace(location: any): Promise<ApiResponse<LocationData>> {
+  static async createLocationFromGooglePlace(location: GooglePlace | any): Promise<ApiResponse<LocationData>> {
     try {
       // Determinar tipo baseado na categoria
-      let type = 'bar' // Tipo padrão
-      if (location.category === 'balada') {
-        type = 'night_club'
-      } else if (location.category === 'restaurante') {
-        type = 'restaurant'
-      } else if (location.category === 'bar') {
-        type = 'bar'
-      } else if (location.category === 'casa_de_show') {
-        type = 'bar' // Usar bar como fallback
+      let type = 'local' // Tipo padrão genérico (não 'bar')
+      
+      // Check types array from Google Place
+      if (location.types && Array.isArray(location.types)) {
+          // Nightlife
+          if (location.types.includes('night_club')) type = 'club';
+          else if (location.types.includes('bar')) type = 'bar';
+          
+          // Food & Drink
+          else if (location.types.includes('restaurant')) type = 'restaurant';
+          else if (location.types.includes('cafe')) type = 'cafe';
+          else if (location.types.includes('bakery')) type = 'bakery';
+          
+          // Culture
+          else if (location.types.includes('museum')) type = 'museum';
+          else if (location.types.includes('art_gallery')) type = 'gallery';
+          else if (location.types.includes('theater') || location.types.includes('performing_arts_theater')) type = 'theater';
+          else if (location.types.includes('library')) type = 'library';
+          else if (location.types.includes('book_store')) type = 'bookstore';
+          
+          // Education (should be filtered but in case)
+          else if (location.types.includes('university') || location.types.includes('school')) type = 'education';
+          
+          // Events & Entertainment
+          else if (location.types.includes('tourist_attraction')) type = 'attraction';
+          else if (location.types.includes('park')) type = 'park';
+          else if (location.types.includes('amusement_park')) type = 'park';
+          else if (location.types.includes('zoo')) type = 'zoo';
+          else if (location.types.includes('aquarium')) type = 'aquarium';
+          else if (location.types.includes('movie_theater')) type = 'cinema';
+          
+          // Fallback: Pegar o primeiro tipo relevante
+          else if (location.types.length > 0) {
+              type = location.types[0].replace(/_/g, ' ');
+          }
+      } else if (location.category) {
+         // Legacy/Manual category check
+         if (location.category === 'balada') type = 'club'
+         else if (location.category === 'restaurante') type = 'restaurant'
+         else if (location.category === 'bar') type = 'bar'
+         else if (location.category === 'casa_de_show') type = 'club'
       }
 
       // Verificar se já existe
@@ -1082,30 +994,56 @@ export class LocationService {
         return existing
       }
 
+      // Extract coordinates correctly from GooglePlace (geometry.location) or other formats
+      // GooglePlace guarantees geometry.location.lat/lng are numbers
+      const lat = Number(
+        location.geometry?.location?.lat || 
+        location.location?.lat || 
+        location.location?.latitude || 
+        0
+      )
+      const lng = Number(
+        location.geometry?.location?.lng || 
+        location.location?.lng || 
+        location.location?.longitude || 
+        0
+      )
+
+      // Extrair cidade e estado do endereço formatado
+      const address = location.address || location.formatted_address || 'Endereço não disponível'
+      const { city, state } = this.extractCityStateFromAddress(address)
+
       // Preparar dados conforme estrutura real da tabela
       const locationData: any = {
         name: location.name,
-        address: location.address || location.formatted_address || 'Endereço não disponível',
+        address: address,
         type: type,
         place_id: location.place_id,
-        lat: Number(location.location?.lat || location.location?.latitude || 0),
-        lng: Number(location.location?.lng || location.location?.longitude || 0),
+        lat: lat,
+        lng: lng,
+        city: city, // Cidade extraída do endereço
+        state: state, // Estado extraído do endereço
         rating: location.rating ? Number(location.rating) : 0,
         price_level: location.price_level ? Number(location.price_level) : 1,
-        image_url: location.images?.[0] || '',
+        image_url: null, // NÃO SALVAR URL DIRETA DO GOOGLE (Hook irá buscar via Edge Function)
         peak_hours: [0, 0, 0, 0, 0], // Array obrigatório de 5 elementos
         google_rating: location.rating ? Number(location.rating) : null,
+        is_active: true, // Explicitly set active
         google_place_data: {
           types: location.types,
           phone: location.phone || location.phone_number,
           website: location.website,
           opening_hours: location.opening_hours,
+          photos: location.photos || [], // Salvar fotos para uso posterior
         },
       }
+
+      console.log(`[LocationService] Creating location: ${locationData.name} at ${locationData.lat},${locationData.lng}`);
 
       // Validar dados antes de enviar
       if (!locationData.name || !locationData.address || !locationData.type || 
           locationData.lat === undefined || locationData.lng === undefined || 
+          (locationData.lat === 0 && locationData.lng === 0) || // Warn on 0,0 but allow if legitimate (rare)
           isNaN(locationData.lat) || isNaN(locationData.lng)) {
         return { 
           error: `Dados inválidos: name=${locationData.name}, address=${locationData.address}, type=${locationData.type}, lat=${locationData.lat}, lng=${locationData.lng}` 
