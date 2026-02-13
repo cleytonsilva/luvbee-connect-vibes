@@ -1,91 +1,136 @@
-# LuvBee Connect Vibes
+# 🐝 LUVBEE - Dating App
 
-Plataforma de conexão social baseada em locais e interesses comuns.
+Aplicativo de relacionamentos com diferencial de conexão através de lugares.
 
-## 🎯 Status do Projeto
+## 🎯 Diferencial
 
-- ✅ **Projeto Funcional** - Código completo e testado
-- ✅ **Supabase Integrado** - Backend completo configurado
-- ✅ **Rotas Protegidas** - Autenticação e autorização funcionando
-- ✅ **Componentes Padronizados** - UI consistente com Shadcn
-- ✅ **Pronto para Deploy** - Configurado para Vercel
+Conecte-se com pessoas que frequentam os mesmos lugares que você!
 
-## 🚀 Quick Start
+---
 
-### Desenvolvimento Local
+## ✨ Funcionalidades
 
-```bash
-# 1. Instalar dependências
-npm install
+### Core
+- ✅ Sistema de Swipe (Like/Pass/Super Like)
+- ✅ Match por afinidade de lugares
+- ✅ Chat em tempo real
+- ✅ Perfil completo com fotos
+- ✅ Descoberta de lugares
 
-# 2. Configurar variáveis de ambiente
-cp .env.example .env.local
-# Edite .env.local com suas credenciais Supabase
+### Segurança
+- ✅ Verificação de idade (18+)
+- ✅ Verificação de identidade
+- ✅ Moderação de fotos (anti-nudes)
+- ✅ Sistema de reporte
+- ✅ Bloqueio de usuários
 
-# 3. Iniciar desenvolvimento
-npm run dev
-```
+### Design
+- 🎨 Neobrutalista vibrante
+- 🎨 Cores: amarelo, rosa, azul, verde
+- 🎨 Animações fluidas
+- 🎨 Interface intuitiva
 
-### Deploy na Vercel
+---
 
-Consulte o guia completo em **[DEPLOY.md](./DEPLOY.md)**
+## 📱 Telas
 
-```bash
-# Build de produção
-npm run build
+1. **Welcome** - Tela inicial
+2. **Login/Cadastro** - Autenticação
+3. **Verificação** - Idade e identidade
+4. **Discover** - Swipe de perfis
+5. **Lugares** - Descoberta de locais
+6. **Curtidas** - Quem curtiu você
+7. **Matches** - Conversas
+8. **Perfil** - Configurações
 
-# Preview local do build
-npm run preview
-```
+---
 
 ## 🛠️ Tecnologias
 
-- **Frontend**: React 18 + TypeScript + Vite
-- **UI**: TailwindCSS + Shadcn UI
-- **Backend**: Supabase (PostgreSQL + Auth + Storage + Realtime)
-- **Validação**: Zod
-- **Roteamento**: React Router v6
+- **React Native** + **Expo**
+- **TypeScript**
+- **Supabase** (Auth + Database + Realtime)
+- **Zustand** (State Management)
+- **Reanimated** (Animações)
 
-## 📚 Documentação
+---
 
-- **[DEPLOY.md](./DEPLOY.md)** - Guia de deploy na Vercel
-- **[CONFIGURACAO-SEGURANCA.md](./CONFIGURACAO-SEGURANCA.md)** - Configurações de segurança
+## 📂 Estrutura
 
-## 🔧 Scripts Principais
+```
+mobile/
+├── app/                    # Telas (Expo Router)
+│   ├── (auth)/            # Autenticação
+│   └── (tabs)/            # Tabs principais
+├── src/
+│   ├── components/        # UI Components
+│   ├── stores/           # Zustand stores
+│   ├── services/         # API/Supabase
+│   ├── types/            # TypeScript
+│   └── constants/        # Tema
+└── assets/               # Imagens
+```
+
+---
+
+## 🚀 Iniciar
 
 ```bash
-npm run dev              # Servidor de desenvolvimento
-npm run build            # Build de produção
-npm run preview          # Preview do build de produção
-npm run lint             # Verificar código
-npm run test             # Executar testes
+# Executar
+C:\Users\LENOVO\Documents\Luvbee-Mobile\INICIAR.bat
+
+# Ou manualmente
+cd mobile
+npx expo start
 ```
 
-## 🔒 Segurança
+---
 
-O projeto inclui:
+## 📦 Build
 
-- ✅ Sanitização XSS com DOMPurify
-- ✅ Validação backend com CHECK constraints
-- ✅ Políticas RLS no Supabase
-- ✅ Headers de segurança configurados
-- ✅ Content Security Policy (CSP)
+```bash
+# Android
+eas build --platform android
 
-## 📝 Variáveis de Ambiente
-
-Crie um arquivo `.env.local` baseado em `.env.example`:
-
-```env
-VITE_SUPABASE_URL=your-supabase-url
-VITE_SUPABASE_ANON_KEY=your-anon-key
-VITE_GOOGLE_MAPS_API_KEY=your-google-maps-key (opcional)
+# iOS
+eas build --platform ios
 ```
 
-**⚠️ IMPORTANTE**: Nunca commite arquivos `.env` ou `.env.local`!
+---
 
-## 🔗 Links Úteis
+## 📄 Documentação
 
-- [Dashboard Supabase](https://app.supabase.com)
-- [Documentação Supabase](https://supabase.com/docs)
-- [Shadcn UI](https://ui.shadcn.com)
-- [Vercel](https://vercel.com)
+- `README.md` - Este arquivo
+- `INSTALL.md` - Guia de instalação
+- `supabase/migrations/` - Schema do banco
+
+---
+
+## 🔐 Segurança
+
+- RLS (Row Level Security) ativo
+- Moderação de conteúdo
+- Verificação de identidade
+- Dados criptografados
+
+---
+
+## 🎨 Design System
+
+### Cores
+- Primary: #FFE600 (Yellow)
+- Secondary: #FF6B9D (Pink)
+- Accent: #00D9FF (Blue)
+- Success: #00FF94 (Green)
+
+### Estilo
+- Bordas: 3-4px sólidas
+- Sombras: Hard (sem blur)
+- Fonte: Bold/Semibold
+- Radius: 8-16px
+
+---
+
+**Pronto para conquistar o mundo! 🌍💕**
+
+Desenvolvido com ❤️ para conectar pessoas

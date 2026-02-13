@@ -11,6 +11,10 @@ import { ProfilePage } from './pages/ProfilePage'
 import { LocationsPage } from './pages/LocationsPage'
 import { VibeLocalPage } from './pages/VibeLocalPage'
 import { LocationDetail } from './pages/LocationDetailPage'
+import Dates from './pages/Dates'
+import Matches from './pages/Matches'
+import Places from './pages/Places'
+import PublicProfile from './pages/PublicProfile'
 import { TermosDeUso } from './pages/TermosDeUso'
 import { EmailValidationTestPage } from './pages/EmailValidationTestPage'
 import AdminCachePage from './pages/AdminCache'
@@ -284,8 +288,12 @@ function App() {
         <Route path="locations" element={<LocationsPage />} />
         <Route path="locations/:id" element={<LocationDetail />} />
         <Route path="people" element={<PeoplePage />} />
+        <Route path="dates" element={<Dates />} />
+        <Route path="matches" element={<Matches />} />
+        <Route path="places" element={<Places />} />
         <Route path="messages" element={<MessagesPage />} />
         <Route path="profile" element={<ProfilePage />} />
+        <Route path="profile/:userId" element={<PublicProfile />} />
         <Route 
           path="admin/cache" 
           element={

@@ -90,6 +90,15 @@ serve(async (req: Request) => {
       }
     )
 
+    // Validar usuário autenticado
+    const { data: { user }, error: userError } = await supabaseClient.auth.getUser()
+    if (userError || !user) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized', details: userError?.message }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
     // Definir tipos incluídos (Included Types)
     // Se o usuário passou 'type', tentamos mapear ou usar o padrão "Vibe"
     let includedTypes: string[] = ['night_club', 'bar', 'restaurant', 'cafe', 'park', 'art_gallery']

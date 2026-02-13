@@ -52,6 +52,10 @@ export * from './auth.service'
 export * from './user.service'
 export * from './location.service'
 export * from './chat.service'
+export * from './match.service'
+export * from './compatibility.service'
+export * from './imageCache'
+export * from './image-storage.service'
 
 // Configuração de testes
 export const testConfig = {

@@ -197,12 +197,41 @@ Deno.serve(async (req: Request) => {
       )
     }
 
-    // Retornar a imagem diretamente
+    // Obtém o blob da imagem
     const imageBlob = await response.blob()
+    const contentType = response.headers.get('Content-Type') || 'image/jpeg'
 
+    // Para POST requests, também retorna em base64 (útil para cache no cliente)
+    if (req.method === 'POST') {
+      const arrayBuffer = await imageBlob.arrayBuffer()
+      const uint8Array = new Uint8Array(arrayBuffer)
+      let binaryString = ''
+      for (let i = 0; i < uint8Array.byteLength; i++) {
+        binaryString += String.fromCharCode(uint8Array[i])
+      }
+      const base64 = btoa(binaryString)
+
+      return new Response(
+        JSON.stringify({
+          image_data: base64,
+          image_url: photoUrl,
+          content_type: contentType
+        }),
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+            'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-application-name',
+          }
+        }
+      )
+    }
+
+    // Para GET requests, retorna a imagem diretamente
     return new Response(imageBlob, {
       headers: {
-        'Content-Type': response.headers.get('Content-Type') || 'image/jpeg',
+        'Content-Type': contentType,
         'Cache-Control': 'public, max-age=3600',
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',

@@ -47,7 +47,20 @@ serve(async (req: Request) => {
             return new Response(JSON.stringify({ error: 'Server configuration error' }), { status: 500, headers: corsHeaders })
         }
 
-        const supabase = createClient(supabaseUrl, supabaseServiceKey)
+        const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+            global: {
+                headers: { Authorization: req.headers.get('Authorization')! }
+            }
+        })
+
+        // Validar usuário autenticado
+        const { data: { user }, error: userError } = await supabase.auth.getUser()
+        if (userError || !user) {
+            return new Response(
+                JSON.stringify({ error: 'Unauthorized', details: userError?.message }),
+                { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            )
+        }
 
         // 2. Check Cache in Database (Fast Path)
         if (place_id) {

@@ -1,0 +1,23 @@
+{
+    "profile": {
+        "title": "Perfil",
+        "edit": "Editar Perfil",
+        "name": "Nome",
+        "bio": "Bio",
+        "occupation": "Ocupação",
+        "location": "Localização",
+        "country": "País",
+        "state": "Estado/Província",
+        "language": "Idioma do App",
+        "photos": "Fotos",
+        "save": "Salvar",
+        "cancel": "Cancelar",
+        "add_photo": "Adicionar Foto",
+        "remove_photo": "Remover Foto"
+    },
+    "common": {
+        "loading": "Carregando...",
+        "error": "Erro",
+        "success": "Sucesso"
+    }
+}

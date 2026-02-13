@@ -4,12 +4,12 @@ import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { 
-  MapPin, 
-  Clock, 
-  Star, 
-  Heart, 
-  Share2, 
+import {
+  MapPin,
+  Clock,
+  Star,
+  Heart,
+  Share2,
   Navigation,
   Users,
   Calendar
@@ -53,19 +53,20 @@ export function LocationDetail({ locationId }: LocationDetailProps) {
   const [isFavorited, setIsFavorited] = useState(false)
   const [newReview, setNewReview] = useState('')
   const [newRating, setNewRating] = useState(5)
+  const [staticMapError, setStaticMapError] = useState(false)
 
   // Hook calls must be at the top level, before any conditional returns
   // Usar o mesmo hook que LocationCard usa para buscar imagem
   // Priorizar imagem salva no Supabase Storage
-  const rawImageUrl = location ? 
+  const rawImageUrl = location ?
     (location.image_url ||
-    location.photo_url || 
-    (Array.isArray(location.images) && location.images.length > 0 ? location.images[0] : null) ||
-    null) : null
-  
+      location.photo_url ||
+      (Array.isArray(location.images) && location.images.length > 0 ? location.images[0] : null) ||
+      null) : null
+
   // Normalizar URL para converter URLs antigas do Google Maps para Edge Function
   const normalizedUrl = location ? normalizeImageUrl(rawImageUrl, location.place_id) : null
-  
+
   // Usar hook usePlacePhoto que busca do cache ou chama Edge Function
   const imageUrl = usePlacePhoto(location?.place_id || null, normalizedUrl)
 
@@ -111,7 +112,7 @@ export function LocationDetail({ locationId }: LocationDetailProps) {
     try {
       const result = await LocationService.getUserFavorites(user.id)
       if (result.error) return
-      
+
       const favorites = result.data || []
       const isFav = favorites.some(fav => fav.id === targetLocationId)
       setIsFavorited(isFav)
@@ -184,7 +185,7 @@ export function LocationDetail({ locationId }: LocationDetailProps) {
         toast.error(result.error)
         return
       }
-      
+
       setNewReview('')
       setNewRating(5)
       loadReviews()
@@ -234,7 +235,7 @@ export function LocationDetail({ locationId }: LocationDetailProps) {
             </div>
           </div>
         </div>
-        
+
         <div className="absolute top-4 right-4 flex space-x-2">
           <Button
             variant="outline"
@@ -288,80 +289,78 @@ export function LocationDetail({ locationId }: LocationDetailProps) {
                 <TabsTrigger value="reviews">Reviews</TabsTrigger>
                 <TabsTrigger value="people">Pessoas</TabsTrigger>
               </TabsList>
-              
+
               <TabsContent value="reviews" className="mt-4">
                 <h3 className="text-xl font-semibold text-gray-900 mb-4">Reviews</h3>
-            
-            {user && (
-              <div className="mb-6 p-4 bg-gray-50 rounded-lg">
-                <h4 className="font-medium text-gray-900 mb-3">Write a Review</h4>
-                <div className="flex items-center space-x-1 mb-3">
-                  {[1, 2, 3, 4, 5].map((rating) => (
-                    <Star
-                      key={rating}
-                      className={`h-5 w-5 cursor-pointer ${
-                        rating <= newRating ? 'text-yellow-500 fill-current' : 'text-gray-300'
-                      }`}
-                      onClick={() => setNewRating(rating)}
-                    />
-                  ))}
-                </div>
-                <div className="flex space-x-2">
-                  <textarea
-                    value={newReview}
-                    onChange={(e) => setNewReview(e.target.value)}
-                    placeholder="Share your experience..."
-                    className="flex-1 p-2 border rounded-md resize-none"
-                    rows={3}
-                  />
-                  <Button onClick={handleAddReview} disabled={!newReview.trim()}>
-                    Post
-                  </Button>
-                </div>
-              </div>
-            )}
 
-            <div className="space-y-4">
-              {reviews.map((review) => (
-                <div key={review.id} className="border-b pb-4 last:border-b-0">
-                  <div className="flex items-start space-x-3">
-                    <Avatar className="h-10 w-10">
-                      <AvatarImage src={review.user?.avatar_url} />
-                      <AvatarFallback className="bg-purple-100 text-purple-600">
-                        {review.user?.name?.charAt(0).toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between mb-1">
-                        <h5 className="font-medium text-gray-900">{review.user?.name}</h5>
-                        <span className="text-sm text-gray-500">
-                          {formatDistanceToNow(new Date(review.created_at), { addSuffix: true })}
-                        </span>
-                      </div>
-                      <div className="flex items-center space-x-1 mb-2">
-                        {[1, 2, 3, 4, 5].map((star) => (
-                          <Star
-                            key={star}
-                            className={`h-4 w-4 ${
-                              star <= review.rating ? 'text-yellow-500 fill-current' : 'text-gray-300'
+                {user && (
+                  <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+                    <h4 className="font-medium text-gray-900 mb-3">Write a Review</h4>
+                    <div className="flex items-center space-x-1 mb-3">
+                      {[1, 2, 3, 4, 5].map((rating) => (
+                        <Star
+                          key={rating}
+                          className={`h-5 w-5 cursor-pointer ${rating <= newRating ? 'text-yellow-500 fill-current' : 'text-gray-300'
                             }`}
-                          />
-                        ))}
-                      </div>
-                      <p className="text-gray-700">{review.comment}</p>
+                          onClick={() => setNewRating(rating)}
+                        />
+                      ))}
+                    </div>
+                    <div className="flex space-x-2">
+                      <textarea
+                        value={newReview}
+                        onChange={(e) => setNewReview(e.target.value)}
+                        placeholder="Share your experience..."
+                        className="flex-1 p-2 border rounded-md resize-none"
+                        rows={3}
+                      />
+                      <Button onClick={handleAddReview} disabled={!newReview.trim()}>
+                        Post
+                      </Button>
                     </div>
                   </div>
+                )}
+
+                <div className="space-y-4">
+                  {reviews.map((review) => (
+                    <div key={review.id} className="border-b pb-4 last:border-b-0">
+                      <div className="flex items-start space-x-3">
+                        <Avatar className="h-10 w-10">
+                          <AvatarImage src={review.user?.avatar_url} />
+                          <AvatarFallback className="bg-purple-100 text-purple-600">
+                            {review.user?.name?.charAt(0).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between mb-1">
+                            <h5 className="font-medium text-gray-900">{review.user?.name}</h5>
+                            <span className="text-sm text-gray-500">
+                              {formatDistanceToNow(new Date(review.created_at), { addSuffix: true })}
+                            </span>
+                          </div>
+                          <div className="flex items-center space-x-1 mb-2">
+                            {[1, 2, 3, 4, 5].map((star) => (
+                              <Star
+                                key={star}
+                                className={`h-4 w-4 ${star <= review.rating ? 'text-yellow-500 fill-current' : 'text-gray-300'
+                                  }`}
+                              />
+                            ))}
+                          </div>
+                          <p className="text-gray-700">{review.comment}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+
+                  {reviews.length === 0 && (
+                    <div className="text-center py-8">
+                      <p className="text-gray-600">No reviews yet. Be the first to review!</p>
+                    </div>
+                  )}
                 </div>
-              ))}
-              
-              {reviews.length === 0 && (
-                <div className="text-center py-8">
-                  <p className="text-gray-600">No reviews yet. Be the first to review!</p>
-                </div>
-              )}
-              </div>
               </TabsContent>
-              
+
               <TabsContent value="people" className="mt-4">
                 <PeopleForLocation locationId={location.id} />
               </TabsContent>
@@ -378,8 +377,8 @@ export function LocationDetail({ locationId }: LocationDetailProps) {
                 Check In
               </Button>
               {location.instagram && (
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   className="w-full"
                   onClick={() => {
                     const handle = location.instagram?.replace('@', '');
@@ -387,7 +386,7 @@ export function LocationDetail({ locationId }: LocationDetailProps) {
                   }}
                 >
                   <svg className="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
+                    <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z" />
                   </svg>
                   Instagram
                 </Button>
@@ -432,20 +431,20 @@ export function LocationDetail({ locationId }: LocationDetailProps) {
               const lng = location.coordinates?.lng || location.lng || location.longitude;
               const hasCoords = lat != null && lng != null && lat !== 0 && lng !== 0;
               const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
-              
+
               // URL do mapa estático
               const staticMapUrl = hasCoords && apiKey
                 ? `https://maps.googleapis.com/maps/api/staticmap?center=${lat},${lng}&zoom=15&size=400x200&markers=color:red%7C${lat},${lng}&key=${apiKey}`
                 : null;
-              
+
               // URL para abrir no Google Maps
               const googleMapsUrl = hasCoords
                 ? `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`
                 : location.address
                   ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location.address)}`
                   : null;
-              
-              return staticMapUrl ? (
+
+              return staticMapUrl && !staticMapError ? (
                 <a
                   href={googleMapsUrl || '#'}
                   target="_blank"
@@ -457,13 +456,7 @@ export function LocationDetail({ locationId }: LocationDetailProps) {
                       src={staticMapUrl}
                       alt={`Mapa de ${location.name}`}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
-                      onError={(e) => {
-                        const target = e.target as HTMLImageElement;
-                        target.style.display = 'none';
-                        if (target.parentElement) {
-                          target.parentElement.innerHTML = '<div class="flex items-center justify-center h-full bg-gray-100"><span class="text-gray-400">Mapa indisponível</span></div>';
-                        }
-                      }}
+                      onError={() => setStaticMapError(true)}
                     />
                     <div className="absolute bottom-2 right-2 bg-white/90 backdrop-blur-sm px-2 py-1 rounded text-xs font-medium text-gray-700 shadow">
                       Abrir no Google Maps
@@ -474,7 +467,9 @@ export function LocationDetail({ locationId }: LocationDetailProps) {
                 <div className="bg-gray-100 h-40 rounded-lg flex items-center justify-center mb-4 border-2 border-dashed border-gray-300">
                   <div className="text-center">
                     <MapPin className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                    <span className="text-sm text-gray-500">Coordenadas não disponíveis</span>
+                    <span className="text-sm text-gray-500">
+                      {staticMapError ? 'Mapa indisponível' : 'Coordenadas não disponíveis'}
+                    </span>
                   </div>
                 </div>
               );
@@ -500,7 +495,7 @@ export function LocationDetail({ locationId }: LocationDetailProps) {
                 : location.address
                   ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location.address)}`
                   : null;
-              
+
               return googleMapsUrl ? (
                 <Button
                   variant="outline"

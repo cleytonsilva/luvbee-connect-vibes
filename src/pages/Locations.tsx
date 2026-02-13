@@ -1,13 +1,14 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { LocationCard } from "@/components/location/LocationCard";
 import { X, Heart, Info, SlidersHorizontal, User, MapPin } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { ROUTES } from "@/lib/constants";
-import bar1 from "@/assets/bar-1.jpg";
-import bar2 from "@/assets/bar-2.jpg";
-import bar3 from "@/assets/bar-3.jpg";
+import { LocationService } from "@/services/location.service";
+import { useAuth } from "@/hooks/useAuth";
+import type { LocationData } from "@/types/app.types";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Sheet,
   SheetContent,
@@ -19,82 +20,212 @@ import {
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { motion, AnimatePresence } from "framer-motion";
 
-const mockLocations = [
-  {
-    id: 1,
-    name: "The Neon Lounge",
-    type: "Bar",
-    distance: "800m",
-    rating: 4.8,
-    image: bar1,
-    price: "$$",
-    openUntil: "3h",
-    crowdLevel: "Moderado" as const,
-    tags: ["Drinks", "DJ", "Lounge"],
-  },
-  {
-    id: 2,
-    name: "Sky High Rooftop",
-    type: "Rooftop",
-    distance: "1.2km",
-    rating: 4.9,
-    image: bar2,
-    price: "$$$",
-    openUntil: "2h",
-    crowdLevel: "Cheio" as const,
-    tags: ["Vista", "Premium", "Lounge"],
-  },
-  {
-    id: 3,
-    name: "Craft Beer House",
-    type: "Pub",
-    distance: "500m",
-    rating: 4.6,
-    image: bar3,
-    price: "$$",
-    openUntil: "1h",
-    crowdLevel: "Vazio" as const,
-    tags: ["Cerveja", "Petiscos", "Casual"],
-  },
-];
+// Tipo estendido para locais com distância calculada
+interface LocationWithDistance extends LocationData {
+  distance?: string;
+  distanceMeters?: number;
+}
 
 const Locations = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user } = useAuth();
+  
+  const [locations, setLocations] = useState<LocationWithDistance[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
   const [radius, setRadius] = useState([5]);
   const [venueTypeFilter, setVenueTypeFilter] = useState("all");
+  const [swipeDirection, setSwipeDirection] = useState<'left' | 'right' | null>(null);
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
 
-  const currentLocation = mockLocations[currentIndex];
+  // Buscar localização do usuário
+  useEffect(() => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setUserLocation({
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+          });
+        },
+        (error) => {
+          console.warn("[Locations] Geolocation error:", error);
+          // Usar localização padrão (São Paulo)
+          setUserLocation({ lat: -23.5505, lng: -46.6333 });
+        }
+      );
+    }
+  }, []);
 
-  const handleLike = () => {
-    if (currentLocation) {
+  // Buscar locais próximos
+  const fetchLocations = useCallback(async () => {
+    if (!userLocation) return;
+    
+    setIsLoading(true);
+    try {
+      const result = await LocationService.getNearbyLocations(
+        userLocation.lat,
+        userLocation.lng,
+        radius[0] * 1000 // Converter km para metros
+      );
+
+      if (result.error) {
+        toast({
+          title: "Erro ao buscar locais",
+          description: result.error,
+          variant: "destructive",
+        });
+        setLocations([]);
+        return;
+      }
+
+      // Calcular distância e formatar
+      const locationsWithDistance = (result.data || []).map((loc) => {
+        const distMeters = loc.distance_meters || calculateDistance(
+          userLocation.lat,
+          userLocation.lng,
+          loc.lat || 0,
+          loc.lng || 0
+        );
+        
+        return {
+          ...loc,
+          distanceMeters: distMeters,
+          distance: formatDistance(distMeters),
+        };
+      });
+
+      // Filtrar por tipo se necessário
+      let filtered = locationsWithDistance;
+      if (venueTypeFilter !== "all") {
+        filtered = locationsWithDistance.filter(
+          (loc) => loc.type?.toLowerCase() === venueTypeFilter.toLowerCase() ||
+                   loc.category?.toLowerCase() === venueTypeFilter.toLowerCase()
+        );
+      }
+
+      // Ordenar por distância
+      filtered.sort((a, b) => (a.distanceMeters || 0) - (b.distanceMeters || 0));
+
+      setLocations(filtered);
+      setCurrentIndex(0);
+    } catch (error) {
+      console.error("[Locations] Error fetching locations:", error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível carregar os locais",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [userLocation, radius, venueTypeFilter, toast]);
+
+  // Carregar locais quando a localização ou filtros mudarem
+  useEffect(() => {
+    if (userLocation) {
+      fetchLocations();
+    }
+  }, [userLocation, fetchLocations]);
+
+  // Calcular distância entre duas coordenadas (Haversine)
+  function calculateDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
+    const R = 6371e3; // Raio da Terra em metros
+    const φ1 = lat1 * Math.PI / 180;
+    const φ2 = lat2 * Math.PI / 180;
+    const Δφ = (lat2 - lat1) * Math.PI / 180;
+    const Δλ = (lng2 - lng1) * Math.PI / 180;
+
+    const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+              Math.cos(φ1) * Math.cos(φ2) *
+              Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+    return R * c;
+  }
+
+  // Formatar distância
+  function formatDistance(meters: number): string {
+    if (meters < 1000) {
+      return `${Math.round(meters)}m`;
+    }
+    return `${(meters / 1000).toFixed(1)}km`;
+  }
+
+  const currentLocation = locations[currentIndex];
+
+  const handleLike = async () => {
+    if (!currentLocation || !user) return;
+
+    setSwipeDirection('right');
+    
+    try {
+      // Salvar like no Supabase
+      const result = await LocationService.createLocationMatch(user.id, currentLocation.id);
+      
+      if (result.error) {
+        toast({
+          title: "Erro",
+          description: result.error,
+          variant: "destructive",
+        });
+        return;
+      }
+
       toast({
         title: "Match! 💖",
         description: `Você curtiu ${currentLocation.name}`,
       });
-      
-      // Simulate match and navigate to detail
+
+      // Avançar para próximo local
       setTimeout(() => {
-        navigate(`${ROUTES.LOCATIONS}/${currentLocation.id}`);
-      }, 1000);
+        setSwipeDirection(null);
+        if (currentIndex < locations.length - 1) {
+          setCurrentIndex(currentIndex + 1);
+        } else {
+          // Carregar mais locais
+          fetchLocations();
+        }
+      }, 300);
+    } catch (error) {
+      console.error("[Locations] Error creating match:", error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível salvar o like",
+        variant: "destructive",
+      });
     }
   };
 
-  const handleDislike = () => {
-    if (currentIndex < mockLocations.length - 1) {
-      setCurrentIndex(currentIndex + 1);
-    } else {
-      toast({
-        title: "Sem mais locais 😔",
-        description: `Não encontramos mais locais num raio de ${radius}km. Quer expandir a busca?`,
-        action: (
-          <Button variant="outline" size="sm" onClick={() => setRadius([radius[0] + 5])}>
-            Expandir para {radius[0] + 5}km
-          </Button>
-        ),
-      });
+  const handleDislike = async () => {
+    if (!currentLocation || !user) return;
+
+    setSwipeDirection('left');
+
+    try {
+      // Salvar dislike/rejeição
+      await LocationService.createLocationRejection(user.id, currentLocation.id);
+
+      setTimeout(() => {
+        setSwipeDirection(null);
+        if (currentIndex < locations.length - 1) {
+          setCurrentIndex(currentIndex + 1);
+        } else {
+          toast({
+            title: "Sem mais locais 😔",
+            description: "Você viu todos os locais disponíveis nesta área.",
+          });
+        }
+      }, 300);
+    } catch (error) {
+      console.error("[Locations] Error creating rejection:", error);
+      setSwipeDirection(null);
+      if (currentIndex < locations.length - 1) {
+        setCurrentIndex(currentIndex + 1);
+      }
     }
   };
 
@@ -104,6 +235,24 @@ const Locations = () => {
     }
   };
 
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex flex-col bg-background">
+        <header className="flex items-center justify-between p-4 border-b">
+          <h1 className="text-2xl font-bold">
+            luv<span className="text-primary">bee</span>
+          </h1>
+          <Skeleton className="w-10 h-10 rounded-full" />
+        </header>
+        <main className="flex-1 flex flex-col items-center justify-center p-4">
+          <Skeleton className="w-full max-w-md h-[500px] rounded-2xl" />
+        </main>
+      </div>
+    );
+  }
+
+  // No locations state
   if (!currentLocation) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-background">
@@ -111,7 +260,7 @@ const Locations = () => {
           <MapPin className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
           <h2 className="text-2xl font-bold mb-4">Nenhum local encontrado</h2>
           <p className="text-muted-foreground mb-6">
-            Não encontramos locais próximos com suas preferências. Tente expandir o raio de busca ou ajustar os filtros.
+            Não encontramos locais próximos com suas preferências. Tente expandir o raio de busca.
           </p>
           <Button onClick={() => setRadius([radius[0] + 5])}>
             Expandir busca para {radius[0] + 5}km
@@ -162,10 +311,11 @@ const Locations = () => {
                     <SelectContent>
                       <SelectItem value="all">Todos</SelectItem>
                       <SelectItem value="bar">Bar</SelectItem>
-                      <SelectItem value="balada">Balada</SelectItem>
+                      <SelectItem value="club">Balada</SelectItem>
                       <SelectItem value="pub">Pub</SelectItem>
                       <SelectItem value="lounge">Lounge</SelectItem>
                       <SelectItem value="rooftop">Rooftop</SelectItem>
+                      <SelectItem value="restaurant">Restaurante</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -180,51 +330,83 @@ const Locations = () => {
 
       {/* Main Content */}
       <main className="flex-1 flex flex-col items-center justify-center p-4">
-        <div className="w-full max-w-md">
-          <LocationCard
-            location={{
-              id: currentLocation.id.toString(),
-              name: currentLocation.name,
-              type: currentLocation.type,
-              address: currentLocation.distance,
-              rating: currentLocation.rating,
-              price_level: currentLocation.price === '$$' ? 2 : currentLocation.price === '$$$' ? 3 : 1,
-              photo_url: currentLocation.image,
-              images: [currentLocation.image],
-            }}
-            distance={currentLocation.distance}
-          />
+        <div className="w-full max-w-md relative">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={currentLocation.id}
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ 
+                opacity: 1, 
+                scale: 1,
+                x: swipeDirection === 'right' ? 300 : swipeDirection === 'left' ? -300 : 0,
+                rotate: swipeDirection === 'right' ? 10 : swipeDirection === 'left' ? -10 : 0,
+              }}
+              exit={{ 
+                opacity: 0, 
+                scale: 0.9,
+                x: swipeDirection === 'right' ? 300 : -300,
+              }}
+              transition={{ duration: 0.3, ease: "easeOut" }}
+            >
+              <LocationCard
+                location={{
+                  id: currentLocation.id,
+                  name: currentLocation.name,
+                  type: currentLocation.type || currentLocation.category,
+                  address: currentLocation.distance || currentLocation.address,
+                  rating: currentLocation.rating,
+                  price_level: currentLocation.price_level,
+                  photo_url: currentLocation.image_url,
+                  images: currentLocation.images || [currentLocation.image_url],
+                  place_id: currentLocation.place_id,
+                  lat: currentLocation.lat,
+                  lng: currentLocation.lng,
+                  description: currentLocation.description,
+                  google_place_data: currentLocation.google_place_data,
+                  google_rating: currentLocation.google_rating,
+                  google_user_ratings_total: currentLocation.google_user_ratings_total,
+                }}
+                distance={currentLocation.distance}
+              />
+            </motion.div>
+          </AnimatePresence>
         </div>
 
         {/* Action Buttons */}
         <div className="flex items-center justify-center gap-6 mt-8">
-          <Button
-            variant="swipe"
-            onClick={handleDislike}
-            className="bg-card hover:bg-destructive hover:border-destructive"
-          >
-            <X className="w-8 h-8 text-destructive hover:text-white" />
-          </Button>
+          <motion.div whileTap={{ scale: 0.9 }}>
+            <Button
+              variant="swipe"
+              onClick={handleDislike}
+              className="bg-card hover:bg-destructive hover:border-destructive w-16 h-16 rounded-full"
+            >
+              <X className="w-8 h-8 text-destructive hover:text-white" />
+            </Button>
+          </motion.div>
           
-          <Button
-            variant="swipe"
-            onClick={handleInfo}
-            className="bg-card hover:bg-primary hover:border-primary"
-          >
-            <Info className="w-7 h-7 text-primary hover:text-white" />
-          </Button>
+          <motion.div whileTap={{ scale: 0.9 }}>
+            <Button
+              variant="swipe"
+              onClick={handleInfo}
+              className="bg-card hover:bg-primary hover:border-primary w-14 h-14 rounded-full"
+            >
+              <Info className="w-6 h-6 text-primary hover:text-white" />
+            </Button>
+          </motion.div>
           
-          <Button
-            variant="swipe"
-            onClick={handleLike}
-            className="bg-card hover:bg-success hover:border-success"
-          >
-            <Heart className="w-8 h-8 text-success hover:text-white" />
-          </Button>
+          <motion.div whileTap={{ scale: 0.9 }}>
+            <Button
+              variant="swipe"
+              onClick={handleLike}
+              className="bg-card hover:bg-success hover:border-success w-16 h-16 rounded-full"
+            >
+              <Heart className="w-8 h-8 text-success hover:text-white" />
+            </Button>
+          </motion.div>
         </div>
 
         <p className="text-sm text-muted-foreground mt-6">
-          {mockLocations.length - currentIndex} {mockLocations.length - currentIndex === 1 ? 'local' : 'locais'} disponíveis
+          {locations.length - currentIndex} {locations.length - currentIndex === 1 ? 'local' : 'locais'} disponíveis
         </p>
       </main>
     </div>

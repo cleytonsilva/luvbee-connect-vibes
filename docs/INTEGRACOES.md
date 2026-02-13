@@ -36,9 +36,13 @@ Necessárias para o funcionamento das Edge Functions:
 ## 2. Supabase
 
 ### 2.1. Edge Functions
--   `search-nearby`: Busca locais próximos (proxy para Google Places New API).
+-   `fetch-places-google`: Função principal de busca de locais (Google Places API V1).
+-   `search-nearby`: (Legado/Alternativo) Busca de locais próximos.
 -   `cache-place-photo`: Gerencia download e cache de imagens.
 -   `spider-events`: Crawler para eventos (integração experimental).
+-   `potential-matches`: Cálculo de compatibilidade entre usuários.
+
+> Para detalhes profundos sobre o funcionamento, consulte [DOCUMENTACAO_TECNICA_DETALHADA.md](./DOCUMENTACAO_TECNICA_DETALHADA.md).
 
 ### 2.2. Storage Buckets
 -   `places`: Armazena fotos de locais cacheadas do Google.

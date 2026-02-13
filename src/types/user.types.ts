@@ -16,3 +16,27 @@ export interface UserWithPreferences extends User {
   user_preferences?: UserPreferences | null
 }
 
+// Tipos para filtro de preferências
+export type GenderPreference = 'homem' | 'mulher' | 'trans' | 'nao-binario' | 'outros' | 'todos';
+
+export interface UserFilterPreferences {
+  looking_for: GenderPreference[];
+  age_min?: number;
+  age_max?: number;
+  distance_max?: number;
+}
+
+// Perfil público (visível para outros usuários)
+export interface PublicProfile {
+  id: string;
+  full_name: string;
+  avatar_url: string | null;
+  bio: string | null;
+  age: number | null;
+  gender: string | null;
+  interests: string[] | null;
+  photos: string[] | null;
+  compatibility_score?: number;
+  common_locations_count?: number;
+  common_interests_count?: number;
+}
