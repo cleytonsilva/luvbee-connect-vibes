@@ -249,12 +249,18 @@ export async function getPlaceImageUrl(
         }
       });
 
-      if (error) {
-        console.error('Erro ao buscar imagem:', error.message || error);
-        return null;
-      }
+      if (error || !data) {
+        if (error) {
+          console.error('Erro ao buscar imagem (Edge Function):', error.message || error);
+        }
 
-      if (!data) {
+        // Fallback: Tentativa de usar a chave de API pública do Frontend diretamente
+        const frontendApiKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
+        if (frontendApiKey) {
+          console.warn('⚠️ Usando Fallback Direto da API do Google Maps para a imagem.');
+          return getGoogleDirectImageUrl(photoReference, frontendApiKey, maxWidth);
+        }
+
         return null;
       }
 
