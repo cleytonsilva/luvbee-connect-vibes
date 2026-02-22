@@ -2,7 +2,7 @@
 // Quando uma imagem é buscada do Google Places, ela é salva no Storage
 // e reutilizada nas próximas vezes (sem custo adicional)
 
-import { supabase } from './supabase';
+import { supabase, getGoogleMapsApiKey } from './supabase';
 import { Platform } from 'react-native';
 
 // ===========================================
@@ -255,7 +255,6 @@ export async function getPlaceImageUrl(
         }
 
         // Fallback: Tentativa de usar a chave de API pública do Frontend diretamente
-        const { getGoogleMapsApiKey } = require('./supabase');
         const frontendApiKey = getGoogleMapsApiKey();
         if (frontendApiKey) {
           console.warn('⚠️ Usando Fallback Direto da API do Google Maps para a imagem (Key específica do dispositivo).');
