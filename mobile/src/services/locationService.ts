@@ -115,88 +115,30 @@ export async function searchNearbyPlaces(
   userId?: string
 ): Promise<LocationWithStats[]> {
   try {
-    let filteredPlaces: GooglePlace[] = [];
 
-    try {
-      const { data, error } = await supabase.functions.invoke('search-nearby', {
-        body: {
-          latitude,
-          longitude,
-          radius,
-          category,
-          search_mode: 'combined',
-          language: 'pt-BR',
-        },
-      });
+    const { data, error } = await supabase.functions.invoke('search-nearby', {
+      body: {
+        latitude,
+        longitude,
+        radius,
+        category,
+        search_mode: 'combined',
+        language: 'pt-BR',
+      },
+    });
 
-      if (error) {
-        console.warn('⚠️ Erro na edge function:', error);
-      } else if (data?.data && Array.isArray(data.data) && data.data.length > 0) {
-        filteredPlaces = data.data;
-      }
-    } catch (e) {
-      console.warn('⚠️ Falha ao buscar da nuvem:', e);
+    if (error) {
+      console.error('❌ Erro na edge function:', error);
+      throw error;
     }
 
-    // FALLBACK DIRETO DO CELULAR (Evita o erro de API Key de Web/Servidor)
-    if (filteredPlaces.length === 0) {
-      console.warn('⚠️ 0 lugares no backend. Tentando Busca Direta (Fallback Mobile)...');
-      const fallbackApiKey = getGoogleMapsApiKey();
-
-      if (!fallbackApiKey) {
-        console.warn('❌ API Key de iOS/Android não configurada no env local para fallback.');
-        return [];
-      }
-
-      const query = category || 'estabelecimentos';
-      const fallbackUrl = `https://places.googleapis.com/v1/places:searchText`;
-
-      const fallbackResponse = await fetch(fallbackUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Goog-Api-Key': fallbackApiKey,
-          'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.priceLevel,places.rating,places.userRatingCount,places.photos,places.types,places.primaryType,places.location',
-        },
-        body: JSON.stringify({
-          textQuery: query,
-          locationBias: {
-            circle: {
-              center: { latitude, longitude },
-              radius: Math.min(radius, 50000), // Max allowed API radius
-            }
-          },
-          maxResultCount: 20,
-          languageCode: 'pt-BR',
-        })
-      });
-
-      if (!fallbackResponse.ok) {
-        const errorText = await fallbackResponse.text();
-        console.error('❌ Erro no Fallback do Google API:', errorText);
-      } else {
-        const fbData = await fallbackResponse.json();
-        if (fbData.places) {
-          filteredPlaces = fbData.places.map((p: any) => ({
-            place_id: p.id,
-            name: p.displayName?.text || 'Sem Nome',
-            formatted_address: p.formattedAddress || '',
-            geometry: { location: { lat: p.location?.latitude, lng: p.location?.longitude } },
-            photos: p.photos?.map((photo: any) => ({ photo_reference: photo.name, width: photo.widthPx, height: photo.heightPx })),
-            rating: p.rating,
-            user_ratings_total: p.userRatingCount,
-            types: p.types,
-            primary_type: p.primaryType,
-            description: `${p.primaryType || 'Local'} • ${p.rating || '?'} ⭐ via Fallback`
-          }));
-        }
-      }
-    }
-
-    if (filteredPlaces.length === 0) {
-      console.warn('⚠️ Nenhum lugar encontrado após backend e fallback.');
+    if (!data?.data || !Array.isArray(data.data)) {
+      console.warn('⚠️ Nenhum lugar encontrado');
       return [];
     }
+
+
+    let filteredPlaces = data.data;
 
     // Se tiver userId, filtrar locais que o usuário já interagiu (liked/passed/blocked)
     if (userId) {
