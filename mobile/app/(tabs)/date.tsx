@@ -2,7 +2,6 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Dimensions, RefreshControl } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
-import Animated, { FadeInUp } from 'react-native-reanimated';
 import { colors, spacing, typography } from '../../src/constants/theme';
 import { useAuthStore } from '../../src/stores/authStore';
 import { SkeletonBox } from '../../src/components/ui';
@@ -11,6 +10,7 @@ import {
   getCompatibilityStats,
   CompatiblePerson
 } from '../../src/services/compatibilityService';
+import { TiltCarousel } from '../../src/components/cards';
 
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = (width - 48) / 2;
@@ -64,62 +64,18 @@ export default function DateScreen() {
 
   const handlePersonPress = (person: CompatiblePerson) => {
     console.log('Clicou em:', person.name);
-    // TODO: Navegar para perfil ou iniciar chat
+    // TODO: Navegar para perfil
   };
 
-  const renderPerson = ({ item, index }: { item: CompatiblePerson; index: number }) => (
-    <Animated.View entering={FadeInUp.delay(index * 70).springify()}>
-      <TouchableOpacity
-        style={styles.personCard}
-        activeOpacity={0.8}
-        onPress={() => handlePersonPress(item)}
-      >
-        <View style={styles.imageContainer}>
-          <Image
-            source={{ uri: item.photo }}
-            style={styles.personImage}
-            contentFit="cover"
-            transition={200}
-          />
+  const handleLike = (person: CompatiblePerson) => {
+    console.log('Curtiu:', person.name);
+    // TODO: Registrar preference logic
+  };
 
-          <View style={[styles.compatibilityBadge, { backgroundColor: getCompatibilityColor(item.compatibility) }]}>
-            <Text style={styles.compatibilityText}>{item.compatibility}%</Text>
-          </View>
-
-          {item.isOnline && (
-            <View style={styles.onlineIndicator} />
-          )}
-        </View>
-
-        <View style={styles.personInfo}>
-          <Text style={styles.personName} numberOfLines={1}>{item.name}</Text>
-
-          <View style={styles.commonPlacesInfo}>
-            <Ionicons name="location" size={12} color={colors.pink} />
-            <Text style={styles.commonPlacesText}>
-              {item.commonPlacesCount} lugar{item.commonPlacesCount > 1 ? 'es' : ''} em comum
-            </Text>
-          </View>
-
-          {item.commonPlaces.length > 0 && (
-            <Text style={styles.commonPlacesList} numberOfLines={1}>
-              {item.commonPlaces.slice(0, 2).join(', ')}
-            </Text>
-          )}
-
-          <View style={styles.vibesContainer}>
-            {item.vibes.slice(0, 2).map((vibe, idx) => (
-              <View key={idx} style={styles.vibeBadge}>
-                <Text style={styles.vibeText}>{vibe}</Text>
-              </View>
-            ))}
-          </View>
-
-          <Text style={styles.lastActive}>{item.lastActive}</Text>
-        </View>
-      </TouchableOpacity>
-    </Animated.View>
-  );
+  const handlePass = (person: CompatiblePerson) => {
+    console.log('Passou:', person.name);
+    // TODO: Registrar preference logic
+  };
 
   // Loading state com skeleton
   if (isLoading) {
@@ -200,23 +156,14 @@ export default function DateScreen() {
           </TouchableOpacity>
         </View>
       ) : (
-        <FlatList
-          data={people}
-          renderItem={renderPerson}
-          keyExtractor={(item) => item.id}
-          numColumns={2}
-          contentContainerStyle={styles.list}
-          columnWrapperStyle={styles.row}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl
-              refreshing={isRefreshing}
-              onRefresh={onRefresh}
-              tintColor={colors.pink}
-              colors={[colors.pink]}
-            />
-          }
-        />
+        <View style={{ flex: 1, justifyContent: 'center' }}>
+          <TiltCarousel
+            data={people}
+            onLike={handleLike}
+            onPass={handlePass}
+            onPressItem={handlePersonPress}
+          />
+        </View>
       )}
     </View>
   );
@@ -271,102 +218,6 @@ const styles = StyleSheet.create({
     height: 30,
     backgroundColor: colors.gray200,
   },
-  list: {
-    padding: spacing.md,
-    paddingBottom: spacing.xxl,
-  },
-  row: {
-    justifyContent: 'space-between',
-    marginBottom: spacing.md,
-  },
-  personCard: {
-    width: CARD_WIDTH,
-    backgroundColor: colors.white,
-    borderRadius: 16,
-    borderWidth: 2,
-    borderColor: colors.black,
-    overflow: 'hidden',
-  },
-  imageContainer: {
-    position: 'relative',
-  },
-  personImage: {
-    width: '100%',
-    height: CARD_WIDTH * 1.2,
-  },
-  compatibilityBadge: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: colors.black,
-  },
-  compatibilityText: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: colors.black,
-  },
-  onlineIndicator: {
-    position: 'absolute',
-    bottom: 8,
-    right: 8,
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    backgroundColor: colors.green,
-    borderWidth: 2,
-    borderColor: colors.white,
-  },
-  personInfo: {
-    padding: spacing.sm,
-  },
-  personName: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: colors.black,
-    marginBottom: 4,
-  },
-  commonPlacesInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginBottom: 4,
-  },
-  commonPlacesText: {
-    fontSize: 11,
-    color: colors.pink,
-    fontWeight: '500',
-  },
-  commonPlacesList: {
-    fontSize: 10,
-    color: colors.gray500,
-    marginBottom: 6,
-  },
-  vibesContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 4,
-    marginBottom: 4,
-  },
-  vibeBadge: {
-    backgroundColor: colors.gray100,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: colors.gray300,
-  },
-  vibeText: {
-    fontSize: 10,
-    color: colors.gray600,
-  },
-  lastActive: {
-    fontSize: 10,
-    color: colors.gray400,
-  },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -407,7 +258,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   skeletonCard: {
-    width: CARD_WIDTH,
+    width: (Dimensions.get('window').width - 48) / 2,
     borderRadius: 16,
     borderWidth: 2,
     borderColor: colors.gray200,

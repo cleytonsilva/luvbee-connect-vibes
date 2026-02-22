@@ -1,0 +1,53 @@
+﻿[
+  {
+    "id": "dcfb301c-b554-4815-84b3-4a9dabb8d8b7",
+    "status": "ERRORED",
+    "platform": "ANDROID",
+    "error": {
+      "errorCode": "UNKNOWN_ERROR",
+      "message": "Unknown error. See logs of the Install dependencies build phase for more information."
+    },
+    "artifacts": {},
+    "fingerprint": {
+      "id": "019c8177-4e12-75b0-bbd3-a260e98706b2",
+      "hash": "9bf49eabdf6f6fa37b23c2f1ac987a337687867e"
+    },
+    "initiatingActor": {
+      "id": "8b67ee92-9763-4cc6-a3d7-011738056e54",
+      "displayName": "letrevo"
+    },
+    "logFiles": [
+      "https://job-logs.eascdn.net/production/dcfb301c-b554-4815-84b3-4a9dabb8d8b7/1771698605864-721b728f-f85a-45c2-9f38-8fea2f20a99b.txt?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=www-production%40exponentjs.iam.gserviceaccount.com%2F20260221%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20260221T183159Z&X-Goog-Expires=900&X-Goog-SignedHeaders=host&X-Goog-Signature=551812034057a8f5ab71fcf8c727cae376f6a87b4aaed1660eb8dd6b9ea974a89333ff6fc8ddba6fff599b4aa5ef63fdecea6127c521ac91a80604e030e91d25a0815c5ecf3d892579c5b604542d34564fd7f632d7344451fc21537a81e56ba22a9732b64756c79a691eafb3917837973e72a97625afcc614bd2e051d6b1454d140ba2385a381d9cd00a3e7bc0d077f250ca8f17641a92367bf8bbfc0bfb1730893fea41dc4bc755b2eda2c83f831b68941f089883ed9f9ef7f9a1f933843cfdbd6ed2ee4f7fa9666af7e228d3b775a75ecdde4a8da130f8d3da7677ca310d9d70171b30ed3dd49436f6898229ee78ffdc264884373945c584d5bb28d7a066b2",
+      "https://job-logs.eascdn.net/production/dcfb301c-b554-4815-84b3-4a9dabb8d8b7/1771698610367-19827d2f-1c90-4f73-93a4-b5da2fd647d0.txt?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=www-production%40exponentjs.iam.gserviceaccount.com%2F20260221%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20260221T183159Z&X-Goog-Expires=900&X-Goog-SignedHeaders=host&X-Goog-Signature=259f624ed8e51938437f1afccebb9e021b77aea9e51c03732d4f73dea2c7d4c33725d5f5a6b8d3728aa66c8ae8e813aaf00958513dcd78bbca8c0c66d1054a3e02c228a25793c07c157dd9fdea6646f5bc6346fdd090a351881b52621f7adf9a68e315326a40ab5e4e83d8c50110d6280ee5904b4a92640229227a04a3821ac2dd21b74ee10719b3eb871eb05e0cf1e61ea68c150478ce1535a785b7bf87881a6edd520aefaa297f42d5a6f19fd6b31517ea1a7f10e43848d946b76378e513fc7f2e55cbfcdb2763d768157a6155012f2e41fdb832f871f0f01e4dadc913a4dae49eaa6e56bd0a421c2ff99368074d92a37e62ed2e8c0adbdd5990b1a4326465",
+      "https://job-logs.eascdn.net/production/dcfb301c-b554-4815-84b3-4a9dabb8d8b7/1771698610629-270cdc94-55f5-4ca1-9a82-2d3ed11a7e47.txt?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=www-production%40exponentjs.iam.gserviceaccount.com%2F20260221%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20260221T183159Z&X-Goog-Expires=900&X-Goog-SignedHeaders=host&X-Goog-Signature=a494fc07fa6cf848c48e855366a3244264704d9b1ed053adbcf6fd066f8732a41edb20936fd5681fd578f30835286ca331f065e65a86a4c0b47f93d8d9ebc33d30f40902be3dd2e95d72f9d612deafe2280a4bd31ec33fb2a98a980ef4117682d406947eaff1998ae9c279854832a7c6200b88c7f083145243cebd3a4443d312124d18c31e69ee9ecd690ae05a0a92777b3411e0113863af18638ef1f22b51e001071fe8177d2d56558bb9dc0b1ba968e502c8d0f54686702a3e5c9e7a7bbb45b48dfc88c49b295681a2f0691c81004a265a87aa4120c1389a43ae28238f7b4c28098b63345ae631b46a32228d6121b2637a31b3986099b3b2d386b3b4c5e42d",
+      "https://job-logs.eascdn.net/production/dcfb301c-b554-4815-84b3-4a9dabb8d8b7/1771698610788-6cd722df-c41c-451d-b54a-e31bfba6b29e.txt?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=www-production%40exponentjs.iam.gserviceaccount.com%2F20260221%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20260221T183159Z&X-Goog-Expires=900&X-Goog-SignedHeaders=host&X-Goog-Signature=55fad991dc6106a1d7c2e002d7019957cebf86e79ac829cc843113e2b1e447235ac898da94e42156796f68368f02a44a432193221f4024e4f4cd21fcce1b17d9b78cee2efad4635b6b93170f8d9d53422e053bd5f085f0186631154f8088bcb8590e280255aebe7a26f87b10194384def3a6c73ca03eec3905ad44514b0a52faa0c77b1fb31da957849fbd1b5fff6876b8e2fd8730548b8eb4e73c3f075218538e30e07a0d81e66abbcb07222fe11fe043ec1c24e8360d01c8a5331ae0626d7989362a2f8dcdeaa46c7fa129f4f9271e281603cc4a8004a6a75441f1887c4c450d7cb440ffa35a2bb33200f77d54e0afe132486aa1aa3bdfc566574ade9d619e"
+    ],
+    "project": {
+      "id": "027abd0a-cbf6-44e8-a88d-e81b674a3541",
+      "name": "luvbee-dating",
+      "slug": "luvbee-dating",
+      "ownerAccount": {
+        "id": "dc54bea6-4141-4d45-a6f3-5ee7fc7eba3b",
+        "name": "letrevo"
+      }
+    },
+    "distribution": "INTERNAL",
+    "buildProfile": "preview",
+    "sdkVersion": "54.0.0",
+    "appVersion": "1.0.0",
+    "appBuildVersion": "1",
+    "gitCommitHash": "82e0ff5cc0d76a6997d3eef43992e28e758500ea",
+    "gitCommitMessage": "fix: regenerate package-lock.json and update eas.json for APK build\n\n- Regenerated package-lock.json to fix sync issues (react-dom, scheduler missing)\n- Updated eas.json: preview profile now generates APK, production generates AAB",
+    "priority": "NORMAL",
+    "createdAt": "2026-02-21T18:30:05.387Z",
+    "updatedAt": "2026-02-21T18:30:58.442Z",
+    "completedAt": "2026-02-21T18:30:57.765Z",
+    "expirationDate": "2026-03-07T18:30:05.573Z",
+    "isForIosSimulator": false,
+    "metrics": {
+      "buildWaitTime": 345,
+      "buildQueueTime": 43503,
+      "buildDuration": 8166
+    }
+  }
+]

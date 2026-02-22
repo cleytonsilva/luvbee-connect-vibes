@@ -1,11 +1,11 @@
-import { supabase } from './supabase';
+import { supabase, getGoogleMapsApiKey } from './supabase';
 import { getDeterministicImage } from './images';
 
 // ===========================================
 // CHAVE DO GOOGLE MAPS (apenas para busca, não para fotos)
 // ===========================================
 
-const GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
+const GOOGLE_MAPS_API_KEY = getGoogleMapsApiKey();
 
 // ===========================================
 // TIPOS DO GOOGLE PLACES

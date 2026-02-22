@@ -20,8 +20,7 @@ import { getUserLocation, UserLocation } from '../../src/services/geolocationSer
 import { PlaceCard, SwipeableCard } from '../../src/components/cards';
 import { ActionButtons, PlaceCardSkeleton } from '../../src/components/ui';
 import { PlaceDetailModal } from '../../src/components/PlaceDetailModal';
-
-const { width } = Dimensions.get('window');
+import { StackedCards } from '../../src/components/cards/StackedCards';
 
 export default function DiscoverScreen() {
   const { user, profile } = useAuthStore();
@@ -33,9 +32,6 @@ export default function DiscoverScreen() {
   const [detailsModalVisible, setDetailsModalVisible] = useState(false);
   const [currentLikesCount, setCurrentLikesCount] = useState(0);
   const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
-
-  // Animação do card de trás (escala sobe quando o card da frente é arrastado)
-  const nextCardScale = useSharedValue(0.92);
 
   const loadPlaces = useCallback(async () => {
     if (!user?.id) return;
@@ -79,9 +75,6 @@ export default function DiscoverScreen() {
   const goToNext = useCallback(() => {
     if (currentIndex < places.length - 1) {
       setCurrentIndex(prev => prev + 1);
-      // Reset animação do próximo card
-      nextCardScale.value = 0.92;
-      nextCardScale.value = withSpring(0.92, { damping: 15 });
     } else {
       loadPlaces();
     }
@@ -127,12 +120,6 @@ export default function DiscoverScreen() {
   const closeDetails = () => {
     setDetailsModalVisible(false);
   };
-
-  // Estilo animado do card de trás
-  const nextCardStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: nextCardScale.value }],
-    opacity: interpolate(nextCardScale.value, [0.92, 1], [0.7, 1], Extrapolation.CLAMP),
-  }));
 
   // --- LOADING STATE ---
   if (isLoading) {
@@ -201,23 +188,17 @@ export default function DiscoverScreen() {
       </View>
 
       <View style={styles.cardContainer}>
-        {/* Card de trás (próximo) */}
-        {nextPlace && (
-          <Animated.View style={[styles.nextCardWrapper, nextCardStyle]} pointerEvents="none">
-            <PlaceCard place={nextPlace} showFullDetails={false} />
-          </Animated.View>
-        )}
-
-        {/* Card principal com swipe */}
-        <SwipeableCard
-          key={`card - ${currentIndex} `}
-          onSwipeRight={handleLike}
-          onSwipeLeft={handlePass}
+        <StackedCards
+          data={places}
+          currentIndex={currentIndex}
+          onLike={handleLike}
+          onPass={handlePass}
           onTap={openDetails}
-          enabled={!actionLoading}
-        >
-          <PlaceCard place={currentPlace} showFullDetails={true} />
-        </SwipeableCard>
+          actionLoading={actionLoading}
+          renderTopCard={(item) => <PlaceCard place={item} showFullDetails={true} />}
+          renderBackgroundCard={(item) => <PlaceCard place={item} showFullDetails={false} />}
+          stackDepth={2}
+        />
       </View>
 
       {/* Botões de ação animados */}
@@ -273,11 +254,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: spacing.lg,
-  },
-  nextCardWrapper: {
-    position: 'absolute',
-    width: '100%',
-    alignItems: 'center',
   },
   actionsContainer: {
     paddingBottom: spacing.md,

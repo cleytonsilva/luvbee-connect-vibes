@@ -1,0 +1,11 @@
+# Ignorar pastas geradas e dependências
+build/
+node_modules/
+.expo/
+dist/
+android/
+ios/
+
+# NÃO ignorar os arquivos de ambiente (isso vai permitir que o EAS Build leia o .env local)
+!.env
+!.env.local

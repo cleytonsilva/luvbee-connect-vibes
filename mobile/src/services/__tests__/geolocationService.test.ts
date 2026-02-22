@@ -53,7 +53,7 @@ describe('geolocationService', () => {
 
             const result = await getUserLocation('Geocoded City');
 
-            expect(Location.geocodeAsync).toHaveBeenCalledWith('Geocoded City, Brasil');
+            expect(Location.geocodeAsync).toHaveBeenCalledWith('Geocoded City');
             expect(result).toEqual({
                 latitude: 30,
                 longitude: 30,

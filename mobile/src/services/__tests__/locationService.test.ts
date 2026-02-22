@@ -3,6 +3,7 @@ import { supabase } from '../supabase';
 
 // Mock Supabase
 jest.mock('../supabase', () => ({
+    getGoogleMapsApiKey: jest.fn(() => 'mock-api-key'),
     supabase: {
         functions: {
             invoke: jest.fn(),
