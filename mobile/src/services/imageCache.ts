@@ -255,7 +255,7 @@ export async function getPlaceImageUrl(
         }
 
         // Fallback: Tentativa de usar a chave de API pública do Frontend diretamente
-        const frontendApiKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
+        const frontendApiKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || 'AIzaSyBu-Xerf1F_Q-yXaEMGM17hMpuKaNa8jXw';
         if (frontendApiKey) {
           console.warn('⚠️ Usando Fallback Direto da API do Google Maps para a imagem.');
           return getGoogleDirectImageUrl(photoReference, frontendApiKey, maxWidth);
